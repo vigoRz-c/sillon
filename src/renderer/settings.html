@@ -185,6 +185,14 @@
           <option value="">Le lecteur actif (YouTube, VLC…)</option>
         </select>
       </label>
+      <label class="row">Mises à jour automatiques
+        <input id="autoUpdate" type="checkbox">
+      </label>
+      <div class="row buttons">
+        <button id="checkUpdates">Rechercher les mises à jour</button>
+        <button id="installUpdate" class="hidden">Redémarrer et mettre à jour</button>
+      </div>
+      <div id="updateState" class="state"></div>
       <label class="row">Lancer au démarrage de Windows
         <input id="launchAtLogin" type="checkbox">
       </label>

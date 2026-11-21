@@ -16,9 +16,11 @@
     "dev": "electron . --dev",
     "check": "node scripts/check.js",
     "test": "node --test",
-    "dist": "electron-builder --win"
+    "dist": "electron-builder --win",
+    "release": "node scripts/release.js"
   },
   "dependencies": {
+    "electron-updater": "^6.8.11",
     "koffi": "^2.9.0"
   },
   "devDependencies": {
@@ -48,7 +50,19 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Sillon-Setup-${version}.${ext}"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "vigoRz-c",
+        "repo": "sillon",
+        "releaseType": "release"
+      }
+    ],
+    "portable": {
+      "artifactName": "Sillon-${version}-portable.${ext}"
     }
   }
 }

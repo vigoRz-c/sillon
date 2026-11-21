@@ -43,7 +43,12 @@ function buildTray() {
   const now = m.active && m.title ? `${m.title} — ${m.artist || ''}`.slice(0, 60) : 'Rien en lecture';
   const s = S.settings.get();
   const offset = A.lyricsOffsetFor(m);
+  const up = A.updateStatus ? A.updateStatus() : {};
   S.tray.setContextMenu(Menu.buildFromTemplate([
+    ...(up.state === 'ready' ? [
+      { label: `⬆ Redémarrer pour installer Sillon ${up.version}`, click: A.installUpdate },
+      { type: 'separator' },
+    ] : []),
     { label: now, enabled: false },
     ...(s.sceneHidden ? [{ label: 'Réafficher Sillon sur le bureau', click: () => set({ sceneHidden: false }) }] : []),
     { label: 'Lecture / pause', click: () => cmd('playpause') },
@@ -95,6 +100,10 @@ function buildTray() {
         ] },
         { label: 'Lancer au démarrage de Windows', type: 'checkbox', checked: s.launchAtLogin,
           click: (i) => set({ launchAtLogin: i.checked }) },
+        { label: 'Mises à jour automatiques', type: 'checkbox', checked: s.autoUpdate !== false,
+          enabled: !!up.enabled, click: (i) => set({ autoUpdate: i.checked }) },
+        { label: up.enabled ? `Rechercher les mises à jour (version ${up.current})` : `Version ${up.current || ''} (développement)`,
+          enabled: !!up.enabled, click: A.checkUpdates },
         { label: 'Remettre la position par défaut', click: () => { S.settings.set({ bounds: null }); A.applyMode(); } },
       ],
     },

@@ -175,6 +175,7 @@ body.settings input[type=text] {
 body.settings .state { font-size: 12px; opacity: .8; padding-top: 4px; }
 body.settings .state.ok { color: #86efac; opacity: 1; }
 body.settings .state.error { color: #fca5a5; opacity: 1; }
+body.settings button:disabled { opacity: .45; cursor: default; }
 
 /* ================= Scène (disque, paroles, panneau) ================= */
 

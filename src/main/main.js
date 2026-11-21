@@ -27,6 +27,7 @@ const veille = require('./veille');
 const nowPlaying = require('./now-playing');
 const queue = require('./queue');
 const { buildTray } = require('./tray');
+const updater = require('./updater');
 
 if (!app.requestSingleInstanceLock()) app.quit();
 
@@ -46,6 +47,7 @@ function updateSettings(patch) {
   }
   if ('preferApp' in patch && S.media) S.media.setPreferredApp(patch.preferApp);
   if ('launchAtLogin' in patch) app.setLoginItemSettings({ openAtLogin: !!patch.launchAtLogin });
+  if (patch.autoUpdate === true) updater.check();
   buildTray();
 }
 
@@ -60,6 +62,7 @@ Object.assign(S.actions, {
   startVeille: veille.startVeille,
   refreshQueue: queue.refreshQueue,
   lyricsOffsetFor: nowPlaying.lyricsOffsetFor, nudgeLyrics: nowPlaying.nudgeLyrics,
+  updateStatus: updater.status, checkUpdates: updater.check, installUpdate: updater.installNow,
 });
 
 // ---------- Mode jeu ----------
@@ -142,6 +145,9 @@ ipcMain.on('scene:controls-rect', (e, rect) => {
 ipcMain.on('veille:start', () => setTimeout(veille.startVeille, 300));
 ipcMain.on('veille:exit', veille.stopVeille);
 ipcMain.on('lyrics:nudge', (_e, delta) => nowPlaying.nudgeLyrics(typeof delta === 'number' ? delta : null));
+ipcMain.handle('update:status', () => updater.status());
+ipcMain.on('update:check', () => updater.check());
+ipcMain.on('update:install', () => updater.installNow());
 ipcMain.on('fullscreen:close', () => S.alive(S.fullscreen) && S.fullscreen.close());
 
 ipcMain.handle('spotify:status', () => (S.spotify ? S.spotify.status() : { connected: false }));
@@ -188,6 +194,7 @@ app.whenReady().then(() => {
     console.error('Raccourci Ctrl+Alt+L déjà pris par une autre application.');
   }
   veille.watchIdle();
+  updater.init();
   watchDisplays();
   watchGameMode();
 });

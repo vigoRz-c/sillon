@@ -30,7 +30,19 @@ Créer l'installateur et la version portable (dans `dist/`) :
 npm run dist
 ```
 
-`Sillon Setup 0.1.0.exe` installe l'app ; `Sillon 0.1.0.exe` se lance sans installation. Ils ne sont pas signés : Windows SmartScreen peut demander « Exécuter quand même ».
+`Sillon-Setup-<version>.exe` installe l'app ; `Sillon-<version>-portable.exe` se lance sans installation. Ils ne sont pas signés : Windows SmartScreen peut demander « Informations complémentaires → Exécuter quand même ».
+
+### Mises à jour automatiques
+
+La version **installée** cherche les nouvelles versions sur les [Releases GitHub](https://github.com/vigoRz-c/sillon/releases) au démarrage puis toutes les 4 heures, les télécharge en arrière-plan et les installe à la fermeture (ou tout de suite via « Redémarrer pour installer » dans le menu de l'icône). Réglable dans Paramètres → Général. La version portable et `npm start` ne se mettent pas à jour.
+
+Publier une nouvelle version (dépôt **public**, GitHub CLI connecté) :
+
+```bash
+npm run release
+```
+
+Le script vérifie que tout est commité et à jour, lance les tests, passe la version de 0.1.0 à 0.1.1 (`npm run release -- minor` pour 0.2.0), pousse le commit et son tag, puis construit et publie l'installateur sur GitHub. Les amis qui ont installé Sillon reçoivent la mise à jour tout seuls.
 
 Tests automatiques (position de lecture, paroles, choix des pochettes, cache) :
 

@@ -5,7 +5,7 @@
   const bridge = window.bridge;
 
   const selects = ['layout', 'style', 'theme', 'mode', 'preferApp', 'fps', 'veilleDelay', 'sceneScreen', 'sleepAfter'];
-  const checks = ['showNowPlaying', 'showLyrics', 'showPanel', 'launchAtLogin', 'veilleOnlyPlaying', 'veilleLock', 'gameMode', 'dimOnPause'];
+  const checks = ['showNowPlaying', 'showLyrics', 'showPanel', 'launchAtLogin', 'veilleOnlyPlaying', 'veilleLock', 'gameMode', 'dimOnPause', 'autoUpdate'];
   const numeric = new Set(['fps', 'veilleDelay', 'sleepAfter']);
   const pct = (v) => `${Math.round(v * 100)} %`;
   const ranges = {
@@ -27,6 +27,7 @@
     $('veilleOnlyPlaying').checked = s.veilleOnlyPlaying !== false;
     $('veilleLock').checked = s.veilleLock !== false;
     $('gameMode').checked = s.gameMode !== false;
+    $('autoUpdate').checked = s.autoUpdate !== false;
     $('dimOnPause').checked = s.dimOnPause !== false;
     // La scène occupe tout le bureau : rien à déplacer.
     $('editRow').classList.toggle('hidden', (s.layout || 'scene') !== 'strip' && s.mode === 'wallpaper');
@@ -87,6 +88,31 @@
   }
   bridge.onSpotifyStatus(showSpotify);
   bridge.spotifyStatus().then(showSpotify);
+
+  // ----- Mises à jour -----
+  function showUpdate(u) {
+    if (!u) return;
+    const el = $('updateState');
+    const v = `Version installée : ${u.current}. `;
+    const text = {
+      dev: 'Mode développement (npm start) : pas de mise à jour automatique.',
+      idle: `${v}`,
+      checking: `${v}Recherche en cours…`,
+      uptodate: `${v}Sillon est à jour.`,
+      downloading: `${v}Téléchargement de la version ${u.version}… ${u.progress} %`,
+      ready: `Version ${u.version} prête : elle s'installera à la fermeture, ou maintenant.`,
+      error: `${v}${u.error}`,
+    }[u.state] || v;
+    el.textContent = text;
+    el.className = `state${u.state === 'error' ? ' error' : u.state === 'ready' || u.state === 'uptodate' ? ' ok' : ''}`;
+    $('checkUpdates').disabled = !u.enabled;
+    $('autoUpdate').disabled = !u.enabled;
+    $('installUpdate').classList.toggle('hidden', u.state !== 'ready');
+  }
+  $('checkUpdates').onclick = () => bridge.checkUpdates();
+  $('installUpdate').onclick = () => bridge.installUpdate();
+  bridge.onUpdateStatus(showUpdate);
+  bridge.updateStatus().then(showUpdate);
 
   bridge.onSettings(fill);
   bridge.getSettings().then(fill);

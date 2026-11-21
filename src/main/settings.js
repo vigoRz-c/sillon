@@ -31,6 +31,7 @@ const DEFAULTS = {
   fps: 60,
   preferApp: 'spotify',   // session média préférée ('' = celle que Windows met en avant)
   launchAtLogin: false,
+  autoUpdate: true,       // chercher et installer les nouvelles versions (version installée)
 };
 
 class Settings {
