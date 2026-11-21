@@ -141,7 +141,7 @@
 
   // 3 couleurs tirées de la pochette. Une pochette grise donne des blancs teintés
   // plutôt qu'une couleur inventée.
-  function paletteFromImage(img) {
+  function paletteFromImage(img, { soft = false } = {}) {
     const c = document.createElement('canvas');
     c.width = c.height = 32;
     const x = c.getContext('2d', { willReadFrequently: true });
@@ -167,6 +167,11 @@
     }
     const main = ranked[0];
     const second = ranked.find((b) => Math.abs(((b.h - main.h + 540) % 360) - 180) < 150) || { h: main.h + 40 };
+    if (soft) {
+      // Tons doux et clairs, pris dans le fond d'écran : ils s'y fondent au lieu de trancher.
+      const ss = Math.min(0.75, Math.max(0.35, main.s));
+      return [hsl(main.h, ss, 0.72), hsl(second.h, Math.min(0.75, Math.max(0.35, second.s || ss)), 0.78), hsl(main.h + 15, ss * 0.8, 0.9)];
+    }
     const s = Math.max(0.6, main.s);
     return [hsl(main.h, s, 0.55), hsl(second.h, Math.max(0.6, second.s || s), 0.6), hsl(main.h + 20, s, 0.75)];
   }
@@ -330,7 +335,7 @@
   };
 
   const STYLE_ORDER = ['bars', 'mirror', 'ring', 'wave', 'aurora'];
-  const THEME_ORDER = ['album', 'spotify', 'neon', 'sunset', 'ocean', 'mono'];
+  const THEME_ORDER = ['wallpaper', 'album', 'spotify', 'neon', 'sunset', 'ocean', 'mono'];
 
   // ================= Boucle de rendu =================
 

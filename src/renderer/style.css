@@ -20,20 +20,26 @@ body.widget #viz, body.widget #glow {
   mask-composite: intersect;
 }
 body.widget.with-now #viz { height: calc(100% - 72px); }
-body.widget #glow { opacity: .22; filter: blur(30px); transition: background 1.2s ease; }
+body.widget #glow { opacity: .12; filter: blur(40px); transition: background 1.2s ease; }
+/* Légèrement translucide : le fond d'écran transparaît à travers les barres. */
+body.widget #viz { opacity: .85; }
 
 .now {
   position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%);
   display: flex; align-items: center; gap: 12px;
   width: min(460px, 90%); padding: 8px 14px 8px 8px;
-  background: rgba(10, 10, 14, .35); backdrop-filter: blur(12px);
-  border-radius: 14px; border: 1px solid rgba(255, 255, 255, .08);
+  /* Pas de boîte : le texte flotte sur le fond d'écran, lisible grâce à une ombre douce. */
+  text-shadow: 0 1px 2px rgba(0,0,0,.45), 0 0 18px rgba(0,0,0,.35);
 }
-.now img { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; flex: none; box-shadow: 0 4px 16px rgba(0,0,0,.4); }
+.now img {
+  width: 48px; height: 48px; border-radius: 10px; object-fit: cover; flex: none;
+  opacity: .92; box-shadow: 0 0 24px var(--accent);
+  transition: box-shadow 1.2s ease;
+}
 .meta { min-width: 0; flex: 1; }
 .title { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .artist { font-size: 12px; opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
-.progress { height: 3px; margin-top: 7px; border-radius: 2px; background: rgba(255,255,255,.15); overflow: hidden; }
+.progress { height: 2px; margin-top: 7px; border-radius: 2px; background: rgba(255,255,255,.18); overflow: hidden; }
 .progress > div { height: 100%; width: 0; background: var(--accent); border-radius: 2px; transition: width .25s linear; }
 
 .status {
@@ -116,3 +122,46 @@ body.idle .controls, body.idle .keys { opacity: 0; }
   background: rgba(0,0,0,.5); font-size: 14px; opacity: 0; transition: opacity .3s;
 }
 .toast.show { opacity: 1; }
+
+/* ----- Bouton paramètres (plein écran) : toujours visible, discret ----- */
+.settings-btn {
+  position: absolute; top: 24px; right: 24px; z-index: 10;
+  width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(255,255,255,.18);
+  background: rgba(255,255,255,.08); backdrop-filter: blur(10px);
+  color: #fff; font-size: 22px; line-height: 1; cursor: pointer;
+  opacity: .35; transition: opacity .3s, background .3s, transform .3s;
+}
+.settings-btn:hover, .settings-btn:focus-visible { opacity: 1; background: rgba(255,255,255,.18); transform: rotate(30deg); }
+body.fullscreen .toast { right: 84px; }
+
+/* ================= Fenêtre de paramètres ================= */
+
+body.settings {
+  background: rgba(18, 18, 24, .92); color: #f3f4f6;
+  font-size: 13px; display: flex; flex-direction: column;
+  border: 1px solid rgba(255,255,255,.08); border-radius: 12px; overflow: hidden;
+}
+body.settings header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px 10px; -webkit-app-region: drag;
+}
+body.settings h1 { font-size: 16px; font-weight: 600; }
+body.settings main { flex: 1; overflow-y: auto; padding: 0 16px 16px; }
+body.settings section { padding: 12px 0; border-top: 1px solid rgba(255,255,255,.07); }
+body.settings h2 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; opacity: .5; margin-bottom: 8px; }
+body.settings .row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 7px 0; flex-wrap: wrap;
+}
+body.settings output { margin-left: auto; opacity: .6; font-variant-numeric: tabular-nums; }
+body.settings input[type=range] { width: 100%; accent-color: var(--accent); }
+body.settings input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); }
+body.settings select, body.settings button {
+  font: inherit; color: inherit; background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.12); border-radius: 8px; padding: 6px 10px;
+}
+body.settings select option { background: #1f2028; }
+body.settings button { cursor: pointer; -webkit-app-region: no-drag; }
+body.settings button:hover { background: rgba(255,255,255,.14); }
+body.settings .buttons { justify-content: flex-start; }
+body.settings .icon { width: 30px; height: 30px; padding: 0; border-radius: 50%; }

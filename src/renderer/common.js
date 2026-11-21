@@ -6,12 +6,13 @@
   function createApp(canvas, { onMedia, onPalette, onSettings, transformSettings } = {}) {
     const engine = new AudioEngine();
     const renderer = new Renderer(canvas, engine);
-    const state = { settings: {}, media: { active: false }, albumPalette: null, theme: 'album' };
+    const state = { settings: {}, media: { active: false }, albumPalette: null, wallpaperPalette: null, theme: 'wallpaper' };
 
     function applyPalette() {
       const t = state.theme;
       let pal;
-      if (t === 'album') pal = state.albumPalette || THEMES.neon;
+      if (t === 'wallpaper') pal = state.wallpaperPalette || state.albumPalette || THEMES.mono;
+      else if (t === 'album') pal = state.albumPalette || THEMES.neon;
       else if (t && t.startsWith('#')) pal = paletteFromColor(t);
       else pal = THEMES[t] || THEMES.neon;
       renderer.palette = pal;
@@ -24,7 +25,7 @@
       renderer.style = s.style || 'bars';
       renderer.fps = s.fps || 60;
       engine.sensitivity = s.sensitivity || 1;
-      state.theme = s.theme || 'album';
+      state.theme = s.theme || 'wallpaper';
       applyPalette();
       if (onSettings) onSettings(s);
     }
@@ -50,6 +51,11 @@
     if (bridge) {
       bridge.onSettings(applySettings);
       bridge.onMedia(applyMedia);
+      if (bridge.onWallpaper) bridge.onWallpaper((url) => {
+        const img = new Image();
+        img.onload = () => { state.wallpaperPalette = paletteFromImage(img, { soft: true }); applyPalette(); };
+        img.src = url;
+      });
       bridge.getSettings().then(applySettings);
     }
 

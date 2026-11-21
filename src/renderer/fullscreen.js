@@ -5,11 +5,12 @@
   const bridge = window.bridge;
 
   const STYLE_NAMES = { bars: 'Barres', mirror: 'Miroir', ring: 'Anneau', wave: 'Onde', aurora: 'Aurore' };
-  const THEME_NAMES = { album: 'Couleurs de la pochette', spotify: 'Spotify', neon: 'Néon', sunset: 'Coucher de soleil', ocean: 'Océan', mono: 'Blanc' };
+  const THEME_NAMES = { wallpaper: "Couleurs du fond d'écran", album: 'Couleurs de la pochette', spotify: 'Spotify', neon: 'Néon', sunset: 'Coucher de soleil', ocean: 'Océan', mono: 'Blanc' };
 
   // En plein écran, le visualiseur et les couleurs se changent ici sans toucher au widget.
   let localStyle = null;
   let localTheme = null;
+  let lastRaw = null;
 
   const app = window.SVApp.createApp($('viz'), {
     onMedia(m, coverChanged) {
@@ -23,7 +24,12 @@
         $('roomImg').classList.toggle('hidden', !m.cover);
       }
     },
-    transformSettings: (s) => ({ ...s, style: localStyle || s.style, theme: localTheme || s.theme }),
+    transformSettings: (s) => {
+      if (lastRaw && s.style !== lastRaw.style) localStyle = null;
+      if (lastRaw && s.theme !== lastRaw.theme) localTheme = null;
+      lastRaw = s;
+      return { ...s, style: localStyle || s.style, theme: localTheme || s.theme };
+    },
     onSettings: () => layout(),
     onPalette(pal) {
       $('shade').style.background =
@@ -100,6 +106,7 @@
   $('prev').onclick = () => cmd('previous');
   $('next').onclick = () => cmd('next');
   $('play').onclick = () => cmd('playpause');
+  $('settingsBtn').onclick = () => bridge && bridge.openSettings();
 
   window.addEventListener('keydown', (e) => {
     const s = app.state.settings;
@@ -111,7 +118,7 @@
       localStyle = STYLE_ORDER[(STYLE_ORDER.indexOf(cur) + 1) % STYLE_ORDER.length];
       apply(s); toast(STYLE_NAMES[localStyle]);
     } else if (e.key === 'c' || e.key === 'C') {
-      const cur = localTheme || s.theme || 'album';
+      const cur = localTheme || s.theme || 'wallpaper';
       localTheme = THEME_ORDER[(THEME_ORDER.indexOf(cur) + 1) % THEME_ORDER.length];
       apply(s); toast(THEME_NAMES[localTheme]);
     } else if (e.key === 'Escape') {

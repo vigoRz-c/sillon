@@ -18,6 +18,7 @@ let tray;
 let widget;
 let attacher;
 let fullscreen = null;
+let settingsWin = null;
 let editing = false;
 let lastMedia = { active: false };
 
@@ -26,6 +27,7 @@ const STYLES = [
   ['wave', 'Onde'], ['aurora', 'Aurore'],
 ];
 const THEMES = [
+  ['wallpaper', 'Couleurs du fond d\'écran'],
   ['album', 'Couleurs de la pochette'], ['spotify', 'Spotify'], ['neon', 'Néon'],
   ['sunset', 'Coucher de soleil'], ['ocean', 'Océan'], ['mono', 'Blanc'],
 ];
@@ -48,13 +50,26 @@ function defaultBounds() {
   };
 }
 
+// Le widget suit l'écran principal choisi dans Windows : la position enregistrée
+// est relative à la zone de travail de cet écran (rx, ry), pas au bureau entier.
+// Changer d'écran principal le fait donc suivre, à la même place.
 function widgetBounds() {
   const b = settings.get('bounds');
   if (!b) return defaultBounds();
-  // Si l'écran qui l'accueillait a disparu, on revient au placement par défaut.
-  const visible = screen.getAllDisplays().some(({ bounds: d }) =>
-    b.x < d.x + d.width && b.x + b.width > d.x && b.y < d.y + d.height && b.y + b.height > d.y);
-  return visible ? b : defaultBounds();
+  const { workArea: wa } = screen.getPrimaryDisplay();
+  if (!('rx' in b)) return defaultBounds(); // ancien format absolu : on repart du défaut
+  const width = Math.min(b.width, wa.width);
+  const height = Math.min(b.height, wa.height);
+  return {
+    x: Math.round(wa.x + Math.max(0, Math.min(b.rx, wa.width - width))),
+    y: Math.round(wa.y + Math.max(0, Math.min(b.ry, wa.height - height))),
+    width, height,
+  };
+}
+
+function saveWidgetBounds(b) {
+  const { workArea: wa } = screen.getPrimaryDisplay();
+  settings.set({ bounds: { rx: b.x - wa.x, ry: b.y - wa.y, width: b.width, height: b.height } });
 }
 
 function createWidget() {
@@ -81,10 +96,12 @@ function createWidget() {
   widget.once('ready-to-show', () => {
     applyMode();
     startAudio(widget);
+    startWallpaperSampling();
   });
   widget.webContents.on('did-finish-load', () => {
     widget.webContents.send('settings', settings.get());
     widget.webContents.send('media', lastMedia);
+    if (wallpaperSample) widget.webContents.send('wallpaper', wallpaperSample);
   });
 }
 
@@ -126,11 +143,12 @@ function applyMode() {
 
 function setEditing(on) {
   if (!on && editing && widget && !widget.isDestroyed()) {
-    settings.set({ bounds: widget.getBounds() });
+    saveWidgetBounds(widget.getBounds());
   }
   editing = on;
   applyMode();
   buildTray();
+  if (!on) setTimeout(sampleWallpaper, 800);
 }
 
 // ---------- Audio : capture de la sortie du PC (loopback) ----------
@@ -149,6 +167,50 @@ function startAudio(win) {
   // Le "true" simule un geste utilisateur, exigé par getDisplayMedia.
   win.webContents.executeJavaScript('window.spotiView && window.spotiView.startAudio()', true)
     .catch((e) => console.error('Audio :', e.message));
+}
+
+// ---------- Couleurs du fond d'écran ----------
+// On prend une petite capture de l'écran qui porte le widget, recadrée sur la
+// zone du widget, pour que la page en tire sa palette. Rafraîchie régulièrement
+// (fond d'écran animé, diaporama). Une fenêtre ouverte par-dessus peut fausser
+// une mesure : la suivante corrige.
+
+let wallpaperSample = null;
+let wallpaperTimer = null;
+
+async function sampleWallpaper() {
+  if (!widget || widget.isDestroyed()) return;
+  try {
+    const bounds = widget.getBounds();
+    const display = screen.getDisplayMatching(bounds);
+    const W = 480, H = Math.round(480 * display.bounds.height / display.bounds.width);
+    const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: W, height: H } });
+    const src = sources.find((s) => String(s.display_id) === String(display.id)) || sources[0];
+    if (!src || src.thumbnail.isEmpty()) return;
+    // Zone du widget, élargie pour capter l'ambiance autour.
+    const sx = W / display.bounds.width, sy = H / display.bounds.height;
+    const pad = 80;
+    const x = Math.max(0, Math.round((bounds.x - display.bounds.x - pad) * sx));
+    const y = Math.max(0, Math.round((bounds.y - display.bounds.y - pad) * sy));
+    const crop = {
+      x, y,
+      width: Math.min(W - x, Math.round((bounds.width + pad * 2) * sx)),
+      height: Math.min(H - y, Math.round((bounds.height + pad * 2) * sy)),
+    };
+    const img = crop.width > 4 && crop.height > 4 ? src.thumbnail.crop(crop) : src.thumbnail;
+    wallpaperSample = img.toDataURL();
+    for (const w of [widget, fullscreen]) {
+      if (w && !w.isDestroyed()) w.webContents.send('wallpaper', wallpaperSample);
+    }
+  } catch (e) {
+    console.error('Couleurs du fond d\'écran :', e.message);
+  }
+}
+
+function startWallpaperSampling() {
+  clearInterval(wallpaperTimer);
+  setTimeout(sampleWallpaper, 1500);
+  wallpaperTimer = setInterval(sampleWallpaper, 60000);
 }
 
 // ---------- Plein écran ----------
@@ -173,9 +235,38 @@ function toggleFullscreen() {
   fullscreen.webContents.on('did-finish-load', () => {
     fullscreen.webContents.send('settings', settings.get());
     fullscreen.webContents.send('media', lastMedia);
+    if (wallpaperSample) fullscreen.webContents.send('wallpaper', wallpaperSample);
     startAudio(fullscreen);
   });
   fullscreen.on('closed', () => { fullscreen = null; });
+}
+
+// ---------- Fenêtre de paramètres ----------
+
+function openSettings() {
+  if (settingsWin && !settingsWin.isDestroyed()) { settingsWin.show(); settingsWin.focus(); return; }
+  // Sur l'écran du plein écran s'il est ouvert, sinon sur l'écran principal.
+  const parent = fullscreen && !fullscreen.isDestroyed() ? fullscreen : null;
+  const display = parent ? screen.getDisplayMatching(parent.getBounds()) : screen.getPrimaryDisplay();
+  const width = 420, height = 700;
+  const { workArea: wa } = display;
+  settingsWin = new BrowserWindow({
+    width, height,
+    x: Math.round(wa.x + wa.width - width - 24),
+    y: Math.round(wa.y + 80),
+    parent: parent || undefined,
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    resizable: false,
+    alwaysOnTop: !!parent,
+    skipTaskbar: !!parent,
+    title: 'Paramètres · Spoti-View',
+    icon: path.join(ASSETS, 'icon.png'),
+    webPreferences: { preload: path.join(__dirname, 'preload.js') },
+  });
+  settingsWin.loadFile(path.join(RENDERER, 'settings.html'));
+  settingsWin.on('closed', () => { settingsWin = null; });
 }
 
 // ---------- Morceau en cours ----------
@@ -197,7 +288,7 @@ function startMedia() {
 
 function updateSettings(patch) {
   const all = settings.set(patch);
-  for (const w of [widget, fullscreen]) {
+  for (const w of [widget, fullscreen, settingsWin]) {
     if (w && !w.isDestroyed()) w.webContents.send('settings', all);
   }
   if ('mode' in patch) applyMode();
@@ -259,6 +350,7 @@ function buildTray() {
       ],
     },
     { type: 'separator' },
+    { label: 'Paramètres…', click: openSettings },
     { label: editing ? '✔ Terminer le placement' : 'Déplacer / redimensionner…', click: () => setEditing(!editing) },
     { label: 'Plein écran   Ctrl+Alt+F', click: toggleFullscreen },
     { type: 'separator' },
@@ -272,6 +364,13 @@ ipcMain.handle('settings:get', () => settings.get());
 ipcMain.on('settings:set', (_e, patch) => updateSettings(patch));
 ipcMain.on('media:command', (_e, cmd) => media && media.command(cmd));
 ipcMain.on('edit:done', () => setEditing(false));
+ipcMain.on('settings:open', openSettings);
+ipcMain.on('edit:start', () => {
+  if (fullscreen && !fullscreen.isDestroyed()) fullscreen.close();
+  if (settingsWin && !settingsWin.isDestroyed()) settingsWin.close();
+  setEditing(true);
+});
+ipcMain.on('bounds:reset', () => { settings.set({ bounds: null }); applyMode(); });
 ipcMain.on('widget:resize', (_e, { width, height }) => {
   if (!editing || !widget || widget.isDestroyed()) return;
   const b = widget.getBounds();
@@ -291,10 +390,24 @@ app.whenReady().then(() => {
   globalShortcut.register('CommandOrControl+Alt+F', toggleFullscreen);
 
   // Écrans branchés/débranchés ou changement de résolution : on se replace.
-  const replace = () => setTimeout(applyMode, 500);
+  // Changer d'écran principal dans les paramètres Windows déplace les écrans :
+  // on suit le nouveau principal. Un contrôle périodique couvre les cas où
+  // Windows ne prévient pas.
+  let replaceTimer = null;
+  const primaryKey = () => { const p = screen.getPrimaryDisplay(); return `${p.id}|${JSON.stringify(p.workArea)}|${p.scaleFactor}`; };
+  let lastPrimary = primaryKey();
+  const replace = () => {
+    clearTimeout(replaceTimer);
+    replaceTimer = setTimeout(() => {
+      lastPrimary = primaryKey();
+      if (!editing) applyMode();
+      setTimeout(sampleWallpaper, 1000);
+    }, 500);
+  };
   screen.on('display-added', replace);
   screen.on('display-removed', replace);
   screen.on('display-metrics-changed', replace);
+  setInterval(() => { if (primaryKey() !== lastPrimary) replace(); }, 3000);
 });
 
 app.on('second-instance', () => tray && tray.popUpContextMenu());

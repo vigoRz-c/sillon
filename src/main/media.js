@@ -48,7 +48,8 @@ class WindowsMediaSource extends EventEmitter {
         this.command(`prefer:${this.prefer || ''}`);
       } else if (msg.type === 'media') {
         // La pochette n'est envoyée qu'au changement de morceau : on la garde.
-        const cover = msg.newTrack ? msg.cover : this.state.cover;
+        // (ou quand elle arrive en retard, coverUpdate).
+        const cover = msg.newTrack || msg.coverUpdate ? msg.cover : this.state.cover;
         this.state = { ...msg, cover, receivedAt: Date.now() };
         this.emit('media', this.state);
       } else if (msg.type === 'error') {

@@ -31,6 +31,8 @@
     onEditing: (f) => listeners.editing.push(f),
     command: (c) => console.log('commande', c),
     editDone: () => {}, resizeTo: () => {}, closeFullscreen: () => {},
+    openSettings: () => window.open('settings.html', 'settings', 'width=420,height=600'),
+    startEditing: () => {}, resetBounds: () => {},
   };
 
   // Son de synthèse : grosse caisse, basse et nappe, pour faire bouger les visuels.

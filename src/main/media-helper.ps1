@@ -1,4 +1,4 @@
-# Spoti-View - lecteur des contrôles média de Windows (SMTC)
+﻿# Spoti-View - lecteur des contrôles média de Windows (SMTC)
 #
 # Lit le morceau en cours via GlobalSystemMediaTransportControlsSessionManager :
 # c'est la même source que le panneau média de Windows (volume), donc Spotify,
@@ -31,6 +31,8 @@ function Await($op, [Type]$resultType) {
 $MgrType   = [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]
 $PropsType = [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties]
 $StreamType = [Windows.Storage.Streams.IRandomAccessStreamWithContentType]
+$AsStreamForRead = [System.IO.WindowsRuntimeStreamExtensions].GetMethod('AsStreamForRead', [Type[]]@([Windows.Storage.Streams.IInputStream]))
+$ContentTypeProp = [Windows.Storage.Streams.IContentTypeProvider].GetProperty('ContentType')
 
 function Emit($obj) {
     [Console]::Out.WriteLine(($obj | ConvertTo-Json -Compress -Depth 4))
@@ -48,6 +50,7 @@ $prefer = 'spotify'
 $lastKey = ''
 $lastState = ''
 $lastCover = $null
+$coverChecks = $null
 
 function Get-Session {
     $sessions = @($manager.GetSessions())
@@ -63,11 +66,14 @@ function Read-Cover($props) {
     try {
         $stream = Await ($props.Thumbnail.OpenReadAsync()) $StreamType
         if (-not $stream) { return $null }
-        $net = [System.IO.WindowsRuntimeStreamExtensions]::AsStreamForRead($stream)
+        # PowerShell voit le flux comme un __ComObject et refuse de le convertir
+        # lui-même : on passe par la réflexion, qui fait la conversion COM.
+        $net = $AsStreamForRead.Invoke($null, @($stream))
         $ms = New-Object System.IO.MemoryStream
         $net.CopyTo($ms)
         $net.Dispose()
-        $mime = if ($stream.ContentType) { $stream.ContentType } else { 'image/png' }
+        $mime = try { $ContentTypeProp.GetValue($stream) } catch { $null }
+        if (-not $mime) { $mime = 'image/png' }
         return "data:$mime;base64," + [Convert]::ToBase64String($ms.ToArray())
     } catch { return $null }
 }
@@ -85,7 +91,10 @@ function Invoke-MediaCommand($cmd) {
     }
 }
 
-$stdin = [Console]::In
+# [Console]::In.ReadLineAsync() est en réalité bloquant sous Windows PowerShell 5.1
+# (lecteur synchronisé) : la boucle restait figée en attendant une commande.
+# Un StreamReader sur le flux brut lit vraiment en arrière-plan.
+$stdin = New-Object System.IO.StreamReader([Console]::OpenStandardInput(), [System.Text.Encoding]::UTF8)
 $readTask = $stdin.ReadLineAsync()
 Emit @{ type = 'ready' }
 
@@ -113,9 +122,21 @@ while ($true) {
             $state = "$status|$pos|$dur"
 
             $trackChanged = $key -ne $lastKey
-            if ($trackChanged) { $lastCover = Read-Cover $props }
+            $coverChanged = $false
+            if ($trackChanged) {
+                $lastCover = Read-Cover $props
+                # Spotify publie le nouveau titre avant la nouvelle pochette : la
+                # première lecture renvoie souvent l'image du morceau précédent.
+                # On relit la pochette plusieurs fois dans les secondes qui suivent.
+                $coverChecks = [System.Collections.Generic.List[datetime]]::new()
+                foreach ($ms in 700, 1500, 3000, 6000, 12000) { $coverChecks.Add((Get-Date).AddMilliseconds($ms)) }
+            } elseif ($coverChecks -and $coverChecks.Count -and (Get-Date) -ge $coverChecks[0]) {
+                $coverChecks.RemoveAt(0)
+                $fresh = Read-Cover $props
+                if ($fresh -and $fresh -ne $lastCover) { $lastCover = $fresh; $coverChanged = $true }
+            }
 
-            if ($trackChanged -or $state -ne $lastState) {
+            if ($trackChanged -or $coverChanged -or $state -ne $lastState) {
                 $msg = @{
                     type     = 'media'
                     active   = $true
@@ -129,6 +150,7 @@ while ($true) {
                     updated  = $tl.LastUpdatedTime.ToUnixTimeMilliseconds()
                 }
                 if ($trackChanged) { $msg.cover = $lastCover; $msg.newTrack = $true }
+                elseif ($coverChanged) { $msg.cover = $lastCover; $msg.coverUpdate = $true }
                 Emit $msg
                 $lastKey = $key
                 $lastState = $state

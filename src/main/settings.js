@@ -4,7 +4,7 @@ const path = require('path');
 
 const DEFAULTS = {
   style: 'bars',          // bars | mirror | ring | wave | aurora
-  theme: 'album',         // album | neon | sunset | ocean | spotify | mono
+  theme: 'wallpaper',     // wallpaper | album | neon | sunset | ocean | spotify | mono
   mode: 'wallpaper',      // wallpaper | top | normal
   bounds: null,           // { x, y, width, height } en DIP, null = placement par défaut
   showNowPlaying: true,
