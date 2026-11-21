@@ -1,9 +1,14 @@
 // Connexion à l'API Web de Spotify, pour la file d'attente (« À suivre »).
 //
-// Autorisation "Authorization Code + PKCE" : pas de secret dans l'app. Il faut
-// une app gratuite sur developer.spotify.com (son propriétaire doit avoir
-// Spotify Premium depuis février 2026), avec l'adresse de retour REDIRECT_URI
-// ci-dessous, puis coller son Client ID dans les paramètres de Sillon.
+// Autorisation "Authorization Code + PKCE" : pas de secret dans l'app, et le
+// Client ID n'est pas secret non plus (il identifie l'app, pas l'utilisateur).
+//
+// Deux possibilités :
+//  - l'app Spotify intégrée à Sillon (BUILTIN_CLIENT_ID) : il suffit de se
+//    connecter. Mais en mode développement, Spotify la limite à 5 comptes, que
+//    son propriétaire ajoute un par un dans son tableau de bord ;
+//  - sa propre app (developer.spotify.com, propriétaire Premium depuis février
+//    2026), avec l'adresse de retour REDIRECT_URI ci-dessous.
 // La connexion se fait dans le navigateur ; les jetons restent sur ce PC,
 // chiffrés par Windows (safeStorage) quand c'est possible.
 
@@ -14,6 +19,9 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
+// App Spotify « Sillon » (mode développement : comptes autorisés uniquement).
+const BUILTIN_CLIENT_ID = '2205461c49cc4912a8e5f913ebc36c6d';
+
 const PORT = 43821;
 const REDIRECT_URI = `http://127.0.0.1:${PORT}/callback`;
 const SCOPES = 'user-read-playback-state user-read-currently-playing';
@@ -23,9 +31,10 @@ const API = 'https://api.spotify.com/v1';
 const b64url = (buf) => buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
 class SpotifyApi extends EventEmitter {
-  constructor(getClientId) {
+  // getConfig() -> { custom: bool, clientId: string } (Client ID personnel)
+  constructor(getConfig) {
     super();
-    this.getClientId = getClientId;
+    this.getConfig = getConfig;
     this.file = path.join(app.getPath('userData'), 'spotify-token.bin');
     this.tokens = null;
     // Lecture asynchrone des jetons (API de chiffrement d'Electron 45+).
@@ -58,8 +67,21 @@ class SpotifyApi extends EventEmitter {
     fs.writeFileSync(this.file, data);
   }
 
+  // Client ID utilisé : celui de l'utilisateur, ou celui intégré à Sillon.
+  clientId() {
+    const c = this.getConfig();
+    return c.custom ? (c.clientId || '').trim() : BUILTIN_CLIENT_ID;
+  }
+
+  builtIn() { return !this.getConfig().custom; }
+
+  // Jetons obtenus avec un autre Client ID (on a changé d'option) : inutilisables.
+  tokensMatch() {
+    return !!(this.tokens && this.tokens.refresh && this.tokens.clientId === this.clientId());
+  }
+
   status() {
-    return { connected: !!(this.tokens && this.tokens.refresh), error: this.lastError, redirectUri: REDIRECT_URI };
+    return { connected: this.tokensMatch(), builtIn: this.builtIn(), error: this.lastError, redirectUri: REDIRECT_URI };
   }
 
   setError(msg) {
@@ -75,7 +97,7 @@ class SpotifyApi extends EventEmitter {
 
   // ----- Connexion (navigateur + petit serveur local pour le retour) -----
   login() {
-    const clientId = (this.getClientId() || '').trim();
+    const clientId = this.clientId();
     if (!/^[0-9a-f]{32}$/i.test(clientId)) {
       this.setError('Client ID manquant ou invalide (32 caractères, copié depuis le tableau de bord Spotify).');
       return;
@@ -145,6 +167,7 @@ class SpotifyApi extends EventEmitter {
     await this.ready;
     const t = this.tokens;
     if (!t || !t.refresh) return null;
+    if (!this.tokensMatch()) return null; // connecté avec l'autre option : se reconnecter
     if (t.access && Date.now() < t.expiresAt - 60000) return t.access;
     try {
       const tok = await this.tokenRequest({ grant_type: 'refresh_token', refresh_token: t.refresh, client_id: t.clientId });
@@ -168,7 +191,11 @@ class SpotifyApi extends EventEmitter {
       const wait = Number(res.headers.get('retry-after')) || 30;
       throw Object.assign(new Error(`Spotify : trop de requêtes, nouvel essai dans ${wait} s`), { retryAfter: wait });
     }
-    if (res.status === 403) throw new Error('Spotify refuse l\'accès (le propriétaire de l\'app doit avoir Premium, et ton compte doit être autorisé dans l\'app).');
+    if (res.status === 403) {
+      throw new Error(this.builtIn()
+        ? 'Ton compte Spotify n\'est pas autorisé sur l\'app intégrée à Sillon (Spotify la limite à 5 comptes, ajoutés par son propriétaire). Demande-lui de t\'ajouter, ou utilise ton propre Client ID ci-dessous.'
+        : 'Spotify refuse l\'accès : le propriétaire de ton app doit avoir Premium, et ton compte doit être ajouté dans « User Management » de l\'app.');
+    }
     if (!res.ok) throw new Error(`Spotify ${res.status}`);
     return res.json();
   }
@@ -189,4 +216,4 @@ class SpotifyApi extends EventEmitter {
   }
 }
 
-module.exports = { SpotifyApi, REDIRECT_URI };
+module.exports = { SpotifyApi, REDIRECT_URI, BUILTIN_CLIENT_ID };

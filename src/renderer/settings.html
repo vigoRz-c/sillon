@@ -120,23 +120,37 @@
     <section>
       <h2>Compte Spotify (file d'attente)</h2>
       <p class="help">
-        Facultatif : affiche les morceaux suivants sous le panneau. Il faut une app
-        gratuite sur le <a href="#" id="dashboard">tableau de bord Spotify</a>
-        (ton compte doit être Premium). Dans l'app, coche « Web API » et ajoute
-        cette adresse de retour (Redirect URI) :
+        Facultatif : affiche les morceaux suivants sous le panneau.
+        Connecte-toi simplement avec ton compte Spotify.
       </p>
-      <div class="row copy-row">
-        <code id="redirectUri">http://127.0.0.1:43821/callback</code>
-        <button id="copyRedirect">Copier</button>
-      </div>
-      <label class="row">Client ID
-        <input id="spotifyClientId" type="text" spellcheck="false" autocomplete="off" placeholder="32 caractères">
-      </label>
       <div class="row buttons">
         <button id="spotifyLogin">Se connecter à Spotify</button>
         <button id="spotifyLogout" class="hidden">Se déconnecter</button>
       </div>
       <div id="spotifyState" class="state"></div>
+
+      <label class="row">Utiliser mon propre Client ID (avancé)
+        <input id="spotifyCustomClientId" type="checkbox">
+      </label>
+      <p id="builtinHelp" class="help">
+        L'app Spotify intégrée à Sillon n'accepte que 5 comptes (règle de Spotify),
+        ajoutés par son propriétaire. Si ton compte n'en fait pas partie, coche
+        l'option ci-dessus et crée ta propre app.
+      </p>
+      <div id="customClient" class="hidden">
+        <p class="help">
+          Crée une app gratuite sur le <a href="#" id="dashboard">tableau de bord Spotify</a>
+          (ton compte doit être Premium), coche « Web API » et ajoute cette adresse
+          de retour (Redirect URI) :
+        </p>
+        <div class="row copy-row">
+          <code id="redirectUri">http://127.0.0.1:43821/callback</code>
+          <button id="copyRedirect">Copier</button>
+        </div>
+        <label class="row">Client ID
+          <input id="spotifyClientId" type="text" spellcheck="false" autocomplete="off" placeholder="32 caractères">
+        </label>
+      </div>
     </section>
 
     <section>

@@ -111,9 +111,17 @@ demo/                  aperçu navigateur avec faux pont + son de synthèse
 
 ## Connecter Spotify (file d'attente, facultatif)
 
-1. Paramètres → **Compte Spotify** → lien vers le [tableau de bord développeurs](https://developer.spotify.com/dashboard). Il faut un compte **Premium**.
+**Simple** : Paramètres → **Compte Spotify** → **Se connecter à Spotify**, puis accepte dans le navigateur. Sillon utilise son app Spotify intégrée.
+
+Spotify limite cette app intégrée (mode développement) à **5 comptes**, que son propriétaire ajoute un par un dans *User Management* de son [tableau de bord](https://developer.spotify.com/dashboard). Un compte non ajouté est refusé, avec un message qui l'explique.
+
+**Avec ta propre app** (si tu n'es pas dans ces 5 comptes, ou si tu as récupéré Sillon sur GitHub) :
+
+1. Coche **Utiliser mon propre Client ID** et ouvre le lien vers le [tableau de bord développeurs](https://developer.spotify.com/dashboard). Il faut un compte **Premium** (règle de Spotify depuis février 2026).
 2. **Create app** : coche **Web API**, ajoute la Redirect URI `http://127.0.0.1:43821/callback`.
 3. Colle le **Client ID** dans Sillon, puis **Se connecter à Spotify**.
+
+Le Client ID intégré dans le code n'est pas un secret : avec la connexion PKCE, il identifie seulement l'app.
 
 La même connexion pourrait servir plus tard au like ou à l'ajout à une playlist.
 

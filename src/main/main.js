@@ -40,6 +40,10 @@ function updateSettings(patch) {
     setTimeout(capture.sampleWallpaper, 1200);
   }
   if ('showPanel' in patch) updateControls();
+  if (('spotifyCustomClientId' in patch || 'spotifyClientId' in patch) && S.spotify) {
+    S.spotify.setError('');
+    queue.refreshQueue();
+  }
   if ('preferApp' in patch && S.media) S.media.setPreferredApp(patch.preferApp);
   if ('launchAtLogin' in patch) app.setLoginItemSettings({ openAtLogin: !!patch.launchAtLogin });
   buildTray();

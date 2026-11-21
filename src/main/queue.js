@@ -50,7 +50,10 @@ async function refreshQueue() {
 }
 
 function startSpotify() {
-  const spotify = new SpotifyApi(() => S.settings.get('spotifyClientId'));
+  const spotify = new SpotifyApi(() => ({
+    custom: !!S.settings.get('spotifyCustomClientId'),
+    clientId: S.settings.get('spotifyClientId'),
+  }));
   S.spotify = spotify;
   const pushStatus = (st) => S.send([S.settingsWin], 'spotify-status', st);
   spotify.on('status', pushStatus);

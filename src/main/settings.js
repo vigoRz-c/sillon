@@ -9,20 +9,21 @@ const DEFAULTS = {
   layout: 'scene',        // scene (disque, paroles, panneau) | strip (bandeau)
   showLyrics: true,
   showPanel: true,
-  sceneHidden: false,
+  sceneHidden: false,     // masquée par le bouton du panneau, réaffichée depuis l'icône
   sceneScreen: 'primary', // primary | secondary
   gameMode: true,         // s'arrêter pendant un jeu / une vidéo en plein écran
   dimOnPause: true,       // scène atténuée quand la musique est en pause
   sleepAfter: 5,          // minutes sans musique avant de masquer la scène (0 = jamais)
-  lyricsOffsets: {},      // décalage des paroles par morceau ("artiste|titre" -> secondes)     // masquée par le bouton du panneau, réaffichée depuis l'icône
+  lyricsOffsets: {},      // décalage des paroles par morceau ("artiste|titre" -> secondes)
   discIntensity: 1.3,     // halo et rayons du disque (0,5 à 2)
   discX: 0.6,             // position du disque (fraction de l'écran)
   discY: 0.45,
   discSize: 1,            // taille du disque (0,6 à 1,6)
   veilleDelay: 5,         // minutes d'inactivité avant l'écran de veille (0 = jamais)
   veilleOnlyPlaying: true, // seulement quand de la musique joue
-  veilleLock: true,
-  spotifyClientId: '',    // app Spotify de l'utilisateur, pour la file d'attente (facultatif)       // verrouiller la session (comme Windows + L) en sortant
+  veilleLock: true,       // verrouiller la session (comme Windows + L) en sortant
+  spotifyCustomClientId: false, // false : app Spotify intégrée à Sillon ; true : la sienne
+  spotifyClientId: '',    // Client ID de sa propre app Spotify (si spotifyCustomClientId)
   bounds: null,           // { x, y, width, height } en DIP, null = placement par défaut
   showNowPlaying: true,
   opacity: 1,

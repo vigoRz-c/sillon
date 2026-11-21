@@ -21,6 +21,9 @@
     $('showPanel').checked = s.showPanel !== false;
     $('launchAtLogin').checked = !!s.launchAtLogin;
     if (document.activeElement !== $('spotifyClientId')) $('spotifyClientId').value = s.spotifyClientId || '';
+    $('spotifyCustomClientId').checked = !!s.spotifyCustomClientId;
+    $('customClient').classList.toggle('hidden', !s.spotifyCustomClientId);
+    $('builtinHelp').classList.toggle('hidden', !!s.spotifyCustomClientId);
     $('veilleOnlyPlaying').checked = s.veilleOnlyPlaying !== false;
     $('veilleLock').checked = s.veilleLock !== false;
     $('gameMode').checked = s.gameMode !== false;
@@ -56,8 +59,12 @@
 
   // ----- Compte Spotify -----
   $('spotifyClientId').addEventListener('change', () => bridge.setSettings({ spotifyClientId: $('spotifyClientId').value.trim() }));
+  $('spotifyCustomClientId').addEventListener('change', () => {
+    bridge.setSettings({ spotifyCustomClientId: $('spotifyCustomClientId').checked });
+    setTimeout(() => bridge.spotifyStatus().then(showSpotify), 150);
+  });
   $('spotifyLogin').onclick = () => {
-    bridge.setSettings({ spotifyClientId: $('spotifyClientId').value.trim() });
+    if ($('spotifyCustomClientId').checked) bridge.setSettings({ spotifyClientId: $('spotifyClientId').value.trim() });
     $('spotifyState').textContent = 'Connexion en cours dans ton navigateur…';
     $('spotifyState').className = 'state';
     setTimeout(() => bridge.spotifyLogin(), 200);
