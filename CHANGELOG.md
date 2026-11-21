@@ -4,6 +4,8 @@ Toutes les évolutions notables de Sillon. Format inspiré de [Keep a Changelog]
 
 ## [Non publié]
 
+## [0.1.7] - 2026-11-22
+
 ### Ajouté
 - Vérifications automatiques sur GitHub (CI) : syntaxe, règles ESLint et tests à chaque push.
 - ESLint, `.editorconfig`, Dependabot, guide de contribution, politique de sécurité, code de conduite, modèles d'issue et de pull request.
@@ -56,7 +58,8 @@ Toutes les évolutions notables de Sillon. Format inspiré de [Keep a Changelog]
 
 Première version publique : visualiseur sur le fond d'écran Windows, scène (disque, paroles synchronisées, panneau « en lecture », file d'attente), écran de veille, plein écran, connexion Spotify.
 
-[Non publié]: https://github.com/vigoRz-c/sillon/compare/v0.1.6...HEAD
+[Non publié]: https://github.com/vigoRz-c/sillon/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/vigoRz-c/sillon/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/vigoRz-c/sillon/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/vigoRz-c/sillon/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/vigoRz-c/sillon/compare/v0.1.3...v0.1.4
