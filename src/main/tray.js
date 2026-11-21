@@ -36,7 +36,7 @@ function buildTray() {
   const cmd = (c) => S.media && S.media.command(c);
   if (!S.tray) {
     S.tray = new Tray(nativeImage.createFromPath(path.join(S.ASSETS, 'tray.png')));
-    S.tray.setToolTip('Spoti-View');
+    S.tray.setToolTip('Sillon');
     S.tray.on('click', () => S.tray.popUpContextMenu());
   }
   const m = S.lastMedia;
@@ -45,7 +45,7 @@ function buildTray() {
   const offset = A.lyricsOffsetFor(m);
   S.tray.setContextMenu(Menu.buildFromTemplate([
     { label: now, enabled: false },
-    ...(s.sceneHidden ? [{ label: 'Réafficher Spoti-View sur le bureau', click: () => set({ sceneHidden: false }) }] : []),
+    ...(s.sceneHidden ? [{ label: 'Réafficher Sillon sur le bureau', click: () => set({ sceneHidden: false }) }] : []),
     { label: 'Lecture / pause', click: () => cmd('playpause') },
     { label: 'Suivant', click: () => cmd('next') },
     { label: 'Précédent', click: () => cmd('previous') },

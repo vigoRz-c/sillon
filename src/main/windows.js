@@ -14,7 +14,7 @@ function toggleFullscreen() {
     frame: false,
     backgroundColor: '#000000',
     skipTaskbar: false,
-    title: 'Spoti-View',
+    title: 'Sillon',
     icon: path.join(S.ASSETS, 'icon.png'),
     webPreferences: { preload: S.PRELOAD, backgroundThrottling: false },
   });
@@ -48,7 +48,7 @@ function openSettings() {
     resizable: false,
     alwaysOnTop: !!parent,
     skipTaskbar: !!parent,
-    title: 'Paramètres · Spoti-View',
+    title: 'Paramètres · Sillon',
     icon: path.join(S.ASSETS, 'icon.png'),
     webPreferences: { preload: S.PRELOAD },
   });

@@ -1,4 +1,4 @@
-// Spoti-View : processus principal.
+// Sillon : processus principal.
 //
 // Ce fichier assemble les modules, gère les réglages, la communication avec
 // les pages (IPC) et le démarrage. Le reste est rangé par thème :
@@ -14,6 +14,7 @@
 
 const { app, ipcMain, screen, globalShortcut, shell } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const S = require('./state');
 const { Settings } = require('./settings');
 const diskCache = require('./disk-cache');
@@ -145,10 +146,32 @@ ipcMain.on('spotify:logout', () => { if (S.spotify) { S.spotify.logout(); queue.
 // Seule page externe que les paramètres peuvent ouvrir : le tableau de bord Spotify.
 ipcMain.on('spotify:dashboard', () => shell.openExternal('https://developer.spotify.com/dashboard'));
 
+// ---------- Ancien nom (Spoti-View) ----------
+// Le dossier des réglages suit le nom de l'app : %APPDATA%/Sillon. Au premier
+// lancement, on reprend les réglages et le cache de %APPDATA%/Spoti-View.
+// Les jetons Spotify ne sont pas repris : ils sont chiffrés avec une clé
+// propre à l'ancien dossier, il suffit de se reconnecter une fois.
+function migrateFromSpotiView() {
+  try {
+    const dir = app.getPath('userData');
+    const old = path.join(path.dirname(dir), 'Spoti-View');
+    if (fs.existsSync(path.join(dir, 'settings.json')) || !fs.existsSync(old)) return;
+    fs.mkdirSync(dir, { recursive: true });
+    for (const name of ['settings.json', 'cache']) {
+      const from = path.join(old, name);
+      if (fs.existsSync(from)) fs.cpSync(from, path.join(dir, name), { recursive: true });
+    }
+    console.log('Réglages repris de Spoti-View.');
+  } catch (e) {
+    console.error('Reprise des réglages de Spoti-View :', e.message);
+  }
+}
+
 // ---------- Démarrage ----------
 
 app.whenReady().then(() => {
-  app.setAppUserModelId('com.loicrestout.spotiview');
+  app.setAppUserModelId('com.loicrestout.sillon');
+  migrateFromSpotiView();
   S.settings = new Settings();
   diskCache.init(path.join(app.getPath('userData'), 'cache'));
   capture.setupLoopback();

@@ -61,7 +61,7 @@
     }
 
     // Appelé par le process principal avec un "geste utilisateur" simulé.
-    window.spotiView = {
+    window.sillon = {
       startAudio: () => engine.startSystem(),
       engine, renderer, state, applySettings, applyMedia,
     };

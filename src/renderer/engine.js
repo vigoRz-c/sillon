@@ -1,4 +1,4 @@
-/* Spoti-View — moteur partagé : audio, couleurs, visualiseurs.
+/* Sillon — moteur partagé : audio, couleurs, visualiseurs.
    Chargé en script classique (pas de module) par widget.html et fullscreen.html. */
 (function () {
   'use strict';

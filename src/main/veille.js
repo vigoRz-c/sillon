@@ -21,7 +21,7 @@ function startVeille() {
     const main = d.id === primary.id;
     const win = new BrowserWindow({
       ...d.bounds, frame: false, fullscreen: true, backgroundColor: '#000000',
-      alwaysOnTop: true, skipTaskbar: true, show: false, title: 'Spoti-View · veille',
+      alwaysOnTop: true, skipTaskbar: true, show: false, title: 'Sillon · veille',
       webPreferences: { preload: S.PRELOAD, backgroundThrottling: false },
     });
     win.setAlwaysOnTop(true, 'screen-saver');
@@ -61,7 +61,7 @@ function watchIdle() {
   setInterval(() => {
     const delay = Number(S.settings.get('veilleDelay')) || 0;
     if (!delay || veilleActive() || S.editing) return;
-    if (S.alive(S.fullscreen)) return; // déjà en plein écran Spoti-View
+    if (S.alive(S.fullscreen)) return; // déjà en plein écran Sillon
     const m = S.lastMedia;
     if (S.settings.get('veilleOnlyPlaying') !== false && !(m.active && m.status === 'Playing')) return;
     if (powerMonitor.getSystemIdleTime() >= delay * 60) startVeille();

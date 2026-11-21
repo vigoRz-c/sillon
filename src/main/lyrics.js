@@ -7,7 +7,7 @@
 
 const API = 'https://lrclib.net/api';
 const disk = require('./disk-cache');
-const HEADERS = { 'User-Agent': 'Spoti-View/0.1' };
+const HEADERS = { 'User-Agent': 'Sillon/0.1' };
 const cache = new Map();
 
 // "Bohemian Rhapsody - Remastered 2011" -> "Bohemian Rhapsody"

@@ -17,7 +17,7 @@ function setupLoopback() {
 
 function startAudio(win) {
   // Le "true" simule un geste utilisateur, exigé par getDisplayMedia.
-  win.webContents.executeJavaScript('window.spotiView && window.spotiView.startAudio()', true)
+  win.webContents.executeJavaScript('window.sillon && window.sillon.startAudio()', true)
     .catch((e) => console.error('Audio :', e.message));
 }
 

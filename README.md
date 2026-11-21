@@ -1,4 +1,4 @@
-# Spoti-View
+# Sillon
 
 Visualiseur musical qui vit **sur le fond d'écran Windows**, derrière toutes les fenêtres, et réagit à ce que tu écoutes sur Spotify.
 
@@ -22,7 +22,7 @@ npm install
 npm start
 ```
 
-L'icône Spoti-View apparaît dans la zone de notification (en bas à droite). Tout se règle depuis son menu.
+L'icône Sillon apparaît dans la zone de notification (en bas à droite). Tout se règle depuis son menu.
 
 Créer l'installateur et la version portable (dans `dist/`) :
 
@@ -30,7 +30,7 @@ Créer l'installateur et la version portable (dans `dist/`) :
 npm run dist
 ```
 
-`Spoti-View Setup 0.1.0.exe` installe l'app ; `Spoti-View 0.1.0.exe` se lance sans installation. Ils ne sont pas signés : Windows SmartScreen peut demander « Exécuter quand même ».
+`Sillon Setup 0.1.0.exe` installe l'app ; `Sillon 0.1.0.exe` se lance sans installation. Ils ne sont pas signés : Windows SmartScreen peut demander « Exécuter quand même ».
 
 Tests automatiques (position de lecture, paroles, choix des pochettes, cache) :
 
@@ -48,7 +48,7 @@ Menu de l'icône dans la zone de notification :
 |---|---|
 | Lecture / pause, Suivant, Précédent, Aléatoire, Répéter | Pilote Spotify (ou le lecteur actif) |
 | Paroles de ce morceau | Décale les paroles (±0,25 s) quand LRCLIB a celles d'une autre version ; mémorisé par morceau |
-| Réafficher Spoti-View | Après « masquer » depuis le panneau |
+| Réafficher Sillon | Après « masquer » depuis le panneau |
 | Style | Choix du visualiseur |
 | Couleurs | Pochette, Spotify, Néon, Coucher de soleil, Océan, Blanc |
 | Position | Sur le fond d'écran · Toujours au premier plan · Fenêtre normale |
@@ -68,7 +68,7 @@ En plein écran : **Espace** lecture/pause · **← →** morceau précédent/su
 | Afficher la bonne pochette | Spotify transmet parfois à Windows une image du clip au lieu de la pochette. `src/main/cover-lookup.js` cherche sur la recherche publique de Deezer (sans compte) la pochette de l'album studio où figure le morceau, à défaut celle de l'EP ou du single : seuls l'artiste, l'album et le titre sont envoyés. Rien de fiable trouvé : on garde l'image de Windows. |
 | Paroles synchronisées | `src/main/lyrics.js` les demande à [LRCLIB](https://lrclib.net) (gratuit, sans compte), mot par mot quand c'est disponible : seuls l'artiste, le titre, l'album et la durée sont envoyés. Pas de paroles synchronisées : le titre s'affiche à la place. |
 | File d'attente | `src/main/spotify-api.js` : API Web Spotify (facultative), connexion PKCE sans secret, jetons chiffrés par Windows. Le propriétaire de l'app développeur Spotify doit être Premium (règle de Spotify depuis février 2026). |
-| Hors ligne | `src/main/disk-cache.js` garde pochettes et paroles déjà trouvées dans `%APPDATA%/Spoti-View/cache`. |
+| Hors ligne | `src/main/disk-cache.js` garde pochettes et paroles déjà trouvées dans `%APPDATA%/Sillon/cache`. |
 | Mode jeu | `SHQueryUserNotificationState` (plein écran signalé par Windows) + la fenêtre au premier plan couvre l'écran de la scène. |
 | Boutons de la scène | La scène est sous les icônes du bureau et ne reçoit pas les clics : les boutons du panneau sont une petite fenêtre à part (`controls.html`), gardée tout en bas de la pile des fenêtres. |
 | Réagir au son | Capture « loopback » de la sortie audio du PC via Electron (`getDisplayMedia` + `audio: 'loopback'`). Jamais le micro. Le son n'est ni enregistré ni envoyé nulle part. |
@@ -95,7 +95,7 @@ src/
     lyrics.js          paroles synchronisées (LRCLIB)
     spotify-api.js     connexion à l'API Spotify (PKCE)
     disk-cache.js      cache disque des pochettes et paroles
-    settings.js        réglages sauvegardés (%APPDATA%/Spoti-View/settings.json)
+    settings.js        réglages sauvegardés (%APPDATA%/Sillon/settings.json)
     preload.js         pont sécurisé page ↔ process principal
   renderer/
     engine.js          audio, couleurs, visualiseurs (dont le disque)
@@ -113,13 +113,13 @@ demo/                  aperçu navigateur avec faux pont + son de synthèse
 
 1. Paramètres → **Compte Spotify** → lien vers le [tableau de bord développeurs](https://developer.spotify.com/dashboard). Il faut un compte **Premium**.
 2. **Create app** : coche **Web API**, ajoute la Redirect URI `http://127.0.0.1:43821/callback`.
-3. Colle le **Client ID** dans Spoti-View, puis **Se connecter à Spotify**.
+3. Colle le **Client ID** dans Sillon, puis **Se connecter à Spotify**.
 
 La même connexion pourrait servir plus tard au like ou à l'ajout à une playlist.
 
 ## Données et vie privée
 
-Spoti-View n'a pas de serveur et ne collecte rien. Ce qui sort de ton PC :
+Sillon n'a pas de serveur et ne collecte rien. Ce qui sort de ton PC :
 
 | Vers | Quoi | Pourquoi |
 |---|---|---|
@@ -127,7 +127,9 @@ Spoti-View n'a pas de serveur et ne collecte rien. Ce qui sort de ton PC :
 | [LRCLIB](https://lrclib.net) | artiste, titre, album, durée | trouver les paroles synchronisées |
 | [Spotify](https://developer.spotify.com/documentation/web-api) (seulement si tu connectes ton compte) | jeton d'accès | lire la file d'attente |
 
-Le son du PC est analysé en direct et jamais enregistré ni envoyé. Les réglages, le cache et les jetons Spotify (chiffrés par Windows) restent dans `%APPDATA%/Spoti-View`.
+Sillon s'appelait auparavant Spoti-View : au premier lancement, il reprend les réglages et le cache de `%APPDATA%/Spoti-View` (il faut seulement reconnecter le compte Spotify).
+
+Le son du PC est analysé en direct et jamais enregistré ni envoyé. Les réglages, le cache et les jetons Spotify (chiffrés par Windows) restent dans `%APPDATA%/Sillon`.
 
 ## État du projet
 
@@ -135,6 +137,6 @@ Version 0.1, testée sur Windows 11 24H2 avec Electron 45 : accroche au fond d'�
 
 ## Licence
 
-[GPL-3.0](LICENSE) : tu peux utiliser, étudier, modifier et redistribuer Spoti-View ; toute version modifiée que tu diffuses doit rester sous GPL-3.0, avec son code source.
+[GPL-3.0](LICENSE) : tu peux utiliser, étudier, modifier et redistribuer Sillon ; toute version modifiée que tu diffuses doit rester sous GPL-3.0, avec son code source.
 
 Projet indépendant, sans lien avec Spotify, Deezer ou LRCLIB. Spotify est une marque de Spotify AB. Les pochettes et les paroles affichées appartiennent à leurs ayants droit.

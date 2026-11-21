@@ -67,7 +67,7 @@ function createWidget() {
     // le coin de redimensionnement est géré dans la page (mode placement).
     resizable: false,
     show: false,
-    title: 'Spoti-View',
+    title: 'Sillon',
     webPreferences: { preload: S.PRELOAD, backgroundThrottling: false },
   });
   S.widget = widget;

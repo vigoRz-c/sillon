@@ -3,7 +3,7 @@
 // Autorisation "Authorization Code + PKCE" : pas de secret dans l'app. Il faut
 // une app gratuite sur developer.spotify.com (son propriétaire doit avoir
 // Spotify Premium depuis février 2026), avec l'adresse de retour REDIRECT_URI
-// ci-dessous, puis coller son Client ID dans les paramètres de Spoti-View.
+// ci-dessous, puis coller son Client ID dans les paramètres de Sillon.
 // La connexion se fait dans le navigateur ; les jetons restent sur ce PC,
 // chiffrés par Windows (safeStorage) quand c'est possible.
 
@@ -90,13 +90,13 @@ class SpotifyApi extends EventEmitter {
       if (url.pathname !== '/callback') { res.writeHead(404).end(); return; }
       const done = (ok, text) => {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(`<!doctype html><meta charset="utf-8"><title>Spoti-View</title>
+        res.end(`<!doctype html><meta charset="utf-8"><title>Sillon</title>
 <body style="font-family:Segoe UI,sans-serif;background:#111;color:#eee;display:grid;place-items:center;height:100vh;margin:0">
-<div style="text-align:center"><h2>${ok ? 'Spoti-View est connecté à Spotify' : 'Connexion impossible'}</h2><p>${text}</p></div>`);
+<div style="text-align:center"><h2>${ok ? 'Sillon est connecté à Spotify' : 'Connexion impossible'}</h2><p>${text}</p></div>`);
         server.close();
         if (this.server === server) this.server = null;
       };
-      if (url.searchParams.get('state') !== state) { done(false, 'Réponse inattendue : relance la connexion depuis Spoti-View.'); return; }
+      if (url.searchParams.get('state') !== state) { done(false, 'Réponse inattendue : relance la connexion depuis Sillon.'); return; }
       const err = url.searchParams.get('error');
       if (err) { this.setError(err === 'access_denied' ? 'Connexion refusée dans Spotify.' : `Spotify : ${err}`); done(false, 'Tu peux fermer cet onglet.'); return; }
       try {

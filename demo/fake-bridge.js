@@ -18,7 +18,7 @@
   x.fillStyle = '#111'; x.beginPath(); x.arc(150, 150, 12, 0, 7); x.fill();
 
   const media = {
-    active: true, app: 'Spotify.exe', title: 'Morceau de démonstration', artist: 'Spoti-View',
+    active: true, app: 'Spotify.exe', title: 'Morceau de démonstration', artist: 'Sillon',
     album: 'Démo', status: 'Playing', position: 42, duration: 214, updated: Date.now(),
     cover: c.toDataURL('image/png'), newTrack: true,
   };
@@ -50,7 +50,7 @@
       bassGain.gain.setValueAtTime(1, t); bassGain.gain.exponentialRampToValueAtTime(0.01, t + 0.35);
       padGain.gain.setValueAtTime(0.1 + 0.1 * Math.sin(i), t);
     }
-    window.spotiView.engine.useNode(out);
+    window.sillon.engine.useNode(out);
     ctx.resume();
   });
 })();

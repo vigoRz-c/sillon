@@ -52,7 +52,7 @@ test('pochette : artiste différent -> rien (on garde l\'image de Windows)', asy
 });
 
 test('cache disque : valeur relue, "rien trouvé" gardé aussi', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spotiview-test-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sillon-test-'));
   try {
     disk.init(dir);
     assert.equal(disk.get('covers', 'a'), undefined);

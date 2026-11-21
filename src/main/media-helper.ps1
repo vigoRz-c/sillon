@@ -1,4 +1,4 @@
-﻿# Spoti-View - lecteur des contrôles média de Windows (SMTC)
+﻿# Sillon - lecteur des contrôles média de Windows (SMTC)
 #
 # Lit le morceau en cours via GlobalSystemMediaTransportControlsSessionManager :
 # c'est la même source que le panneau média de Windows (volume), donc Spotify,

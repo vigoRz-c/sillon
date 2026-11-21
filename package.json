@@ -1,13 +1,13 @@
 {
-  "name": "spoti-view",
-  "productName": "Spoti-View",
+  "name": "sillon",
+  "productName": "Sillon",
   "version": "0.1.0",
   "description": "Visualiseur musical posé sur le fond d'écran Windows, synchronisé avec Spotify (et tout lecteur qui expose ses contrôles média).",
   "main": "src/main/main.js",
   "author": "Loïc Restout",
   "repository": {
     "type": "git",
-    "url": "https://github.com/vigoRz-c/spoti-view.git"
+    "url": "https://github.com/vigoRz-c/sillon.git"
   },
   "license": "GPL-3.0-only",
   "private": true,
@@ -26,8 +26,8 @@
     "electron-builder": "^26.18.0"
   },
   "build": {
-    "appId": "com.loicrestout.spotiview",
-    "productName": "Spoti-View",
+    "appId": "com.loicrestout.sillon",
+    "productName": "Sillon",
     "files": [
       "src/**/*",
       "assets/**/*",

@@ -1,5 +1,5 @@
 // Petit cache sur disque (pochettes, paroles) : un fichier JSON par entrée,
-// dans %APPDATA%/Spoti-View/cache/<espace>/. Les morceaux déjà écoutés
+// dans %APPDATA%/Sillon/cache/<espace>/. Les morceaux déjà écoutés
 // s'affichent donc aussi hors ligne, et sans redemander à Deezer ou LRCLIB.
 //
 // Une entrée vide (rien trouvé) est gardée aussi, mais moins longtemps : un

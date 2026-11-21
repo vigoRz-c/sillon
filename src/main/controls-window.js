@@ -32,7 +32,7 @@ function updateControls() {
       // autres fenêtres et ne vole pas le focus.
       resizable: false, minimizable: false, maximizable: false, skipTaskbar: true,
       focusable: false, show: false,
-      title: 'Spoti-View · boutons',
+      title: 'Sillon · boutons',
       webPreferences: { preload: S.PRELOAD, backgroundThrottling: false },
     });
     S.controlsWin = win;
