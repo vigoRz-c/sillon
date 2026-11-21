@@ -55,8 +55,15 @@
     $('gameMode').checked = s.gameMode !== false;
     $('autoUpdate').checked = s.autoUpdate !== false;
     $('dimOnPause').checked = s.dimOnPause !== false;
+    // Scène choisie et réellement affichée (seulement sur le fond d'écran).
+    const wantsScene = (s.layout || 'scene') !== 'strip';
+    const scene = wantsScene && s.mode === 'wallpaper';
+    $('sceneSection').classList.toggle('hidden', !scene);
+    $('sceneScreenRow').classList.toggle('hidden', !scene);
+    $('sceneNeedsWallpaper').classList.toggle('hidden', !(wantsScene && s.mode !== 'wallpaper'));
+    $('showNowPlayingRow').classList.toggle('hidden', scene);
     // La scène occupe tout le bureau : rien à déplacer.
-    $('editRow').classList.toggle('hidden', (s.layout || 'scene') !== 'strip' && s.mode === 'wallpaper');
+    $('editRow').classList.toggle('hidden', scene);
     for (const [k, f] of Object.entries(ranges)) {
       if (document.activeElement !== $(k)) $(k).value = s[k];
       $(`${k}Out`).textContent = f(Number(s[k]));

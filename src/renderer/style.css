@@ -185,6 +185,8 @@ body.settings input[type=text] {
 body.settings .state { font-size: 12px; opacity: .8; padding-top: 4px; }
 body.settings .state.ok { color: #86efac; opacity: 1; }
 body.settings .state.error { color: #fca5a5; opacity: 1; }
+body.settings button.primary { background: var(--accent); border-color: transparent; color: #fff; font-weight: 600; padding: 8px 12px; }
+body.settings button.primary:hover { filter: brightness(1.12); background: var(--accent); }
 body.settings button:disabled { opacity: .45; cursor: default; }
 
 /* ================= Scène (disque, paroles, panneau) ================= */
