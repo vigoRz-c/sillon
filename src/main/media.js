@@ -20,6 +20,37 @@ function helperPath() {
   return path.join(__dirname, 'media-helper.ps1');
 }
 
+// Position de lecture fiable pour synchroniser les paroles.
+//
+// Spotify ne publie sa position qu'environ toutes les 4,5 s, arrondie, avec
+// l'heure de cette mesure (updated). Extrapoler depuis "updated" est juste...
+// sauf quand l'heure est périmée : à la reprise après une pause, Spotify
+// annonce « en lecture » avec l'heure d'avant la pause, et l'extrapolation
+// ajoute toute la durée de la pause (les paroles partent en avance).
+// On calcule donc un point d'ancrage (anchorPos à l'instant anchorAt) :
+//  - mesure fraîche : on extrapole depuis "updated" ;
+//  - mesure périmée ou reprise sans nouvelle mesure : position brute, maintenant ;
+//  - écart < 0,35 s avec l'estimation en cours : on garde l'ancrage (pas de
+//    sautillement dû à l'arrondi de Spotify).
+const CADENCE_S = 6; // au-delà, une mesure "en lecture" est considérée périmée
+
+function anchor(prev, msg, now) {
+  const pos = Number(msg.position) || 0;
+  if (!msg.active || msg.status !== 'Playing') return { anchorPos: pos, anchorAt: now };
+
+  const sameTrack = !msg.newTrack && prev && prev.active && prev.title === msg.title && prev.artist === msg.artist;
+  const age = msg.updated > 0 ? (now - msg.updated) / 1000 : Infinity;
+  const resumedStale = sameTrack && prev.status !== 'Playing' && msg.updated <= (prev.updated || 0);
+  const fresh = age >= -1 && age < CADENCE_S && !resumedStale;
+  const est = fresh ? pos + Math.max(0, age) : pos;
+
+  if (sameTrack && prev.status === 'Playing' && prev.anchorAt) {
+    const running = prev.anchorPos + (now - prev.anchorAt) / 1000;
+    if (Math.abs(running - est) < 0.35) return { anchorPos: prev.anchorPos, anchorAt: prev.anchorAt };
+  }
+  return { anchorPos: est, anchorAt: now };
+}
+
 class WindowsMediaSource extends EventEmitter {
   constructor({ prefer = 'spotify' } = {}) {
     super();
@@ -50,7 +81,8 @@ class WindowsMediaSource extends EventEmitter {
         // La pochette n'est envoyée qu'au changement de morceau : on la garde.
         // (ou quand elle arrive en retard, coverUpdate).
         const cover = msg.newTrack || msg.coverUpdate ? msg.cover : this.state.cover;
-        this.state = { ...msg, cover, receivedAt: Date.now() };
+        const now = Date.now();
+        this.state = { ...msg, cover, receivedAt: now, ...anchor(this.state, msg, now) };
         this.emit('media', this.state);
       } else if (msg.type === 'error') {
         this.emit('error', new Error(msg.message));

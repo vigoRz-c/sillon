@@ -466,7 +466,10 @@
   function currentPosition(m) {
     if (!m || !m.active || !m.duration) return 0;
     let p = m.position || 0;
-    if (m.status === 'Playing') {
+    if (m.anchorAt) {
+      // Ancrage calculé côté principal (voir media.js) : résiste aux mesures périmées.
+      p = m.anchorPos + (m.status === 'Playing' ? (Date.now() - m.anchorAt) / 1000 : 0);
+    } else if (m.status === 'Playing') {
       const ref = m.updated && m.updated > 0 ? m.updated : m.receivedAt;
       if (ref) p += (Date.now() - ref) / 1000;
     }
