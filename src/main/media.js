@@ -84,6 +84,8 @@ class WindowsMediaSource extends EventEmitter {
         const now = Date.now();
         this.state = { ...msg, cover, receivedAt: now, ...anchor(this.state, msg, now) };
         this.emit('media', this.state);
+      } else if (msg.type === 'cmd') {
+        this.emit('command-result', msg);
       } else if (msg.type === 'error') {
         this.emit('error', new Error(msg.message));
       }

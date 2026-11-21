@@ -5,6 +5,7 @@ const S = require('./state');
 const { WindowsMediaSource } = require('./media');
 const { lookupCover } = require('./cover-lookup');
 const { lookupLyrics } = require('./lyrics');
+const diagnostic = require('./diagnostic');
 
 // ---------- Décalage des paroles (par morceau) ----------
 // Pour les titres où LRCLIB a les paroles d'une autre version. Positif : les
@@ -71,7 +72,10 @@ function startMedia() {
     broadcast(officialCover ? { ...m, cover: officialCover } : m);
     S.actions.buildTray();
   });
-  media.on('error', (e) => console.error('Média :', e.message));
+  media.on('error', (e) => { console.error('Média :', e.message); diagnostic.note('média', e.message); });
+  media.on('log', (t) => diagnostic.note('powershell', t));
+  media.on('command-result', (r) => diagnostic.note('windows',
+    `${r.cmd} → ${r.ok ? 'accepté' : 'refusé'}${r.app ? ` par ${r.app}` : ''}${r.reason ? ` (${r.reason})` : ''}`));
   media.start();
 }
 

@@ -33,6 +33,8 @@ function win32() {
     GetWindowLongPtrW: user32.func('intptr_t __stdcall GetWindowLongPtrW(intptr_t hwnd, int index)'),
     SetWindowLongPtrW: user32.func('intptr_t __stdcall SetWindowLongPtrW(intptr_t hwnd, int index, intptr_t value)'),
     SetLayeredWindowAttributes: user32.func('bool __stdcall SetLayeredWindowAttributes(intptr_t hwnd, uint32_t key, uint8_t alpha, uint32_t flags)'),
+    WindowFromPoint: user32.func('intptr_t __stdcall WindowFromPoint(POINT pt)'),
+    GetClassNameW: user32.func('int __stdcall GetClassNameW(intptr_t hwnd, _Out_ char16_t *buf, int max)'),
   };
   return api;
 }
@@ -203,10 +205,23 @@ function foregroundRect() {
   } catch { return null; }
 }
 
+// Fenêtre sous un point de l'écran (pixels physiques), pour le diagnostic.
+function windowAt(pt) {
+  if (process.platform !== 'win32') return null;
+  try {
+    const w = win32();
+    const cls = (h) => { const b = Buffer.alloc(512); const n = w.GetClassNameW(h, b, 256); return b.toString('utf16le', 0, n * 2); };
+    const hwnd = w.WindowFromPoint({ x: Math.round(pt.x), y: Math.round(pt.y) });
+    if (!hwnd) return null;
+    const root = w.GetAncestor(hwnd, 2); // GA_ROOT
+    return { hwnd, root, cls: cls(hwnd), rootCls: cls(root) };
+  } catch { return null; }
+}
+
 // Équivaut à Windows + L.
 function lockWorkstation() {
   if (process.platform !== 'win32') return false;
   try { return win32().LockWorkStation(); } catch (e) { console.error('Verrouillage :', e.message); return false; }
 }
 
-module.exports = { WallpaperAttacher, sendToBottom, lockWorkstation, fullscreenAppRunning, foregroundRect };
+module.exports = { WallpaperAttacher, sendToBottom, lockWorkstation, fullscreenAppRunning, foregroundRect, windowAt, hwndOf };

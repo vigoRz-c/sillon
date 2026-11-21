@@ -82,24 +82,26 @@ function Read-Cover($props) {
 function Invoke-MediaCommand($cmd) {
     if ($cmd -like 'prefer:*') { $script:prefer = $cmd.Substring(7).Trim().ToLower(); $script:lastKey = ''; return }
     $s = Get-Session
-    if (-not $s) { return }
-    switch ($cmd) {
-        'playpause' { [void](Await ($s.TryTogglePlayPauseAsync()) ([bool])) }
-        'play'      { [void](Await ($s.TryPlayAsync()) ([bool])) }
-        'pause'     { [void](Await ($s.TryPauseAsync()) ([bool])) }
-        'next'      { [void](Await ($s.TrySkipNextAsync()) ([bool])) }
-        'previous'  { [void](Await ($s.TrySkipPreviousAsync()) ([bool])) }
+    if (-not $s) { Emit @{ type = 'cmd'; cmd = $cmd; ok = $false; reason = 'aucune session média' }; return }
+    # Réponse de Windows (pour le diagnostic) : true = acceptée par le lecteur.
+    $ok = switch ($cmd) {
+        'playpause' { Await ($s.TryTogglePlayPauseAsync()) ([bool]) }
+        'play'      { Await ($s.TryPlayAsync()) ([bool]) }
+        'pause'     { Await ($s.TryPauseAsync()) ([bool]) }
+        'next'      { Await ($s.TrySkipNextAsync()) ([bool]) }
+        'previous'  { Await ($s.TrySkipPreviousAsync()) ([bool]) }
         'shuffle'   {
             $now = [bool]$s.GetPlaybackInfo().IsShuffleActive
-            [void](Await ($s.TryChangeShuffleActiveAsync(-not $now)) ([bool]))
+            Await ($s.TryChangeShuffleActiveAsync(-not $now)) ([bool])
         }
         'repeat'    {
             # Aucune -> playlist -> morceau -> aucune
             $cur = "$($s.GetPlaybackInfo().AutoRepeatMode)"
             $next = switch ($cur) { 'List' { 'Track' } 'Track' { 'None' } default { 'List' } }
-            [void](Await ($s.TryChangeAutoRepeatModeAsync([Enum]::Parse($RepeatType, $next))) ([bool]))
+            Await ($s.TryChangeAutoRepeatModeAsync([Enum]::Parse($RepeatType, $next))) ([bool])
         }
     }
+    Emit @{ type = 'cmd'; cmd = $cmd; ok = [bool]$ok; app = "$($s.SourceAppUserModelId)" }
 }
 
 # [Console]::In.ReadLineAsync() est en réalité bloquant sous Windows PowerShell 5.1

@@ -197,6 +197,15 @@
         <input id="launchAtLogin" type="checkbox">
       </label>
     </section>
+
+    <section>
+      <h2>Diagnostic</h2>
+      <p class="help">En cas de souci : clique d'abord sur les boutons qui ne marchent pas, puis copie le diagnostic (ici, ou depuis le menu de l'icône Sillon après Windows + D pour dégager le bureau) et colle-le à la personne qui t'aide. Il ne contient ni mot de passe ni jeton.</p>
+      <div class="row buttons">
+        <button id="copyDiagnostic">Copier le diagnostic</button>
+      </div>
+      <div id="diagnosticState" class="state"></div>
+    </section>
   </main>
 
   <script src="settings.js"></script>

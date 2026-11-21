@@ -6,6 +6,7 @@
 
 const S = require('./state');
 const { SpotifyApi } = require('./spotify-api');
+const diagnostic = require('./diagnostic');
 
 const imageCache = new Map(); // URL Spotify -> data URL (la page n'accepte que data:)
 async function imageData(url) {
@@ -55,7 +56,12 @@ function startSpotify() {
     clientId: S.settings.get('spotifyClientId'),
   }));
   S.spotify = spotify;
-  const pushStatus = (st) => S.send([S.settingsWin], 'spotify-status', st);
+  let lastError = '';
+  const pushStatus = (st) => {
+    if (st.error && st.error !== lastError) diagnostic.note('spotify', st.error);
+    lastError = st.error || '';
+    S.send([S.settingsWin], 'spotify-status', st);
+  };
   spotify.on('status', pushStatus);
   spotify.on('connected', () => { pushStatus(spotify.status()); refreshQueue(); });
   setInterval(() => { if (S.lastMedia.active && S.lastMedia.status === 'Playing') refreshQueue(); }, 20000);

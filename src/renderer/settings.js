@@ -114,6 +114,19 @@
   bridge.onUpdateStatus(showUpdate);
   bridge.updateStatus().then(showUpdate);
 
+  // ----- Diagnostic -----
+  $('copyDiagnostic').onclick = async () => {
+    const el = $('diagnosticState');
+    try {
+      await bridge.copyDiagnostic();
+      el.textContent = 'Copié dans le presse-papiers : colle-le (Ctrl+V) dans ton message.';
+      el.className = 'state ok';
+    } catch (e) {
+      el.textContent = `Impossible de copier : ${e.message}`;
+      el.className = 'state error';
+    }
+  };
+
   bridge.onSettings(fill);
   bridge.getSettings().then(fill);
 })();

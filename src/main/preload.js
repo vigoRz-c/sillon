@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('bridge', {
   onLyrics: (cb) => ipcRenderer.on('lyrics', (_e, l) => cb(l)),
   reportControlsRect: (rect) => ipcRenderer.send('scene:controls-rect', rect),
   onQueue: (cb) => ipcRenderer.on('queue', (_e, q) => cb(q)),
+  copyDiagnostic: () => ipcRenderer.invoke('diagnostic:copy'),
   spotifyStatus: () => ipcRenderer.invoke('spotify:status'),
   onSpotifyStatus: (cb) => ipcRenderer.on('spotify-status', (_e, s) => cb(s)),
   spotifyLogin: () => ipcRenderer.send('spotify:login'),

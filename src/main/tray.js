@@ -104,6 +104,7 @@ function buildTray() {
           enabled: !!up.enabled, click: (i) => set({ autoUpdate: i.checked }) },
         { label: up.enabled ? `Rechercher les mises à jour (version ${up.current})` : `Version ${up.current || ''} (développement)`,
           enabled: !!up.enabled, click: A.checkUpdates },
+        { label: 'Copier le diagnostic', click: A.copyDiagnostic },
         { label: 'Remettre la position par défaut', click: () => { S.settings.set({ bounds: null }); A.applyMode(); } },
       ],
     },

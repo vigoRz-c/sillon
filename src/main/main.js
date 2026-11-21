@@ -12,7 +12,7 @@
 //   tray.js             menu de l'icône
 //   state.js            état partagé
 
-const { app, ipcMain, screen, globalShortcut, shell } = require('electron');
+const { app, ipcMain, screen, globalShortcut, shell, clipboard } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const S = require('./state');
@@ -28,6 +28,7 @@ const nowPlaying = require('./now-playing');
 const queue = require('./queue');
 const { buildTray } = require('./tray');
 const updater = require('./updater');
+const diagnostic = require('./diagnostic');
 
 if (!app.requestSingleInstanceLock()) app.quit();
 
@@ -62,6 +63,7 @@ Object.assign(S.actions, {
   startVeille: veille.startVeille,
   refreshQueue: queue.refreshQueue,
   lyricsOffsetFor: nowPlaying.lyricsOffsetFor, nudgeLyrics: nowPlaying.nudgeLyrics,
+  copyDiagnostic: () => copyDiagnostic(),
   updateStatus: updater.status, checkUpdates: updater.check, installUpdate: updater.installNow,
 });
 
@@ -121,7 +123,18 @@ function watchDisplays() {
 ipcMain.handle('settings:get', () => S.settings.get());
 ipcMain.on('settings:set', (_e, patch) => updateSettings(patch));
 ipcMain.on('settings:open', windows.openSettings);
-ipcMain.on('media:command', (_e, cmd) => S.media && S.media.command(cmd));
+ipcMain.on('media:command', (e, cmd) => {
+  const from = S.controlsWin && e.sender === S.controlsWin.webContents ? 'boutons de la scène'
+    : S.fullscreen && e.sender === S.fullscreen.webContents ? 'plein écran' : 'autre fenêtre';
+  diagnostic.note('clic', `${cmd} depuis ${from}`);
+  if (S.media) S.media.command(cmd);
+});
+function copyDiagnostic() {
+  const text = diagnostic.collect();
+  clipboard.writeText(text);
+  return text;
+}
+ipcMain.handle('diagnostic:copy', copyDiagnostic);
 
 ipcMain.on('edit:done', () => widgetWindow.setEditing(false));
 ipcMain.on('edit:start', () => {
