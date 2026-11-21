@@ -325,7 +325,7 @@
   let selected = 'disc';
   let snap = true;
   let sideLeft = false;
-  let history = [];
+  const history = [];
 
   function snapshot() { history.push(JSON.stringify({ draft, draftOpts })); if (history.length > 50) history.shift(); }
   function undo() {

@@ -1,0 +1,38 @@
+# Vérifications automatiques à chaque push et pull request :
+# syntaxe, règles de qualité (ESLint) et tests.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Vérifier (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 15
+    env:
+      # Les tests n'ont pas besoin du binaire d'Electron.
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Syntaxe
+        run: npm run check
+      - name: ESLint
+        run: npm run lint
+      - name: Tests
+        run: npm test

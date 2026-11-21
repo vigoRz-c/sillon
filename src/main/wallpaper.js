@@ -16,8 +16,8 @@ function win32() {
   if (process.platform !== 'win32') throw new Error('Mode fond d\'écran : Windows uniquement.');
   const koffi = require('koffi');
   const user32 = koffi.load('user32.dll');
-  const POINT = koffi.struct('POINT', { x: 'long', y: 'long' });
-  const EnumWindowsProc = koffi.proto('bool __stdcall EnumWindowsProc(intptr_t hwnd, intptr_t lParam)');
+  koffi.struct('POINT', { x: 'long', y: 'long' });
+  koffi.proto('bool __stdcall EnumWindowsProc(intptr_t hwnd, intptr_t lParam)');
   api = {
     FindWindowW: user32.func('intptr_t __stdcall FindWindowW(const char16_t *cls, const char16_t *name)'),
     FindWindowExW: user32.func('intptr_t __stdcall FindWindowExW(intptr_t parent, intptr_t after, const char16_t *cls, const char16_t *name)'),
@@ -191,7 +191,7 @@ function foregroundRect() {
   try {
     if (!rectApi) {
       const koffi = require('koffi');
-      const RECT = koffi.struct('SV_RECT', { left: 'long', top: 'long', right: 'long', bottom: 'long' });
+      koffi.struct('SV_RECT', { left: 'long', top: 'long', right: 'long', bottom: 'long' });
       const u = koffi.load('user32.dll');
       rectApi = {
         fg: u.func('intptr_t __stdcall GetForegroundWindow()'),
@@ -215,7 +215,7 @@ function placeAboveDesktop(win) {
     const w = win32();
     const me = hwndOf(win);
     const progman = w.FindWindowW('Progman', null);
-    let above = progman ? w.GetWindow(progman, 3) : 0; // GW_HWNDPREV : la fenêtre juste au-dessus
+    const above = progman ? w.GetWindow(progman, 3) : 0; // GW_HWNDPREV : la fenêtre juste au-dessus
     if (above === me) return; // déjà à la bonne place
     // « Insérer après X » = juste sous X, donc juste au-dessus de Progman.
     w.SetWindowPos(me, above || HWND_BOTTOM, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);

@@ -81,7 +81,7 @@ async function findCoverUrl({ title, artist, album }) {
   // On veut la pochette de l'album (studio) plutôt que celle du single :
   // Deezer indique le type de chaque sortie.
   const details = (await Promise.all(ids.slice(0, 6).map((id) => getAlbum(id).catch(() => null)))).filter(Boolean);
-  const isLive = (x) => /live/.test(norm(x.title));
+  const isLive = (x) => /\blive\b/.test(norm(x.title));
   const pick = details.find((x) => x.record_type === 'album' && !isLive(x))
     || details.find((x) => x.record_type === 'ep')
     || details[0];

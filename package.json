@@ -15,7 +15,9 @@
     "start": "electron .",
     "dev": "electron . --dev",
     "check": "node scripts/check.js",
+    "lint": "eslint .",
     "test": "node --test",
+    "verify": "npm run check && npm run lint && npm test",
     "dist": "electron-builder --win",
     "release": "node scripts/release.js"
   },
@@ -24,8 +26,11 @@
     "koffi": "^2.9.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "electron": "^45.4.1",
-    "electron-builder": "^26.18.0"
+    "electron-builder": "^26.18.0",
+    "eslint": "^9.39.5",
+    "globals": "^17.14.0"
   },
   "build": {
     "appId": "com.loicrestout.sillon",
@@ -64,5 +69,8 @@
     "portable": {
       "artifactName": "Sillon-${version}-portable.${ext}"
     }
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

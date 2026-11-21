@@ -1,0 +1,21 @@
+name: Idée
+description: Proposer une amélioration ou une nouvelle fonction
+labels: [idée]
+body:
+  - type: textarea
+    id: idee
+    attributes:
+      label: Ton idée
+      description: Ce que tu aimerais voir dans Sillon.
+    validations:
+      required: true
+  - type: textarea
+    id: pourquoi
+    attributes:
+      label: Pourquoi
+      description: Le problème que ça règle ou ce que ça apporterait.
+  - type: textarea
+    id: exemples
+    attributes:
+      label: Exemples
+      description: Captures, vidéos, liens vers une appli qui fait déjà quelque chose de proche…

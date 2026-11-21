@@ -1,8 +1,10 @@
 # Sillon
 
+[![CI](https://github.com/vigoRz-c/sillon/actions/workflows/ci.yml/badge.svg)](https://github.com/vigoRz-c/sillon/actions/workflows/ci.yml) [![Dernière version](https://img.shields.io/github/v/release/vigoRz-c/sillon?label=version)](https://github.com/vigoRz-c/sillon/releases/latest) [![Licence GPL-3.0](https://img.shields.io/badge/licence-GPL--3.0-blue)](LICENSE)
+
 Visualiseur musical qui vit **sur le fond d'écran Windows**, derrière toutes les fenêtres, et réagit à ce que tu écoutes sur Spotify.
 
-> **Projet en bêta.** Sillon évolue encore : des bugs sont possibles. Si tu en trouves un, ou si tu as une idée pour l'améliorer, contacte-moi sur Discord : **`_vigorz_`**.
+> **Projet en bêta.** Sillon évolue encore : des bugs sont possibles. Si tu en trouves un, ou si tu as une idée pour l'améliorer, contacte-moi sur Discord : **`_vigorz_`**. Voir aussi [CONTRIBUTING.md](CONTRIBUTING.md) et le [journal des versions](CHANGELOG.md).
 
 - Scène sur tout le bureau : pochette en disque avec rayons en soleil et halo (intensité, position et taille réglables), paroles synchronisées en karaoké avec la ligne précédente en fantôme, panneau « en lecture » avec boutons (aléatoire, répéter, masquer…) et file d'attente « À suivre »
 - Écran de veille (**Ctrl + Alt + L** ou après inactivité) qui verrouille la session en sortant
@@ -147,7 +149,8 @@ Sillon n'a pas de serveur et ne collecte rien. Ce qui sort de ton PC :
 |---|---|---|
 | [Deezer](https://developers.deezer.com/api) (API publique) | artiste, album, titre | trouver la pochette de l'album |
 | [LRCLIB](https://lrclib.net) | artiste, titre, album, durée | trouver les paroles synchronisées |
-| [Spotify](https://developer.spotify.com/documentation/web-api) (seulement si tu connectes ton compte) | jeton d'accès | lire la file d'attente |
+| [Spotify](https://developer.spotify.com/documentation/web-api) (seulement si tu connectes ton compte) | jeton d'accès | lire la file d'attente, régler aléatoire et répétition |
+| [GitHub](https://github.com/vigoRz-c/sillon/releases) (version installée, mises à jour activées) | rien de personnel | savoir s'il existe une nouvelle version |
 
 Sillon s'appelait auparavant Spoti-View : au premier lancement, il reprend les réglages et le cache de `%APPDATA%/Spoti-View` (il faut seulement reconnecter le compte Spotify).
 

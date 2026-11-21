@@ -36,7 +36,7 @@ if (visibility !== 'public') {
 }
 
 // ---------- Tests ----------
-run('npm test --silent');
+run('npm run verify --silent');
 
 // ---------- Version, commit, tag, push ----------
 run(`npm version ${bump} -m "Version %s"`);
