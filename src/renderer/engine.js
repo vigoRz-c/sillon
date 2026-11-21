@@ -347,28 +347,32 @@
       discState.last = t;
       if (opts.spin) discState.rot += dt * 0.00012; // ~1 tour en 50 s
 
+      // Intensité (réglage) : taille du halo, longueur et densité des rayons.
+      const k = Math.max(0.4, Math.min(2.2, opts.intensity ?? 1.3));
+
       // Halo : respire avec le niveau sonore.
-      const halo = ctx.createRadialGradient(cx, cy, r * 0.6, cx, cy, r * (2.6 + a.level * 0.8));
-      halo.addColorStop(0, withAlpha(opts.halo || pal[0], 0.55 + a.bass * 0.25));
-      halo.addColorStop(0.45, withAlpha(opts.halo || pal[0], 0.18));
+      const haloR = r * (2.4 + 1.1 * k + a.level * 0.9 * k);
+      const halo = ctx.createRadialGradient(cx, cy, r * 0.6, cx, cy, haloR);
+      halo.addColorStop(0, withAlpha(opts.halo || pal[0], Math.min(0.9, (0.5 + a.bass * 0.3) * Math.sqrt(k))));
+      halo.addColorStop(0.4, withAlpha(opts.halo || pal[0], Math.min(0.5, 0.16 * k)));
       halo.addColorStop(1, withAlpha(opts.halo || pal[0], 0));
       ctx.fillStyle = halo;
-      ctx.beginPath(); ctx.arc(cx, cy, r * 3.6, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx, cy, haloR, 0, Math.PI * 2); ctx.fill();
 
-      // Rayons : 180 traits fins, symétriques, basses en haut et en bas.
-      const n = 180;
+      // Rayons : traits fins et serrés, symétriques, basses en haut et en bas.
+      const n = Math.min(320, Math.round(140 + 90 * k));
       const bands = a.bands(64);
-      const inner = r + 12, len = r * 1.05;
+      const inner = r + 12, len = r * 1.15 * k;
       ctx.lineCap = 'round';
-      ctx.lineWidth = Math.max(1.2, r * 0.016);
-      ctx.shadowBlur = opts.glow === false ? 0 : 10;
+      ctx.lineWidth = Math.max(1.1, r * 0.014);
+      ctx.shadowBlur = opts.glow === false ? 0 : 8 + 6 * k;
       for (let i = 0; i < n; i++) {
         const half = i < n / 2 ? i : n - 1 - i;
         const v = bands[Math.min(63, Math.floor((half / (n / 2)) * 64))];
         const wob = 0.5 + 0.5 * Math.sin(i * 1.7 + t * 0.004); // un peu de vie au repos
-        const l = 3 + v * len + wob * 3;
+        const l = 3 + v * len + wob * 3 * k;
         const ang = (i / n) * Math.PI * 2 - Math.PI / 2;
-        const c = pal[i % 2 ? 2 : 1];
+        const c = pal[i % 2 ? 0 : 1];
         ctx.strokeStyle = c; ctx.shadowColor = c;
         ctx.globalAlpha = 0.55 + v * 0.45;
         ctx.beginPath();
@@ -450,6 +454,8 @@
     }
     loop(now) {
       requestAnimationFrame(this.loop);
+      // Suspendu (jeu en plein écran, scène endormie) : rien à calculer.
+      if (this.paused) return;
       if (now - this.last < 1000 / this.fps - 2) return;
       this.last = now;
       this.engine.tick();

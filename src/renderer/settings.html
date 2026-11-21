@@ -44,6 +44,24 @@
       <label class="row">Afficher le morceau en cours
         <input id="showNowPlaying" type="checkbox">
       </label>
+      <label class="row">Intensité du disque <output id="discIntensityOut"></output>
+        <input id="discIntensity" type="range" min="0.5" max="2" step="0.1">
+      </label>
+      <label class="row">Taille du disque <output id="discSizeOut"></output>
+        <input id="discSize" type="range" min="0.6" max="1.6" step="0.05">
+      </label>
+      <label class="row">Position horizontale <output id="discXOut"></output>
+        <input id="discX" type="range" min="0.2" max="0.8" step="0.01">
+      </label>
+      <label class="row">Position verticale <output id="discYOut"></output>
+        <input id="discY" type="range" min="0.25" max="0.75" step="0.01">
+      </label>
+      <label class="row">Écran de la scène
+        <select id="sceneScreen">
+          <option value="primary">Écran principal</option>
+          <option value="secondary">Autre écran</option>
+        </select>
+      </label>
       <label class="row">Afficher les paroles
         <input id="showLyrics" type="checkbox">
       </label>
@@ -78,6 +96,25 @@
         <button id="edit">Déplacer / redimensionner…</button>
         <button id="resetBounds">Position par défaut</button>
       </div>
+    </section>
+
+    <section>
+      <h2>Comportement</h2>
+      <label class="row">Mode jeu : s'arrêter pendant un jeu ou une vidéo en plein écran
+        <input id="gameMode" type="checkbox">
+      </label>
+      <label class="row">Atténuer quand la musique est en pause
+        <input id="dimOnPause" type="checkbox">
+      </label>
+      <label class="row">Masquer la scène sans musique après
+        <select id="sleepAfter">
+          <option value="0">Jamais</option>
+          <option value="2">2 minutes</option>
+          <option value="5">5 minutes</option>
+          <option value="10">10 minutes</option>
+          <option value="30">30 minutes</option>
+        </select>
+      </label>
     </section>
 
     <section>

@@ -11,14 +11,15 @@
     "start": "electron .",
     "dev": "electron . --dev",
     "check": "node scripts/check.js",
+    "test": "node --test",
     "dist": "electron-builder --win"
   },
   "dependencies": {
     "koffi": "^2.9.0"
   },
   "devDependencies": {
-    "electron": "^33.2.0",
-    "electron-builder": "^25.1.8"
+    "electron": "^45.4.1",
+    "electron-builder": "^26.18.0"
   },
   "build": {
     "appId": "com.loicrestout.spotiview",

@@ -1,689 +1,175 @@
-const {
-  app, BrowserWindow, Tray, Menu, ipcMain, screen, globalShortcut,
-  session, desktopCapturer, nativeImage, powerMonitor, shell,
-} = require('electron');
+// Spoti-View : processus principal.
+//
+// Ce fichier assemble les modules, gère les réglages, la communication avec
+// les pages (IPC) et le démarrage. Le reste est rangé par thème :
+//   widget-window.js    scène / bandeau sur le fond d'écran
+//   controls-window.js  boutons du panneau de la scène
+//   windows.js          plein écran et paramètres
+//   veille.js           écran de veille
+//   now-playing.js      morceau en cours, pochette, paroles
+//   queue.js            file d'attente (API Spotify)
+//   capture.js          son du système, couleurs du fond d'écran
+//   tray.js             menu de l'icône
+//   state.js            état partagé
+
+const { app, ipcMain, screen, globalShortcut, shell } = require('electron');
 const path = require('path');
+const S = require('./state');
 const { Settings } = require('./settings');
-const { WindowsMediaSource } = require('./media');
-const { lookupCover } = require('./cover-lookup');
-const { lookupLyrics } = require('./lyrics');
-const { SpotifyApi } = require('./spotify-api');
-const { WallpaperAttacher, sendToBottom, lockWorkstation } = require('./wallpaper');
+const diskCache = require('./disk-cache');
+const { fullscreenAppRunning, foregroundRect } = require('./wallpaper');
+const widgetWindow = require('./widget-window');
+const { updateControls } = require('./controls-window');
+const capture = require('./capture');
+const windows = require('./windows');
+const veille = require('./veille');
+const nowPlaying = require('./now-playing');
+const queue = require('./queue');
+const { buildTray } = require('./tray');
 
 if (!app.requestSingleInstanceLock()) app.quit();
-
-const RENDERER = path.join(__dirname, '..', 'renderer');
-const ASSETS = path.join(__dirname, '..', '..', 'assets');
-
-let settings;
-let media;
-let tray;
-let widget;
-let attacher;
-let fullscreen = null;
-let settingsWin = null;
-let controlsWin = null;
-let veilleWins = [];
-let controlsRect = null;
-let editing = false;
-let lastMedia = { active: false };
-let lastLyrics = null;
-let spotify = null;
-let lastQueue = { items: [], connected: false };
-
-const STYLES = [
-  ['bars', 'Barres'], ['mirror', 'Miroir'], ['ring', 'Anneau'],
-  ['wave', 'Onde'], ['aurora', 'Aurore'],
-];
-const THEMES = [
-  ['wallpaper', 'Couleurs du fond d\'écran'],
-  ['album', 'Couleurs de la pochette'], ['spotify', 'Spotify'], ['neon', 'Néon'],
-  ['sunset', 'Coucher de soleil'], ['ocean', 'Océan'], ['mono', 'Blanc'],
-];
-const LAYOUTS = [
-  ['scene', 'Scène : disque, paroles et panneau sur tout le bureau'],
-  ['strip', 'Bandeau : barres et morceau en bas de l\'écran'],
-];
-const MODES = [
-  ['wallpaper', 'Sur le fond d\'écran (derrière les fenêtres)'],
-  ['top', 'Toujours au premier plan'],
-  ['normal', 'Fenêtre normale'],
-];
-
-// ---------- Fenêtre widget ----------
-
-function defaultBounds() {
-  const { workArea } = screen.getPrimaryDisplay();
-  const width = Math.round(Math.min(960, workArea.width * 0.6));
-  const height = 300;
-  return {
-    x: Math.round(workArea.x + (workArea.width - width) / 2),
-    y: Math.round(workArea.y + workArea.height - height - 40),
-    width, height,
-  };
-}
-
-// Le widget suit l'écran principal choisi dans Windows : la position enregistrée
-// est relative à la zone de travail de cet écran (rx, ry), pas au bureau entier.
-// Changer d'écran principal le fait donc suivre, à la même place.
-// La scène occupe toute la zone de travail de l'écran principal. Elle n'a de
-// sens que sur le fond d'écran : en mode "premier plan" ou "fenêtre", elle
-// couvrirait tout, on revient alors au bandeau.
-function isScene() {
-  return settings.get('layout') !== 'strip' && settings.get('mode') === 'wallpaper';
-}
-
-function widgetBounds() {
-  if (isScene()) {
-    const { workArea: wa } = screen.getPrimaryDisplay();
-    return { x: wa.x, y: wa.y, width: wa.width, height: wa.height };
-  }
-  const b = settings.get('bounds');
-  if (!b) return defaultBounds();
-  const { workArea: wa } = screen.getPrimaryDisplay();
-  if (!('rx' in b)) return defaultBounds(); // ancien format absolu : on repart du défaut
-  const width = Math.min(b.width, wa.width);
-  const height = Math.min(b.height, wa.height);
-  return {
-    x: Math.round(wa.x + Math.max(0, Math.min(b.rx, wa.width - width))),
-    y: Math.round(wa.y + Math.max(0, Math.min(b.ry, wa.height - height))),
-    width, height,
-  };
-}
-
-function saveWidgetBounds(b) {
-  const { workArea: wa } = screen.getPrimaryDisplay();
-  settings.set({ bounds: { rx: b.x - wa.x, ry: b.y - wa.y, width: b.width, height: b.height } });
-}
-
-function createWidget() {
-  widget = new BrowserWindow({
-    ...widgetBounds(),
-    frame: false,
-    transparent: true,
-    backgroundColor: '#00000000',
-    hasShadow: false,
-    skipTaskbar: true,
-    // Les fenêtres transparentes ne se redimensionnent pas bien sous Windows :
-    // le coin de redimensionnement est géré dans la page (mode placement).
-    resizable: false,
-    show: false,
-    title: 'Spoti-View',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      backgroundThrottling: false,
-    },
-  });
-  widget.loadFile(path.join(RENDERER, 'widget.html'));
-  attacher = new WallpaperAttacher(widget);
-
-  widget.once('ready-to-show', () => {
-    applyMode();
-    startAudio(widget);
-    startWallpaperSampling();
-  });
-  widget.webContents.on('did-finish-load', () => {
-    widget.webContents.send('settings', settings.get());
-    widget.webContents.send('media', lastMedia);
-    if (lastLyrics) widget.webContents.send('lyrics', lastLyrics);
-    widget.webContents.send('queue', lastQueue);
-    if (wallpaperSample) widget.webContents.send('wallpaper', wallpaperSample);
-  });
-}
-
-function applyMode() {
-  if (!widget || widget.isDestroyed()) return;
-  const mode = settings.get('mode');
-  const bounds = widgetBounds();
-  attacher.detach();
-  widget.setAlwaysOnTop(false);
-
-  if (editing) {
-    widget.setIgnoreMouseEvents(false);
-    widget.setFocusable(true);
-    widget.setAlwaysOnTop(true);
-    widget.setBounds(bounds);
-    widget.show();
-    widget.focus();
-  } else if (mode === 'wallpaper') {
-    widget.setIgnoreMouseEvents(true);
-    widget.setFocusable(false);
-    widget.setBounds(bounds);
-    try {
-      const layout = attacher.attach(bounds);
-      console.log('Accroché au fond d\'écran, disposition :', layout);
-    } catch (e) {
-      // Pas d'accroche possible : on reste une fenêtre au fond de la pile.
-      console.error(e.message);
-      widget.showInactive();
-    }
-  } else {
-    widget.setIgnoreMouseEvents(mode === 'top', { forward: true });
-    widget.setFocusable(mode === 'normal');
-    widget.setAlwaysOnTop(mode === 'top', 'floating');
-    widget.setBounds(bounds);
-    widget.showInactive();
-  }
-  widget.webContents.send('editing', editing);
-  updateControls();
-}
-
-// ---------- Boutons du panneau (scène) ----------
-// La scène vit sous les icônes du bureau : elle ne reçoit aucun clic. Les
-// boutons du panneau sont donc une petite fenêtre à part, posée exactement
-// au-dessus d'eux et maintenue tout en bas de la pile des fenêtres (au-dessus
-// du bureau, sous toutes les applications). Elle ne prend jamais le focus.
-
-function updateControls() {
-  const wanted = isScene() && !editing && settings.get('showPanel') !== false && controlsRect;
-  if (!wanted) {
-    if (controlsWin && !controlsWin.isDestroyed()) controlsWin.close();
-    return;
-  }
-  const wb = widgetBounds();
-  const bounds = {
-    x: Math.round(wb.x + controlsRect.x), y: Math.round(wb.y + controlsRect.y),
-    width: Math.round(controlsRect.width), height: Math.round(controlsRect.height),
-  };
-  if (!controlsWin || controlsWin.isDestroyed()) {
-    controlsWin = new BrowserWindow({
-      ...bounds,
-      frame: false, transparent: true, backgroundColor: '#00000000', hasShadow: false,
-      // Non activable : un clic sur un bouton ne la fait pas passer devant les
-      // autres fenêtres et ne vole pas le focus.
-      resizable: false, minimizable: false, maximizable: false, skipTaskbar: true,
-      focusable: false, show: false,
-      title: 'Spoti-View · boutons',
-      webPreferences: { preload: path.join(__dirname, 'preload.js'), backgroundThrottling: false },
-    });
-    controlsWin.loadFile(path.join(RENDERER, 'controls.html'));
-    controlsWin.webContents.on('did-finish-load', () => {
-      controlsWin.webContents.send('media', lastMedia);
-      controlsWin.showInactive();
-      sendToBottom(controlsWin);
-    });
-    controlsWin.on('closed', () => { controlsWin = null; });
-  } else {
-    controlsWin.setBounds(bounds);
-    sendToBottom(controlsWin);
-  }
-}
-
-function setEditing(on) {
-  if (!on && editing && widget && !widget.isDestroyed()) {
-    saveWidgetBounds(widget.getBounds());
-  }
-  editing = on;
-  applyMode();
-  buildTray();
-  if (!on) setTimeout(sampleWallpaper, 800);
-}
-
-// ---------- Audio : capture de la sortie du PC (loopback) ----------
-
-function setupLoopback() {
-  // getDisplayMedia() dans la page reçoit l'écran (ignoré) + le son du système.
-  // Jamais le micro.
-  session.defaultSession.setDisplayMediaRequestHandler((_req, callback) => {
-    desktopCapturer.getSources({ types: ['screen'] })
-      .then((sources) => callback({ video: sources[0], audio: 'loopback' }))
-      .catch(() => callback({}));
-  });
-}
-
-function startAudio(win) {
-  // Le "true" simule un geste utilisateur, exigé par getDisplayMedia.
-  win.webContents.executeJavaScript('window.spotiView && window.spotiView.startAudio()', true)
-    .catch((e) => console.error('Audio :', e.message));
-}
-
-// ---------- Couleurs du fond d'écran ----------
-// On prend une petite capture de l'écran qui porte le widget, recadrée sur la
-// zone du widget, pour que la page en tire sa palette. Rafraîchie régulièrement
-// (fond d'écran animé, diaporama). Une fenêtre ouverte par-dessus peut fausser
-// une mesure : la suivante corrige.
-
-let wallpaperSample = null;
-let wallpaperTimer = null;
-
-async function sampleWallpaper() {
-  if (!widget || widget.isDestroyed()) return;
-  try {
-    const bounds = widget.getBounds();
-    const display = screen.getDisplayMatching(bounds);
-    const W = 480, H = Math.round(480 * display.bounds.height / display.bounds.width);
-    const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: W, height: H } });
-    const src = sources.find((s) => String(s.display_id) === String(display.id)) || sources[0];
-    if (!src || src.thumbnail.isEmpty()) return;
-    // Zone du widget, élargie pour capter l'ambiance autour.
-    const sx = W / display.bounds.width, sy = H / display.bounds.height;
-    const pad = 80;
-    const x = Math.max(0, Math.round((bounds.x - display.bounds.x - pad) * sx));
-    const y = Math.max(0, Math.round((bounds.y - display.bounds.y - pad) * sy));
-    const crop = {
-      x, y,
-      width: Math.min(W - x, Math.round((bounds.width + pad * 2) * sx)),
-      height: Math.min(H - y, Math.round((bounds.height + pad * 2) * sy)),
-    };
-    const img = crop.width > 4 && crop.height > 4 ? src.thumbnail.crop(crop) : src.thumbnail;
-    wallpaperSample = img.toDataURL();
-    for (const w of [widget, fullscreen]) {
-      if (w && !w.isDestroyed()) w.webContents.send('wallpaper', wallpaperSample);
-    }
-  } catch (e) {
-    console.error('Couleurs du fond d\'écran :', e.message);
-  }
-}
-
-function startWallpaperSampling() {
-  clearInterval(wallpaperTimer);
-  setTimeout(sampleWallpaper, 1500);
-  wallpaperTimer = setInterval(sampleWallpaper, 60000);
-}
-
-// ---------- Plein écran ----------
-
-function toggleFullscreen() {
-  if (fullscreen && !fullscreen.isDestroyed()) { fullscreen.close(); return; }
-  const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
-  fullscreen = new BrowserWindow({
-    ...display.bounds,
-    fullscreen: true,
-    frame: false,
-    backgroundColor: '#000000',
-    skipTaskbar: false,
-    title: 'Spoti-View',
-    icon: path.join(ASSETS, 'icon.png'),
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      backgroundThrottling: false,
-    },
-  });
-  fullscreen.loadFile(path.join(RENDERER, 'fullscreen.html'));
-  fullscreen.webContents.on('did-finish-load', () => {
-    fullscreen.webContents.send('settings', settings.get());
-    fullscreen.webContents.send('media', lastMedia);
-    if (lastLyrics) fullscreen.webContents.send('lyrics', lastLyrics);
-    if (wallpaperSample) fullscreen.webContents.send('wallpaper', wallpaperSample);
-    startAudio(fullscreen);
-  });
-  fullscreen.on('closed', () => { fullscreen = null; });
-}
-
-// ---------- Écran de veille ----------
-// Windows + L ouvre un bureau sécurisé où aucune application ne peut dessiner.
-// À la place : après un temps d'inactivité (ou avec Ctrl+Alt+L), la scène
-// s'affiche en plein écran par-dessus tout ; au premier mouvement ou à la
-// première touche, elle se ferme et la session est verrouillée.
-
-const veilleActive = () => veilleWins.some((w) => !w.isDestroyed());
-
-function startVeille() {
-  if (veilleActive()) return;
-  if (fullscreen && !fullscreen.isDestroyed()) fullscreen.close();
-  if (settingsWin && !settingsWin.isDestroyed()) settingsWin.close();
-  const primary = screen.getPrimaryDisplay();
-  for (const d of screen.getAllDisplays()) {
-    const main = d.id === primary.id;
-    const win = new BrowserWindow({
-      ...d.bounds, frame: false, fullscreen: true, backgroundColor: '#000000',
-      alwaysOnTop: true, skipTaskbar: true, show: false, title: 'Spoti-View · veille',
-      webPreferences: { preload: path.join(__dirname, 'preload.js'), backgroundThrottling: false },
-    });
-    win.setAlwaysOnTop(true, 'screen-saver');
-    if (main) {
-      win.loadFile(path.join(RENDERER, 'fullscreen.html'), { query: { veille: '1' } });
-      win.webContents.on('did-finish-load', () => {
-        win.webContents.send('settings', settings.get());
-        win.webContents.send('media', lastMedia);
-        if (lastLyrics) win.webContents.send('lyrics', lastLyrics);
-        startAudio(win);
-      });
-      fullscreen = win; // reçoit les mises à jour du morceau, des paroles et des réglages
-    } else {
-      // Les autres écrans : noirs, et ils réveillent aussi.
-      win.loadURL('data:text/html,' + encodeURIComponent('<body style="margin:0;background:#000;cursor:none"><script>setTimeout(()=>{for(const e of ["mousedown","keydown","wheel"])addEventListener(e,()=>bridge.veilleExit())},1500)</script></body>'));
-    }
-    win.once('ready-to-show', () => { if (main) { win.show(); win.focus(); } else win.showInactive(); });
-    win.on('closed', () => { veilleWins = veilleWins.filter((w) => w !== win); });
-    veilleWins.push(win);
-  }
-}
-
-function stopVeille() {
-  if (!veilleActive()) return;
-  const wins = veilleWins;
-  veilleWins = [];
-  for (const w of wins) if (!w.isDestroyed()) w.destroy();
-  fullscreen = null;
-  if (settings.get('veilleLock') !== false) lockWorkstation();
-}
-
-function watchIdle() {
-  setInterval(() => {
-    const delay = Number(settings.get('veilleDelay')) || 0;
-    if (!delay || veilleActive() || editing) return;
-    if (fullscreen && !fullscreen.isDestroyed()) return; // déjà en plein écran Spoti-View
-    if (settings.get('veilleOnlyPlaying') !== false && !(lastMedia.active && lastMedia.status === 'Playing')) return;
-    if (powerMonitor.getSystemIdleTime() >= delay * 60) startVeille();
-  }, 5000);
-  // Session verrouillée ou mise en veille par ailleurs : on range la scène sans reverrouiller.
-  const quiet = () => {
-    for (const w of veilleWins) if (!w.isDestroyed()) w.destroy();
-    veilleWins = [];
-    fullscreen = null;
-  };
-  powerMonitor.on('lock-screen', quiet);
-  powerMonitor.on('suspend', quiet);
-}
-
-// ---------- File d'attente (API Spotify, facultative) ----------
-// Windows ne donne que le morceau en cours : les suivants viennent de l'API
-// Spotify, une fois le compte connecté dans les paramètres. Interrogée au
-// changement de morceau et toutes les 20 s pendant la lecture.
-
-const imageCache = new Map(); // URL Spotify -> data URL (la page n'accepte que data:)
-async function imageData(url) {
-  if (!url) return null;
-  if (imageCache.has(url)) return imageCache.get(url);
-  try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
-    if (!res.ok) return null;
-    const data = `data:${res.headers.get('content-type') || 'image/jpeg'};base64,${Buffer.from(await res.arrayBuffer()).toString('base64')}`;
-    if (imageCache.size > 100) imageCache.delete(imageCache.keys().next().value);
-    imageCache.set(url, data);
-    return data;
-  } catch { return null; }
-}
-
-function sendQueue(q) {
-  lastQueue = q;
-  for (const w of [widget]) {
-    if (w && !w.isDestroyed()) w.webContents.send('queue', q);
-  }
-}
-
-let queueBusy = false;
-let queuePauseUntil = 0;
-async function refreshQueue() {
-  if (!spotify || queueBusy || Date.now() < queuePauseUntil) return;
-  if (!spotify.status().connected) {
-    if (lastQueue.connected || lastQueue.items.length) sendQueue({ items: [], connected: false });
-    return;
-  }
-  queueBusy = true;
-  try {
-    const items = await spotify.queue(4);
-    const withImages = await Promise.all(items.map(async (it) => ({ ...it, image: await imageData(it.image) })));
-    sendQueue({ items: withImages, connected: true });
-    if (spotify.status().error) spotify.setError('');
-  } catch (e) {
-    if (e.retryAfter) queuePauseUntil = Date.now() + e.retryAfter * 1000;
-    spotify.setError(e.message);
-  } finally {
-    queueBusy = false;
-  }
-}
-
-function startSpotify() {
-  spotify = new SpotifyApi(() => settings.get('spotifyClientId'));
-  const pushStatus = (st) => { if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send('spotify-status', st); };
-  spotify.on('status', pushStatus);
-  spotify.on('connected', () => { pushStatus(spotify.status()); refreshQueue(); });
-  setInterval(() => { if (lastMedia.active && lastMedia.status === 'Playing') refreshQueue(); }, 20000);
-  refreshQueue();
-}
-
-// ---------- Fenêtre de paramètres ----------
-
-function openSettings() {
-  if (settingsWin && !settingsWin.isDestroyed()) { settingsWin.show(); settingsWin.focus(); return; }
-  // Sur l'écran du plein écran s'il est ouvert, sinon sur l'écran principal.
-  const parent = fullscreen && !fullscreen.isDestroyed() ? fullscreen : null;
-  const display = parent ? screen.getDisplayMatching(parent.getBounds()) : screen.getPrimaryDisplay();
-  const width = 420, height = 700;
-  const { workArea: wa } = display;
-  settingsWin = new BrowserWindow({
-    width, height,
-    x: Math.round(wa.x + wa.width - width - 24),
-    y: Math.round(wa.y + 80),
-    parent: parent || undefined,
-    frame: false,
-    transparent: true,
-    backgroundColor: '#00000000',
-    resizable: false,
-    alwaysOnTop: !!parent,
-    skipTaskbar: !!parent,
-    title: 'Paramètres · Spoti-View',
-    icon: path.join(ASSETS, 'icon.png'),
-    webPreferences: { preload: path.join(__dirname, 'preload.js') },
-  });
-  settingsWin.loadFile(path.join(RENDERER, 'settings.html'));
-  settingsWin.on('closed', () => {
-    settingsWin = null;
-    // La fenêtre de paramètres a pu remonter les boutons : on les renvoie au fond.
-    if (controlsWin && !controlsWin.isDestroyed()) sendToBottom(controlsWin);
-  });
-}
-
-// ---------- Morceau en cours ----------
-
-function startMedia() {
-  media = new WindowsMediaSource({ prefer: settings.get('preferApp') });
-  const broadcast = (m) => {
-    lastMedia = m;
-    for (const w of [widget, fullscreen, controlsWin]) {
-      if (w && !w.isDestroyed()) w.webContents.send('media', m);
-    }
-  };
-  const sendLyrics = (l) => {
-    lastLyrics = l;
-    for (const w of [widget, fullscreen]) {
-      if (w && !w.isDestroyed()) w.webContents.send('lyrics', l);
-    }
-  };
-  // L'image donnée par Windows est remplacée par la pochette officielle (Deezer)
-  // dès qu'elle est trouvée ; sinon on garde celle de Windows.
-  let trackKey = '';
-  let officialCover = null;
-  media.on('media', (m) => {
-    const key = m.active ? `${m.app}|${m.title}|${m.artist}|${m.album}` : '';
-    if (key !== trackKey) {
-      trackKey = key;
-      officialCover = null;
-      // File d'attente : Spotify met un instant à la décaler après un changement.
-      if (key) setTimeout(refreshQueue, 1500);
-      // Paroles : vides tant qu'on cherche, puis celles de LRCLIB si elles existent.
-      sendLyrics({ title: m.title || '', artist: m.artist || '', lines: [], pending: !!key });
-      if (key) {
-        lookupLyrics(m).then((l) => {
-          if (trackKey !== key) return;
-          sendLyrics({ title: m.title, artist: m.artist, lines: l ? l.lines : [], instrumental: !!(l && l.instrumental) });
-        });
-        lookupCover(m).then((cover) => {
-          if (!cover || trackKey !== key) return;
-          officialCover = cover;
-          broadcast({ ...lastMedia, cover });
-        });
-      }
-    }
-    broadcast(officialCover ? { ...m, cover: officialCover } : m);
-    buildTray();
-  });
-  media.on('error', (e) => console.error('Média :', e.message));
-  media.start();
-}
 
 // ---------- Réglages ----------
 
 function updateSettings(patch) {
-  const all = settings.set(patch);
-  for (const w of [widget, fullscreen, settingsWin]) {
-    if (w && !w.isDestroyed()) w.webContents.send('settings', all);
-  }
-  if ('mode' in patch || 'layout' in patch) {
-    applyMode();
-    setTimeout(sampleWallpaper, 1200);
+  const all = S.settings.set(patch);
+  S.send([S.widget, S.fullscreen, S.settingsWin], 'settings', all);
+  if ('mode' in patch || 'layout' in patch || 'sceneHidden' in patch || 'sceneScreen' in patch) {
+    widgetWindow.applyMode();
+    setTimeout(capture.sampleWallpaper, 1200);
   }
   if ('showPanel' in patch) updateControls();
-  if ('preferApp' in patch && media) media.setPreferredApp(patch.preferApp);
+  if ('preferApp' in patch && S.media) S.media.setPreferredApp(patch.preferApp);
   if ('launchAtLogin' in patch) app.setLoginItemSettings({ openAtLogin: !!patch.launchAtLogin });
   buildTray();
 }
 
-// ---------- Barre des tâches (zone de notification) ----------
+// Fonctions partagées entre modules (voir state.js).
+Object.assign(S.actions, {
+  updateSettings, buildTray, updateControls,
+  isScene: widgetWindow.isScene, widgetBounds: widgetWindow.widgetBounds,
+  applyMode: widgetWindow.applyMode, setEditing: widgetWindow.setEditing,
+  startAudio: capture.startAudio, sampleWallpaper: capture.sampleWallpaper,
+  startWallpaperSampling: capture.startWallpaperSampling,
+  toggleFullscreen: windows.toggleFullscreen, openSettings: windows.openSettings,
+  startVeille: veille.startVeille,
+  refreshQueue: queue.refreshQueue,
+  lyricsOffsetFor: nowPlaying.lyricsOffsetFor, nudgeLyrics: nowPlaying.nudgeLyrics,
+});
 
-function radio(list, key) {
-  return list.map(([value, label]) => ({
-    label, type: 'radio', checked: settings.get(key) === value,
-    click: () => updateSettings({ [key]: value }),
-  }));
+// ---------- Mode jeu ----------
+// Un jeu, une vidéo ou une présentation en plein écran cache le bureau : la
+// scène s'arrête de dessiner (et d'analyser le son) jusqu'à leur fermeture.
+
+// Windows dit seulement « une appli est en plein écran », sans dire où : on
+// vérifie que la fenêtre au premier plan couvre bien l'écran de la scène
+// (sinon un plein écran sur l'autre écran arrêterait la scène à tort).
+function coversSceneScreen() {
+  const r = foregroundRect();
+  if (!r || !S.alive(S.widget)) return false;
+  const fg = screen.screenToDipRect(null, r);
+  const d = screen.getDisplayMatching(widgetWindow.widgetBounds()).bounds;
+  return fg.x <= d.x + 2 && fg.y <= d.y + 2
+    && fg.x + fg.width >= d.x + d.width - 2 && fg.y + fg.height >= d.y + d.height - 2;
 }
 
-function buildTray() {
-  if (!tray) {
-    tray = new Tray(nativeImage.createFromPath(path.join(ASSETS, 'tray.png')));
-    tray.setToolTip('Spoti-View');
-    tray.on('click', () => tray.popUpContextMenu());
-  }
-  const now = lastMedia.active && lastMedia.title
-    ? `${lastMedia.title} — ${lastMedia.artist || ''}`.slice(0, 60)
-    : 'Rien en lecture';
-  const s = settings.get();
-  tray.setContextMenu(Menu.buildFromTemplate([
-    { label: now, enabled: false },
-    { label: 'Lecture / pause', click: () => media && media.command('playpause') },
-    { label: 'Suivant', click: () => media && media.command('next') },
-    { label: 'Précédent', click: () => media && media.command('previous') },
-    { type: 'separator' },
-    { label: 'Style', submenu: radio(STYLES, 'style') },
-    { label: 'Couleurs', submenu: radio(THEMES, 'theme') },
-    { label: 'Disposition', submenu: radio(LAYOUTS, 'layout') },
-    { label: 'Position', submenu: radio(MODES, 'mode') },
-    {
-      label: 'Réglages', submenu: [
-        { label: 'Afficher le morceau en cours', type: 'checkbox', checked: s.showNowPlaying,
-          click: (i) => updateSettings({ showNowPlaying: i.checked }) },
-        { label: 'Afficher les paroles', type: 'checkbox', checked: s.showLyrics !== false,
-          click: (i) => updateSettings({ showLyrics: i.checked }) },
-        { label: 'Afficher le panneau (scène)', type: 'checkbox', checked: s.showPanel !== false,
-          click: (i) => updateSettings({ showPanel: i.checked }) },
-        { label: 'Sensibilité', submenu: [0.6, 1, 1.5, 2.2].map((v) => ({
-          label: `× ${v}`, type: 'radio', checked: s.sensitivity === v,
-          click: () => updateSettings({ sensitivity: v }) })) },
-        { label: 'Opacité', submenu: [0.4, 0.6, 0.8, 1].map((v) => ({
-          label: `${v * 100} %`, type: 'radio', checked: s.opacity === v,
-          click: () => updateSettings({ opacity: v }) })) },
-        { label: 'Images par seconde', submenu: [30, 60].map((v) => ({
-          label: `${v}`, type: 'radio', checked: s.fps === v,
-          click: () => updateSettings({ fps: v }) })) },
-        { label: 'Suivre en priorité', submenu: [
-          { label: 'Spotify', type: 'radio', checked: s.preferApp === 'spotify',
-            click: () => updateSettings({ preferApp: 'spotify' }) },
-          { label: 'Le lecteur actif (YouTube, VLC…)', type: 'radio', checked: !s.preferApp,
-            click: () => updateSettings({ preferApp: '' }) },
-        ] },
-        { label: 'Écran de veille', submenu: [
-          ...[0, 1, 2, 5, 10, 15, 30].map((v) => ({
-            label: v ? `Après ${v} min d'inactivité` : 'Jamais', type: 'radio',
-            checked: Number(s.veilleDelay) === v, click: () => updateSettings({ veilleDelay: v }) })),
-          { type: 'separator' },
-          { label: 'Seulement pendant la lecture', type: 'checkbox', checked: s.veilleOnlyPlaying !== false,
-            click: (i) => updateSettings({ veilleOnlyPlaying: i.checked }) },
-          { label: 'Verrouiller la session en sortant', type: 'checkbox', checked: s.veilleLock !== false,
-            click: (i) => updateSettings({ veilleLock: i.checked }) },
-        ] },
-        { label: 'Lancer au démarrage de Windows', type: 'checkbox', checked: s.launchAtLogin,
-          click: (i) => updateSettings({ launchAtLogin: i.checked }) },
-        { label: 'Remettre la position par défaut', click: () => { settings.set({ bounds: null }); applyMode(); } },
-      ],
-    },
-    { type: 'separator' },
-    { label: 'Paramètres…', click: openSettings },
-    { label: editing ? '✔ Terminer le placement' : 'Déplacer / redimensionner…', click: () => setEditing(!editing),
-      enabled: editing || !isScene() },
-    { label: 'Plein écran   Ctrl+Alt+F', click: toggleFullscreen },
-    { label: 'Écran de veille   Ctrl+Alt+L', click: startVeille },
-    { type: 'separator' },
-    { label: 'Quitter', click: () => app.quit() },
-  ]));
+let gamePaused = false;
+function watchGameMode() {
+  setInterval(() => {
+    const on = S.settings.get('gameMode') !== false && fullscreenAppRunning() && coversSceneScreen();
+    if (on === gamePaused) return;
+    gamePaused = on;
+    S.send([S.widget], 'render-pause', on);
+  }, 3000);
 }
 
-// ---------- IPC ----------
+// ---------- Écrans ----------
+// Écran branché/débranché, résolution ou écran principal changés : on se
+// replace. Un contrôle périodique couvre les cas où Windows ne prévient pas.
 
-ipcMain.handle('settings:get', () => settings.get());
-ipcMain.on('settings:set', (_e, patch) => updateSettings(patch));
-ipcMain.on('media:command', (_e, cmd) => media && media.command(cmd));
-ipcMain.on('edit:done', () => setEditing(false));
-ipcMain.on('settings:open', openSettings);
-ipcMain.on('edit:start', () => {
-  if (isScene()) return; // la scène occupe tout l'écran : rien à déplacer
-  if (fullscreen && !fullscreen.isDestroyed()) fullscreen.close();
-  if (settingsWin && !settingsWin.isDestroyed()) settingsWin.close();
-  setEditing(true);
-});
-ipcMain.on('bounds:reset', () => { settings.set({ bounds: null }); applyMode(); });
-ipcMain.on('widget:resize', (_e, { width, height }) => {
-  if (!editing || !widget || widget.isDestroyed()) return;
-  const b = widget.getBounds();
-  widget.setBounds({ ...b, width: Math.max(240, Math.round(width)), height: Math.max(120, Math.round(height)) });
-});
-ipcMain.on('scene:controls-rect', (e, rect) => {
-  if (!widget || e.sender !== widget.webContents) return;
-  controlsRect = rect && rect.width > 0 ? rect : null;
-  updateControls();
-});
-ipcMain.on('veille:exit', stopVeille);
-ipcMain.handle('spotify:status', () => (spotify ? spotify.status() : { connected: false }));
-ipcMain.on('spotify:login', () => spotify && spotify.login());
-ipcMain.on('spotify:logout', () => { if (spotify) { spotify.logout(); refreshQueue(); } });
-// Seule page externe que les paramètres peuvent ouvrir : le tableau de bord Spotify.
-ipcMain.on('spotify:dashboard', () => shell.openExternal('https://developer.spotify.com/dashboard'));
-ipcMain.on('veille:start', () => setTimeout(startVeille, 300));
-ipcMain.on('fullscreen:close', () => fullscreen && !fullscreen.isDestroyed() && fullscreen.close());
-
-// ---------- Démarrage ----------
-
-app.whenReady().then(() => {
-  app.setAppUserModelId('com.loicrestout.spotiview');
-  settings = new Settings();
-  setupLoopback();
-  createWidget();
-  startMedia();
-  startSpotify();
-  buildTray();
-  globalShortcut.register('CommandOrControl+Alt+F', toggleFullscreen);
-  if (!globalShortcut.register('CommandOrControl+Alt+L', startVeille)) {
-    console.error('Raccourci Ctrl+Alt+L déjà pris par une autre application.');
-  }
-  watchIdle();
-
-  // Écrans branchés/débranchés ou changement de résolution : on se replace.
-  // Changer d'écran principal dans les paramètres Windows déplace les écrans :
-  // on suit le nouveau principal. Un contrôle périodique couvre les cas où
-  // Windows ne prévient pas.
-  let replaceTimer = null;
-  const primaryKey = () => { const p = screen.getPrimaryDisplay(); return `${p.id}|${JSON.stringify(p.workArea)}|${p.scaleFactor}`; };
-  let lastPrimary = primaryKey();
+function watchDisplays() {
+  let timer = null;
+  const primaryKey = () => {
+    const p = screen.getPrimaryDisplay();
+    return `${p.id}|${JSON.stringify(p.workArea)}|${p.scaleFactor}|${screen.getAllDisplays().length}`;
+  };
+  let last = primaryKey();
   const replace = () => {
-    clearTimeout(replaceTimer);
-    replaceTimer = setTimeout(() => {
-      lastPrimary = primaryKey();
-      if (!editing) applyMode();
-      setTimeout(sampleWallpaper, 1000);
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      last = primaryKey();
+      if (!S.editing) widgetWindow.applyMode();
+      setTimeout(capture.sampleWallpaper, 1000);
     }, 500);
   };
   screen.on('display-added', replace);
   screen.on('display-removed', replace);
   screen.on('display-metrics-changed', replace);
-  setInterval(() => { if (primaryKey() !== lastPrimary) replace(); }, 3000);
+  setInterval(() => { if (primaryKey() !== last) replace(); }, 3000);
+}
+
+// ---------- IPC ----------
+
+ipcMain.handle('settings:get', () => S.settings.get());
+ipcMain.on('settings:set', (_e, patch) => updateSettings(patch));
+ipcMain.on('settings:open', windows.openSettings);
+ipcMain.on('media:command', (_e, cmd) => S.media && S.media.command(cmd));
+
+ipcMain.on('edit:done', () => widgetWindow.setEditing(false));
+ipcMain.on('edit:start', () => {
+  if (widgetWindow.isScene()) return; // la scène occupe tout l'écran : rien à déplacer
+  if (S.alive(S.fullscreen)) S.fullscreen.close();
+  if (S.alive(S.settingsWin)) S.settingsWin.close();
+  widgetWindow.setEditing(true);
+});
+ipcMain.on('bounds:reset', () => { S.settings.set({ bounds: null }); widgetWindow.applyMode(); });
+ipcMain.on('widget:resize', (_e, { width, height }) => {
+  if (!S.editing || !S.alive(S.widget)) return;
+  const b = S.widget.getBounds();
+  S.widget.setBounds({ ...b, width: Math.max(240, Math.round(width)), height: Math.max(120, Math.round(height)) });
+});
+ipcMain.on('scene:controls-rect', (e, rect) => {
+  if (!S.widget || e.sender !== S.widget.webContents) return;
+  S.controlsRect = rect && rect.width > 0 ? rect : null;
+  updateControls();
 });
 
-app.on('second-instance', () => tray && tray.popUpContextMenu());
+ipcMain.on('veille:start', () => setTimeout(veille.startVeille, 300));
+ipcMain.on('veille:exit', veille.stopVeille);
+ipcMain.on('lyrics:nudge', (_e, delta) => nowPlaying.nudgeLyrics(typeof delta === 'number' ? delta : null));
+ipcMain.on('fullscreen:close', () => S.alive(S.fullscreen) && S.fullscreen.close());
+
+ipcMain.handle('spotify:status', () => (S.spotify ? S.spotify.status() : { connected: false }));
+ipcMain.on('spotify:login', () => S.spotify && S.spotify.login());
+ipcMain.on('spotify:logout', () => { if (S.spotify) { S.spotify.logout(); queue.refreshQueue(); } });
+// Seule page externe que les paramètres peuvent ouvrir : le tableau de bord Spotify.
+ipcMain.on('spotify:dashboard', () => shell.openExternal('https://developer.spotify.com/dashboard'));
+
+// ---------- Démarrage ----------
+
+app.whenReady().then(() => {
+  app.setAppUserModelId('com.loicrestout.spotiview');
+  S.settings = new Settings();
+  diskCache.init(path.join(app.getPath('userData'), 'cache'));
+  capture.setupLoopback();
+  widgetWindow.createWidget();
+  nowPlaying.startMedia();
+  queue.startSpotify();
+  buildTray();
+  globalShortcut.register('CommandOrControl+Alt+F', windows.toggleFullscreen);
+  if (!globalShortcut.register('CommandOrControl+Alt+L', veille.startVeille)) {
+    console.error('Raccourci Ctrl+Alt+L déjà pris par une autre application.');
+  }
+  veille.watchIdle();
+  watchDisplays();
+  watchGameMode();
+});
+
+app.on('second-instance', () => S.tray && S.tray.popUpContextMenu());
 app.on('window-all-closed', (e) => e.preventDefault()); // on vit dans la zone de notification
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
-  if (media) media.stop();
-  if (attacher) attacher.detach();
-  if (controlsWin && !controlsWin.isDestroyed()) controlsWin.destroy();
+  if (S.media) S.media.stop();
+  if (S.attacher) S.attacher.detach();
+  if (S.alive(S.controlsWin)) S.controlsWin.destroy();
 });

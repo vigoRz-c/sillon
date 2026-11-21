@@ -27,24 +27,33 @@ class SpotifyApi extends EventEmitter {
     super();
     this.getClientId = getClientId;
     this.file = path.join(app.getPath('userData'), 'spotify-token.bin');
-    this.tokens = this.load();
+    this.tokens = null;
+    // Lecture asynchrone des jetons (API de chiffrement d'Electron 45+).
+    this.ready = this.load().then((t) => { this.tokens = t; });
     this.server = null;
     this.lastError = '';
   }
 
-  // ----- Jetons sur disque -----
-  load() {
+  // ----- Jetons sur disque (chiffrés par Windows quand c'est possible) -----
+  async load() {
     try {
       const raw = fs.readFileSync(this.file);
-      const json = safeStorage.isEncryptionAvailable() ? safeStorage.decryptString(raw) : raw.toString('utf8');
-      return JSON.parse(json);
+      if (await safeStorage.isAsyncEncryptionAvailable()) {
+        const { result, shouldReEncrypt } = await safeStorage.decryptStringAsync(raw);
+        const tokens = JSON.parse(result);
+        if (shouldReEncrypt) await this.save(tokens); // clé renouvelée par Windows
+        return tokens;
+      }
+      return JSON.parse(raw.toString('utf8'));
     } catch { return null; }
   }
 
-  save(tokens) {
+  async save(tokens) {
     this.tokens = tokens;
     const json = JSON.stringify(tokens);
-    const data = safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(json) : Buffer.from(json, 'utf8');
+    const data = (await safeStorage.isAsyncEncryptionAvailable())
+      ? await safeStorage.encryptStringAsync(json)
+      : Buffer.from(json, 'utf8');
     fs.mkdirSync(path.dirname(this.file), { recursive: true });
     fs.writeFileSync(this.file, data);
   }
@@ -95,7 +104,7 @@ class SpotifyApi extends EventEmitter {
           grant_type: 'authorization_code', code: url.searchParams.get('code'),
           redirect_uri: REDIRECT_URI, client_id: clientId, code_verifier: verifier,
         });
-        this.save({ access: tok.access_token, refresh: tok.refresh_token, expiresAt: Date.now() + tok.expires_in * 1000, clientId });
+        await this.save({ access: tok.access_token, refresh: tok.refresh_token, expiresAt: Date.now() + tok.expires_in * 1000, clientId });
         this.setError('');
         this.emit('connected');
         done(true, 'Tu peux fermer cet onglet et revenir au bureau.');
@@ -133,12 +142,13 @@ class SpotifyApi extends EventEmitter {
   }
 
   async accessToken() {
+    await this.ready;
     const t = this.tokens;
     if (!t || !t.refresh) return null;
     if (t.access && Date.now() < t.expiresAt - 60000) return t.access;
     try {
       const tok = await this.tokenRequest({ grant_type: 'refresh_token', refresh_token: t.refresh, client_id: t.clientId });
-      this.save({ ...t, access: tok.access_token, refresh: tok.refresh_token || t.refresh, expiresAt: Date.now() + tok.expires_in * 1000 });
+      await this.save({ ...t, access: tok.access_token, refresh: tok.refresh_token || t.refresh, expiresAt: Date.now() + tok.expires_in * 1000 });
       return this.tokens.access;
     } catch (e) {
       // Jeton révoqué ou app supprimée : il faut se reconnecter.

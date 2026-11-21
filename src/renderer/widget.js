@@ -58,12 +58,16 @@
   const geo = {};
   function computeGeometry() {
     const W = window.innerWidth, H = window.innerHeight;
-    geo.cx = W * 0.6;
-    geo.cy = H * 0.45;
-    geo.r = Math.min(W, H) * 0.13;
-    // Paroles : à gauche du disque, sans toucher ses rayons ni le panneau.
-    const right = geo.cx - geo.r * 2.3;
-    const left = W * 0.06;
+    const s = (app && app.state.settings) || {};
+    // Position et taille réglables (paramètres), selon le fond d'écran.
+    geo.cx = W * (s.discX ?? 0.6);
+    geo.cy = H * (s.discY ?? 0.45);
+    geo.r = Math.min(W, H) * 0.13 * (s.discSize ?? 1);
+    // Paroles du côté le plus large, sans toucher les rayons du disque.
+    const reach = geo.r * (1.6 + 0.6 * (s.discIntensity ?? 1.3));
+    let left, right;
+    if (geo.cx >= W / 2) { left = W * 0.06; right = geo.cx - reach; }
+    else { left = geo.cx + reach; right = W * 0.94; }
     const box = $('lyrics').style;
     box.left = `${left}px`;
     box.width = `${Math.max(160, right - left)}px`;
@@ -93,6 +97,7 @@
     app.renderer.opts = {
       glow: true, cx: geo.cx, cy: geo.cy, radius: geo.r,
       image: coverImg,
+      intensity: st.settings.discIntensity ?? 1.3,
       spin: st.media.status === 'Playing',
       halo: (st.albumPalette && st.albumPalette[0]) || app.renderer.palette[0],
       palette: st.albumPalette || null,
@@ -172,6 +177,26 @@
     $('status').textContent = msg;
     $('status').classList.toggle('hidden', !msg);
   });
+
+  // ----- Pause, sommeil et mode jeu -----
+  // Musique en pause : scène atténuée. Sans musique pendant N minutes : scène
+  // masquée et rendu arrêté, jusqu'au retour de la musique.
+  let silentSince = Date.now();
+  let gamePause = false;
+  let asleep = false;
+  function updateRest() {
+    const s = app.state.settings;
+    const playing = app.state.media.active && app.state.media.status === 'Playing';
+    if (playing) silentSince = Date.now();
+    const minutes = Number(s.sleepAfter ?? 5);
+    asleep = !playing && minutes > 0 && Date.now() - silentSince > minutes * 60000;
+    document.body.classList.toggle('is-paused', !playing && s.dimOnPause !== false && !asleep);
+    document.body.classList.toggle('is-asleep', asleep);
+    app.renderer.paused = gamePause || asleep;
+  }
+  setInterval(updateRest, 2000);
+  if (bridge && bridge.onMedia) bridge.onMedia(() => setTimeout(updateRest, 0));
+  if (bridge && bridge.onRenderPause) bridge.onRenderPause((on) => { gamePause = on; updateRest(); });
 
   // ----- Mode placement (bandeau) -----
   if (bridge) {

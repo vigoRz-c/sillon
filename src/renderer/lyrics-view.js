@@ -45,10 +45,19 @@
 
     // Construit les mots d'une ligne, avec leur instant d'apparition.
     words(line) {
-      if (line.words && line.words.length) return line.words;
-      const parts = line.text.split(/\s+/).filter(Boolean);
-      const span = Math.max(0.6, Math.min(line.end - line.t, 4) * 0.7);
-      return parts.map((text, i) => ({ text, t: line.t + (span * i) / parts.length }));
+      let list;
+      if (line.words && line.words.length) list = line.words.map((w) => ({ ...w }));
+      else {
+        const parts = line.text.split(/\s+/).filter(Boolean);
+        const span = Math.max(0.6, Math.min(line.end - line.t, 4) * 0.7);
+        list = parts.map((text, i) => ({ text, t: line.t + (span * i) / parts.length }));
+      }
+      list.forEach((w, i) => {
+        const next = list[i + 1];
+        w.end = Math.min(next ? next.t : line.end, w.t + 1.5);
+        if (w.end <= w.t) w.end = w.t + 0.25;
+      });
+      return list;
     }
 
     render(wordList, extraClass) {
@@ -70,6 +79,7 @@
         span.className = `lyr-word${isSmall(w.text, i === wordList.length - 1) ? ' small' : ''}`;
         span.textContent = w.text;
         span._t = w.t;
+        span._end = w.end ?? w.t;
         row.appendChild(span);
         count += len + 1;
       });
@@ -78,13 +88,25 @@
     }
 
     swap(node) {
-      const old = this.current;
-      if (old) {
-        old.classList.add('out');
-        setTimeout(() => old.remove(), 450);
+      for (const g of this.el.querySelectorAll('.lyr-line.ghost')) {
+        g.classList.add('out');
+        setTimeout(() => g.remove(), 450);
       }
+      const old = this.current;
       this.current = node;
       if (node) this.el.appendChild(node);
+      if (!old) return;
+      if (!node || old.classList.contains('fallback')) {
+        old.classList.add('out');
+        setTimeout(() => old.remove(), 450);
+        return;
+      }
+      // Fantôme : la ligne qu'on vient de chanter remonte, réduite et pâle.
+      old.querySelectorAll('.lyr-word').forEach((s) => { s.classList.add('on'); s.style.setProperty('--p', '100%'); });
+      const gap = parseFloat(getComputedStyle(node).fontSize) * 0.25;
+      const shift = node.offsetHeight / 2 + (old.offsetHeight * 0.6) / 2 + gap;
+      old.style.setProperty('--gy', `${-shift}px`);
+      old.classList.add('ghost');
     }
 
     // À appeler à chaque image.
@@ -103,13 +125,15 @@
           by.className = 'lyr-artist';
           by.textContent = media.artist || '';
           node.appendChild(by);
-          node.querySelectorAll('.lyr-word').forEach((s) => s.classList.add('on'));
+          node.querySelectorAll('.lyr-word').forEach((s) => { s.classList.add('on', 'full'); s.style.setProperty('--p', '100%'); });
           this.swap(node);
         }
         return;
       }
       this.fallbackKey = '';
-      // Petite avance : l'œil lit un peu avant que la voix ne chante.
+      // Décalage réglé pour ce morceau (paroles d'une autre version), puis
+      // petite avance : l'œil lit un peu avant que la voix ne chante.
+      pos += d.offset || 0;
       const i = this.lineAt(pos + 0.15);
       if (i !== this.index) {
         this.index = i;
@@ -118,8 +142,14 @@
         this.swap(empty ? null : this.render(this.words(line)));
       }
       if (this.current) {
-        for (const span of this.current.querySelectorAll('.lyr-word:not(.on)')) {
-          if (pos + 0.1 >= span._t) span.classList.add('on');
+        for (const span of this.current.querySelectorAll('.lyr-word:not(.full)')) {
+          if (pos + 0.1 < span._t) continue;
+          span.classList.add('on');
+          // Remplissage karaoké : le mot se colore pendant qu'il est chanté.
+          const p = span._end > span._t ? (pos - span._t) / (span._end - span._t) : 1;
+          const pct = Math.max(0, Math.min(1, p)) * 100;
+          span.style.setProperty('--p', `${pct.toFixed(1)}%`);
+          if (pct >= 100) span.classList.add('full');
         }
       }
     }

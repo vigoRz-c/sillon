@@ -6,6 +6,7 @@
 // Quand LRCLIB a le minutage mot à mot (champ "lyricsfile"), on l'utilise.
 
 const API = 'https://lrclib.net/api';
+const disk = require('./disk-cache');
 const HEADERS = { 'User-Agent': 'Spoti-View/0.1' };
 const cache = new Map();
 
@@ -102,6 +103,8 @@ async function findLyrics({ title, artist, album, duration }) {
 async function lookupLyrics(media) {
   const key = `${norm(firstArtist(media.artist))}|${norm(media.title)}|${Math.round((media.duration || 0) / 5)}`;
   if (cache.has(key)) return cache.get(key);
+  const stored = disk.get('lyrics', key);
+  if (stored !== undefined) { cache.set(key, stored); return stored; }
   let result = null;
   try {
     result = await findLyrics(media);
@@ -111,6 +114,7 @@ async function lookupLyrics(media) {
   }
   if (cache.size > 200) cache.delete(cache.keys().next().value);
   cache.set(key, result);
+  disk.set('lyrics', key, result);
   return result;
 }
 

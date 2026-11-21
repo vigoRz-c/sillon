@@ -31,6 +31,7 @@ function Await($op, [Type]$resultType) {
 $MgrType   = [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]
 $PropsType = [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties]
 $StreamType = [Windows.Storage.Streams.IRandomAccessStreamWithContentType]
+$RepeatType = [Windows.Media.MediaPlaybackAutoRepeatMode, Windows.Media, ContentType = WindowsRuntime]
 $AsStreamForRead = [System.IO.WindowsRuntimeStreamExtensions].GetMethod('AsStreamForRead', [Type[]]@([Windows.Storage.Streams.IInputStream]))
 $ContentTypeProp = [Windows.Storage.Streams.IContentTypeProvider].GetProperty('ContentType')
 
@@ -88,6 +89,16 @@ function Invoke-MediaCommand($cmd) {
         'pause'     { [void](Await ($s.TryPauseAsync()) ([bool])) }
         'next'      { [void](Await ($s.TrySkipNextAsync()) ([bool])) }
         'previous'  { [void](Await ($s.TrySkipPreviousAsync()) ([bool])) }
+        'shuffle'   {
+            $now = [bool]$s.GetPlaybackInfo().IsShuffleActive
+            [void](Await ($s.TryChangeShuffleActiveAsync(-not $now)) ([bool]))
+        }
+        'repeat'    {
+            # Aucune -> playlist -> morceau -> aucune
+            $cur = "$($s.GetPlaybackInfo().AutoRepeatMode)"
+            $next = switch ($cur) { 'List' { 'Track' } 'Track' { 'None' } default { 'List' } }
+            [void](Await ($s.TryChangeAutoRepeatModeAsync([Enum]::Parse($RepeatType, $next))) ([bool]))
+        }
     }
 }
 
@@ -119,7 +130,9 @@ while ($true) {
             $status = "$($info.PlaybackStatus)"
             $pos = [math]::Round($tl.Position.TotalSeconds, 1)
             $dur = [math]::Round(($tl.EndTime - $tl.StartTime).TotalSeconds, 1)
-            $state = "$status|$pos|$dur"
+            $shuffle = [bool]$info.IsShuffleActive
+            $repeat = if ($info.AutoRepeatMode) { "$($info.AutoRepeatMode)" } else { 'None' }
+            $state = "$status|$pos|$dur|$shuffle|$repeat"
 
             $trackChanged = $key -ne $lastKey
             $coverChanged = $false
@@ -145,6 +158,8 @@ while ($true) {
                     artist   = "$($props.Artist)"
                     album    = "$($props.AlbumTitle)"
                     status   = $status
+                    shuffle  = $shuffle
+                    repeat   = $repeat
                     position = $pos
                     duration = $dur
                     updated  = $tl.LastUpdatedTime.ToUnixTimeMilliseconds()

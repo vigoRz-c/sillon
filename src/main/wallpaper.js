@@ -163,10 +163,50 @@ function sendToBottom(win) {
   } catch (e) { console.error('Fenêtre au fond :', e.message); }
 }
 
+// Une application occupe-t-elle l'écran (jeu Direct3D, vidéo ou présentation
+// en plein écran) ? SHQueryUserNotificationState : 2 = occupé (plein écran),
+// 3 = jeu Direct3D plein écran, 4 = mode présentation.
+let shell32 = null;
+function fullscreenAppRunning() {
+  if (process.platform !== 'win32') return false;
+  try {
+    if (!shell32) {
+      const koffi = require('koffi');
+      const lib = koffi.load('shell32.dll');
+      shell32 = { query: lib.func('int __stdcall SHQueryUserNotificationState(_Out_ int *state)') };
+    }
+    const out = [0];
+    if (shell32.query(out) !== 0) return false;
+    return out[0] === 2 || out[0] === 3 || out[0] === 4;
+  } catch { return false; }
+}
+
+// Rectangle (pixels physiques) de la fenêtre au premier plan, ou null.
+let rectApi = null;
+function foregroundRect() {
+  if (process.platform !== 'win32') return null;
+  try {
+    if (!rectApi) {
+      const koffi = require('koffi');
+      const RECT = koffi.struct('SV_RECT', { left: 'long', top: 'long', right: 'long', bottom: 'long' });
+      const u = koffi.load('user32.dll');
+      rectApi = {
+        fg: u.func('intptr_t __stdcall GetForegroundWindow()'),
+        rect: u.func('bool __stdcall GetWindowRect(intptr_t hwnd, _Out_ SV_RECT *r)'),
+      };
+    }
+    const h = rectApi.fg();
+    if (!h) return null;
+    const r = {};
+    if (!rectApi.rect(h, r)) return null;
+    return { x: r.left, y: r.top, width: r.right - r.left, height: r.bottom - r.top };
+  } catch { return null; }
+}
+
 // Équivaut à Windows + L.
 function lockWorkstation() {
   if (process.platform !== 'win32') return false;
   try { return win32().LockWorkStation(); } catch (e) { console.error('Verrouillage :', e.message); return false; }
 }
 
-module.exports = { WallpaperAttacher, sendToBottom, lockWorkstation };
+module.exports = { WallpaperAttacher, sendToBottom, lockWorkstation, fullscreenAppRunning, foregroundRect };

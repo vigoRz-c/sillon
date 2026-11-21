@@ -206,10 +206,14 @@ body.scene .panel.hidden, body.scene.no-lyrics .lyrics { display: none; }
   position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
   font-family: var(--heavy); font-weight: 900; font-size: var(--lyr-size);
   line-height: 1.02; text-transform: uppercase; color: #fff;
-  text-shadow: 0 2px 6px rgba(0,0,0,.35), 0 0 30px rgba(0,0,0,.25);
-  transition: opacity .4s ease, filter .4s ease;
+  /* Ombre via filter : compatible avec le remplissage (background-clip: text). */
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.4)) drop-shadow(0 0 18px rgba(0,0,0,.25));
+  transition: opacity .4s ease, transform .45s cubic-bezier(.2,.8,.2,1);
 }
-.lyr-line.out { opacity: 0; filter: blur(6px); }
+.lyr-line.out { opacity: 0; }
+/* Ligne précédente : remonte au-dessus, réduite et pâle. */
+.lyr-line.ghost { opacity: .3; transform: translateY(calc(-50% + var(--gy, -60px))) scale(.6); }
+.lyr-line.ghost.out { opacity: 0; }
 .lyr-row { white-space: nowrap; }
 .lyr-word {
   display: inline-block; margin: 0 .12em; vertical-align: baseline;
@@ -217,7 +221,13 @@ body.scene .panel.hidden, body.scene.no-lyrics .lyrics { display: none; }
   transition: opacity .25s ease, transform .35s cubic-bezier(.2,.9,.3,1.3), filter .3s ease;
 }
 .lyr-word.small { font-size: .52em; letter-spacing: .02em; opacity: 0; }
-.lyr-word.on { opacity: 1; transform: none; filter: none; }
+.lyr-word.on {
+  opacity: 1; transform: none; filter: none;
+  /* Karaoké : la partie chantée en blanc plein, le reste en blanc pâle. */
+  color: transparent;
+  background: linear-gradient(90deg, #fff var(--p, 0%), rgba(255,255,255,.45) var(--p, 0%));
+  -webkit-background-clip: text; background-clip: text;
+}
 .lyr-line.fallback .lyr-word { font-size: .8em; }
 .lyr-artist { margin-top: .4em; font-family: var(--font); font-weight: 600; font-size: calc(var(--lyr-size) * .32); letter-spacing: .12em; opacity: .75; }
 
@@ -235,7 +245,7 @@ body.scene .panel.hidden, body.scene.no-lyrics .lyrics { display: none; }
   margin-left: 18px; min-width: 0; max-width: 260px;
   text-shadow: 0 1px 3px rgba(0,0,0,.5), 0 0 16px rgba(0,0,0,.35);
 }
-.p-controls { width: 168px; height: 36px; margin-bottom: 10px; }
+.p-controls { width: 262px; height: 34px; margin-bottom: 10px; }
 .p-label { font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); filter: brightness(1.3); }
 .p-title { font-weight: 700; font-size: 17px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .p-artist { font-size: 12px; opacity: .75; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -254,17 +264,26 @@ body.scene .panel.hidden, body.scene.no-lyrics .lyrics { display: none; }
 .q-title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .q-artist { font-size: 11px; opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+/* Pause : atténuée ; sans musique depuis longtemps : masquée */
+body.widget #viz, body.widget .lyrics, body.widget .panel, body.widget .now { transition: opacity 1.5s ease; }
+body.widget.is-paused #viz, body.widget.is-paused .lyrics, body.widget.is-paused .big-title { opacity: .45; }
+body.widget.is-paused .panel { opacity: .7; }
+body.widget.is-asleep > * { opacity: 0 !important; }
+
 /* ================= Boutons du panneau (fenêtre à part) ================= */
 
-body.ctrl-win { display: flex; align-items: center; gap: 8px; padding: 1px; }
+body.ctrl-win { display: flex; align-items: center; gap: 6px; padding: 1px; }
 body.ctrl-win button {
-  width: 34px; height: 34px; border-radius: 50%; flex: none; cursor: pointer;
+  position: relative; width: 32px; height: 32px; border-radius: 50%; flex: none; cursor: pointer;
   border: 1px solid rgba(255,255,255,.22); background: rgba(20,20,28,.35);
   backdrop-filter: blur(8px); color: #fff; font-size: 14px; line-height: 1;
   display: grid; place-items: center; transition: background .2s, transform .2s;
 }
 body.ctrl-win button:hover { background: rgba(255,255,255,.22); transform: scale(1.08); }
 body.ctrl-win button:active { transform: scale(.95); }
+body.ctrl-win button.toggle { opacity: .55; }
+body.ctrl-win button.toggle.on { opacity: 1; color: #1ed760; border-color: rgba(30,215,96,.55); }
+body.ctrl-win .badge { position: absolute; right: 3px; bottom: 2px; font-size: 8px; font-weight: 800; }
 
 /* Écran de veille : pas de commandes, pas de curseur, disque dessiné au centre */
 body.veille, body.veille * { cursor: none !important; }

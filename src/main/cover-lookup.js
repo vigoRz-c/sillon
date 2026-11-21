@@ -8,6 +8,7 @@
 // et l'app garde l'image de Windows.
 
 const API = 'https://api.deezer.com';
+const disk = require('./disk-cache');
 const cache = new Map(); // clé -> data URL | null
 
 // "Break Stuff (Remastered 2021) - Live" -> "break stuff"
@@ -90,6 +91,8 @@ async function findCoverUrl({ title, artist, album }) {
 async function lookupCover(media) {
   const key = `${norm(media.artist)}|${norm(media.album)}|${norm(media.title)}`;
   if (cache.has(key)) return cache.get(key);
+  const stored = disk.get('covers', key);
+  if (stored !== undefined) { cache.set(key, stored); return stored; }
   let result = null;
   try {
     const url = await findCoverUrl(media);
@@ -100,7 +103,8 @@ async function lookupCover(media) {
   }
   if (cache.size > 200) cache.delete(cache.keys().next().value);
   cache.set(key, result);
+  disk.set('covers', key, result);
   return result;
 }
 
-module.exports = { lookupCover, norm };
+module.exports = { lookupCover, norm, findCoverUrl };

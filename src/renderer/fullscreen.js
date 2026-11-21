@@ -88,6 +88,7 @@
     app.renderer.opts = {
       glow: true, cx: w / 2, cy: h / 2, radius: radius || Math.min(w, h) * 0.17,
       image: coverImg,
+      intensity: st.settings.discIntensity ?? 1.3,
       spin: st.media.status === 'Playing',
       halo: (st.albumPalette && st.albumPalette[0]) || app.renderer.palette[0],
       palette: st.albumPalette || null,
@@ -185,6 +186,11 @@
       const cur = localTheme || s.theme || 'wallpaper';
       localTheme = THEME_ORDER[(THEME_ORDER.indexOf(cur) + 1) % THEME_ORDER.length];
       apply(s); toast(THEME_NAMES[localTheme]);
+    } else if (e.key === '[' || e.key === ']') {
+      // Décalage des paroles pour ce morceau.
+      const d = e.key === ']' ? 0.25 : -0.25;
+      bridge && bridge.nudgeLyrics(d);
+      toast(`Paroles ${d > 0 ? 'plus tôt' : 'plus tard'} (${d > 0 ? '+' : '−'}0,25 s)`);
     } else if (e.key === 'Escape') {
       if (bridge) bridge.closeFullscreen();
     }

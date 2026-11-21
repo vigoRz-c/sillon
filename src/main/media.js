@@ -117,4 +117,4 @@ class WindowsMediaSource extends EventEmitter {
   }
 }
 
-module.exports = { WindowsMediaSource };
+module.exports = { WindowsMediaSource, anchor };

@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld('bridge', {
   spotifyLogin: () => ipcRenderer.send('spotify:login'),
   spotifyLogout: () => ipcRenderer.send('spotify:logout'),
   openSpotifyDashboard: () => ipcRenderer.send('spotify:dashboard'),
+  nudgeLyrics: (delta) => ipcRenderer.send('lyrics:nudge', delta),
+  onRenderPause: (cb) => ipcRenderer.on('render-pause', (_e, on) => cb(on)),
   onMedia: (cb) => ipcRenderer.on('media', (_e, m) => cb(m)),
   onWallpaper: (cb) => ipcRenderer.on('wallpaper', (_e, url) => cb(url)),
   onEditing: (cb) => ipcRenderer.on('editing', (_e, on) => cb(on)),

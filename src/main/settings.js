@@ -9,6 +9,16 @@ const DEFAULTS = {
   layout: 'scene',        // scene (disque, paroles, panneau) | strip (bandeau)
   showLyrics: true,
   showPanel: true,
+  sceneHidden: false,
+  sceneScreen: 'primary', // primary | secondary
+  gameMode: true,         // s'arrêter pendant un jeu / une vidéo en plein écran
+  dimOnPause: true,       // scène atténuée quand la musique est en pause
+  sleepAfter: 5,          // minutes sans musique avant de masquer la scène (0 = jamais)
+  lyricsOffsets: {},      // décalage des paroles par morceau ("artiste|titre" -> secondes)     // masquée par le bouton du panneau, réaffichée depuis l'icône
+  discIntensity: 1.3,     // halo et rayons du disque (0,5 à 2)
+  discX: 0.6,             // position du disque (fraction de l'écran)
+  discY: 0.45,
+  discSize: 1,            // taille du disque (0,6 à 1,6)
   veilleDelay: 5,         // minutes d'inactivité avant l'écran de veille (0 = jamais)
   veilleOnlyPlaying: true, // seulement quand de la musique joue
   veilleLock: true,

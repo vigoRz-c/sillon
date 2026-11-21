@@ -4,12 +4,18 @@
   const $ = (id) => document.getElementById(id);
   const bridge = window.bridge;
 
-  const selects = ['layout', 'style', 'theme', 'mode', 'preferApp', 'fps', 'veilleDelay'];
-  const checks = ['showNowPlaying', 'showLyrics', 'showPanel', 'launchAtLogin', 'veilleOnlyPlaying', 'veilleLock'];
-  const ranges = { sensitivity: (v) => `× ${v.toFixed(1)}`, opacity: (v) => `${Math.round(v * 100)} %` };
+  const selects = ['layout', 'style', 'theme', 'mode', 'preferApp', 'fps', 'veilleDelay', 'sceneScreen', 'sleepAfter'];
+  const checks = ['showNowPlaying', 'showLyrics', 'showPanel', 'launchAtLogin', 'veilleOnlyPlaying', 'veilleLock', 'gameMode', 'dimOnPause'];
+  const numeric = new Set(['fps', 'veilleDelay', 'sleepAfter']);
+  const pct = (v) => `${Math.round(v * 100)} %`;
+  const ranges = {
+    sensitivity: (v) => `× ${v.toFixed(1)}`, opacity: pct,
+    discIntensity: (v) => `× ${v.toFixed(1)}`, discSize: pct, discX: pct, discY: pct,
+  };
 
   function fill(s) {
-    for (const k of selects) if (document.activeElement !== $(k)) $(k).value = String(s[k] ?? (k === 'layout' ? 'scene' : ''));
+    const defaults = { layout: 'scene', sceneScreen: 'primary', sleepAfter: 5 };
+    for (const k of selects) if (document.activeElement !== $(k)) $(k).value = String(s[k] ?? defaults[k] ?? '');
     $('showNowPlaying').checked = s.showNowPlaying !== false;
     $('showLyrics').checked = s.showLyrics !== false;
     $('showPanel').checked = s.showPanel !== false;
@@ -17,6 +23,8 @@
     if (document.activeElement !== $('spotifyClientId')) $('spotifyClientId').value = s.spotifyClientId || '';
     $('veilleOnlyPlaying').checked = s.veilleOnlyPlaying !== false;
     $('veilleLock').checked = s.veilleLock !== false;
+    $('gameMode').checked = s.gameMode !== false;
+    $('dimOnPause').checked = s.dimOnPause !== false;
     // La scène occupe tout le bureau : rien à déplacer.
     $('editRow').classList.toggle('hidden', (s.layout || 'scene') !== 'strip' && s.mode === 'wallpaper');
     for (const [k, f] of Object.entries(ranges)) {
@@ -28,7 +36,7 @@
   for (const k of selects) {
     $(k).addEventListener('change', () => {
       const v = $(k).value;
-      bridge.setSettings({ [k]: k === 'fps' || k === 'veilleDelay' ? Number(v) : v });
+      bridge.setSettings({ [k]: numeric.has(k) ? Number(v) : v });
     });
   }
   for (const k of checks) $(k).addEventListener('change', () => bridge.setSettings({ [k]: $(k).checked }));
