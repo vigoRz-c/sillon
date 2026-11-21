@@ -191,9 +191,9 @@
     return g;
   }
 
+  // Ajoute une barre arrondie en haut au tracé en cours (remplie par l'appelant).
   function roundedBar(ctx, x, y, w, h, r) {
     r = Math.min(r, w / 2, h / 2);
-    ctx.beginPath();
     ctx.moveTo(x, y + h);
     ctx.lineTo(x, y + r);
     ctx.quadraticCurveTo(x, y, x + r, y);
@@ -201,8 +201,33 @@
     ctx.quadraticCurveTo(x + w, y, x + w, y + r);
     ctx.lineTo(x + w, y + h);
     ctx.closePath();
-    ctx.fill();
   }
+
+  // Traits regroupés par couleur et opacité : un seul tracé (et un seul flou de
+  // lueur) par groupe au lieu d'un par trait. La lueur (shadowBlur) coûte cher :
+  // elle est recalculée à chaque appel de stroke()/fill().
+  const ALPHA_STEPS = 4;
+  class StrokeBatch {
+    constructor() { this.paths = new Map(); }
+    // alpha arrondi à ALPHA_STEPS paliers entre lo et 1.
+    add(color, alpha, lo, x0, y0, x1, y1) {
+      const step = Math.round(((alpha - lo) / (1 - lo)) * (ALPHA_STEPS - 1));
+      const key = color + '|' + step;
+      let p = this.paths.get(key);
+      if (!p) { p = { path: new Path2D(), color, alpha: lo + ((1 - lo) * step) / (ALPHA_STEPS - 1) }; this.paths.set(key, p); }
+      p.path.moveTo(x0, y0); p.path.lineTo(x1, y1);
+    }
+    stroke(ctx, glow) {
+      for (const { path, color, alpha } of this.paths.values()) {
+        ctx.strokeStyle = color; ctx.globalAlpha = alpha;
+        if (glow) ctx.shadowColor = color;
+        ctx.stroke(path);
+      }
+      this.paths.clear();
+      ctx.globalAlpha = 1;
+    }
+  }
+  const batch = new StrokeBatch();
 
   const VISUALIZERS = {
     bars(ctx, w, h, a, pal, opts) {
@@ -214,10 +239,12 @@
       ctx.fillStyle = fill;
       ctx.shadowColor = pal[1];
       ctx.shadowBlur = opts.glow ? 18 : 0;
+      ctx.beginPath();
       for (let i = 0; i < n; i++) {
         const bh = Math.max(3, bands[i] * base * 0.95);
         roundedBar(ctx, i * slot + (slot - bw) / 2, base - bh, bw, bh, bw / 2);
       }
+      ctx.fill(); // un seul remplissage (et une seule lueur) pour toutes les barres
       ctx.shadowBlur = 0;
       if (opts.reflection !== false) {
         ctx.save();
@@ -243,10 +270,10 @@
         const k = i < n / 2 ? n / 2 - 1 - i : i - n / 2; // basses au centre
         const bh = Math.max(2, bands[k] * h * 0.46);
         const x = i * slot + (slot - bw) / 2;
-        ctx.beginPath();
+        if (i === 0) ctx.beginPath();
         ctx.roundRect(x, mid - bh, bw, bh * 2, bw / 2);
-        ctx.fill();
       }
+      ctx.fill();
       ctx.shadowBlur = 0;
     },
 
@@ -266,12 +293,10 @@
         const v = bands[k];
         const ang = (i / n) * Math.PI * 2 - Math.PI / 2 + rot;
         const c = pal[i % 3 === 0 ? 0 : i % 3 === 1 ? 1 : 2];
-        ctx.strokeStyle = c; ctx.shadowColor = c;
-        ctx.beginPath();
-        ctx.moveTo(cx + Math.cos(ang) * r0, cy + Math.sin(ang) * r0);
-        ctx.lineTo(cx + Math.cos(ang) * (r0 + 3 + v * len), cy + Math.sin(ang) * (r0 + 3 + v * len));
-        ctx.stroke();
+        batch.add(c, 1, 0, cx + Math.cos(ang) * r0, cy + Math.sin(ang) * r0,
+          cx + Math.cos(ang) * (r0 + 3 + v * len), cy + Math.sin(ang) * (r0 + 3 + v * len));
       }
+      batch.stroke(ctx, opts.glow);
       ctx.shadowBlur = 0;
       if (!opts.radius) {
         ctx.strokeStyle = pal[2];
@@ -381,15 +406,11 @@
         const half = i < n / 2 ? i : n - 1 - i;
         const v = bands[Math.min(63, Math.floor((half / (n / 2)) * 64))];
         const ang = (i / n) * Math.PI * 2 - Math.PI / 2 + rot;
-        const c = pal[i % 2 ? 1 : 2];
-        ctx.strokeStyle = c; ctx.shadowColor = c;
-        ctx.globalAlpha = 0.5 + v * 0.5;
-        ctx.beginPath();
-        ctx.moveTo(cx + Math.cos(ang) * r, cy + Math.sin(ang) * r);
-        ctx.lineTo(cx + Math.cos(ang) * (r + 4 + v * len), cy + Math.sin(ang) * (r + 4 + v * len));
-        ctx.stroke();
+        batch.add(pal[i % 2 ? 1 : 2], 0.5 + v * 0.5, 0.5, cx + Math.cos(ang) * r, cy + Math.sin(ang) * r,
+          cx + Math.cos(ang) * (r + 4 + v * len), cy + Math.sin(ang) * (r + 4 + v * len));
       }
-      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+      batch.stroke(ctx, opts.glow !== false);
+      ctx.shadowBlur = 0;
     },
 
     // Pochette ronde qui tourne, couronne de points et rayons en soleil qui
@@ -445,26 +466,24 @@
         const wob = 0.5 + 0.5 * Math.sin(i * 1.7 + t * 0.004); // un peu de vie au repos
         const l = 3 + v * len + wob * 3 * k;
         const ang = (i / n) * Math.PI * 2 - Math.PI / 2;
-        const c = pal[i % 2 ? 0 : 1];
-        ctx.strokeStyle = c; ctx.shadowColor = c;
-        ctx.globalAlpha = 0.55 + v * 0.45;
-        ctx.beginPath();
-        ctx.moveTo(cx + Math.cos(ang) * inner, cy + Math.sin(ang) * inner);
-        ctx.lineTo(cx + Math.cos(ang) * (inner + l), cy + Math.sin(ang) * (inner + l));
-        ctx.stroke();
+        batch.add(pal[i % 2 ? 0 : 1], 0.55 + v * 0.45, 0.55, cx + Math.cos(ang) * inner, cy + Math.sin(ang) * inner,
+          cx + Math.cos(ang) * (inner + l), cy + Math.sin(ang) * (inner + l));
       }
-      ctx.globalAlpha = 1;
+      batch.stroke(ctx, opts.glow !== false);
       ctx.shadowBlur = 0;
 
       // Couronne de points.
       ctx.fillStyle = pal[2];
       const dots = 96;
+      const dotR = Math.max(1, r * 0.012);
+      ctx.beginPath();
       for (let i = 0; i < dots; i++) {
         const ang = (i / dots) * Math.PI * 2 + discState.rot * 0.5;
-        ctx.beginPath();
-        ctx.arc(cx + Math.cos(ang) * (r + 5), cy + Math.sin(ang) * (r + 5), Math.max(1, r * 0.012), 0, Math.PI * 2);
-        ctx.fill();
+        const x = cx + Math.cos(ang) * (r + 5), y = cy + Math.sin(ang) * (r + 5);
+        ctx.moveTo(x + dotR, y);
+        ctx.arc(x, y, dotR, 0, Math.PI * 2);
       }
+      ctx.fill();
 
       // Pochette ronde qui tourne.
       ctx.save();
@@ -601,7 +620,9 @@
       requestAnimationFrame(this.loop);
       // Suspendu (jeu en plein écran, scène endormie) : rien à calculer.
       if (this.paused) return;
-      if (now - this.last < 1000 / this.fps - 2) return;
+      // Au ralenti (musique en pause) : quelques images par seconde suffisent.
+      const fps = this.slow ? Math.min(this.fps, 15) : this.fps;
+      if (now - this.last < 1000 / fps - 2) return;
       this.last = now;
       this.engine.tick();
       const a = this.engine.frame(now);

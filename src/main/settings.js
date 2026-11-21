@@ -34,7 +34,7 @@ const DEFAULTS = {
   showNowPlaying: true,
   opacity: 1,
   sensitivity: 1,
-  fps: 60,
+  fps: 30,               // images par seconde (30 : bien plus léger, 60 : plus fluide)
   preferApp: 'spotify',   // session média préférée ('' = celle que Windows met en avant)
   launchAtLogin: false,
   autoUpdate: true,       // chercher et installer les nouvelles versions (version installée)
@@ -47,6 +47,12 @@ class Settings {
     try {
       Object.assign(this.data, JSON.parse(fs.readFileSync(this.file, 'utf8')));
     } catch { /* premier lancement */ }
+    // 0.1.5 : 30 images par seconde par défaut (60 était enregistré pour tout
+    // le monde, choisi ou non). Une seule fois : qui remet 60 le garde.
+    if (!this.data.fps30) {
+      if (this.data.fps === 60) this.data.fps = 30;
+      this.set({ fps30: true });
+    }
   }
   get(key) { return key ? this.data[key] : { ...this.data }; }
   set(patch) {

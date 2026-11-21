@@ -23,7 +23,7 @@
       state.settings = raw;
       const s = transformSettings ? transformSettings(raw) : raw;
       renderer.style = s.style || 'bars';
-      renderer.fps = s.fps || 60;
+      renderer.fps = s.fps || 30;
       engine.sensitivity = s.sensitivity || 1;
       state.theme = s.theme || 'wallpaper';
       applyPalette();

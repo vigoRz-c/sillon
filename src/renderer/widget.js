@@ -19,7 +19,13 @@
   let draft = null;        // éditeur : disposition en cours de modification
   let draftOpts = {};      // éditeur : options modifiées (rayons, couleurs…)
   const settings = () => (EDIT ? { ...app.state.settings, ...draftOpts } : app.state.settings);
-  const layout = () => (EDIT && draft ? draft : SL.fromSettings(app.state.settings));
+  // Recalculée seulement quand les réglages changent (appelée à chaque image).
+  let cachedFor = null, cachedLayout = null;
+  const layout = () => {
+    if (EDIT && draft) return draft;
+    if (cachedFor !== app.state.settings) { cachedFor = app.state.settings; cachedLayout = SL.fromSettings(cachedFor); }
+    return cachedLayout;
+  };
 
   const lyrics = new window.LyricsView($('lyrics'));
 
@@ -236,21 +242,28 @@
     }
   });
 
-  // Progression, paroles et message d'état audio, à chaque image.
+  // Progression, paroles et message d'état audio, à chaque image. On ne
+  // touche à la page que si quelque chose a changé : sinon le navigateur
+  // recalcule les styles pour rien, 60 fois par seconde.
+  let lastPct = '', lastMsg = null;
   app.renderer.hooks.push(() => {
     const m = app.state.media;
     const pos = currentPosition(m);
-    const pct = m.duration ? `${(pos / m.duration) * 100}%` : '0%';
-    $('bar').style.width = pct;
-    if (scene) {
-      $('pBar').style.width = pct;
-      if (layout().lyrics.visible) lyrics.update(m, pos);
+    const pct = m.duration ? `${((pos / m.duration) * 100).toFixed(1)}%` : '0%';
+    if (pct !== lastPct) {
+      lastPct = pct;
+      $('bar').style.width = pct;
+      if (scene) $('pBar').style.width = pct;
     }
+    if (scene && layout().lyrics.visible) lyrics.update(m, pos);
     const st = app.engine.status;
     const msg = st === 'no-audio' ? 'Aucun son système détecté'
       : st === 'error' ? 'Capture audio refusée' : '';
-    $('status').textContent = msg;
-    $('status').classList.toggle('hidden', !msg);
+    if (msg !== lastMsg) {
+      lastMsg = msg;
+      $('status').textContent = msg;
+      $('status').classList.toggle('hidden', !msg);
+    }
   });
 
   // ----- Pause, sommeil et mode jeu -----
@@ -269,6 +282,7 @@
     document.body.classList.toggle('is-paused', !playing && s.dimOnPause !== false && !asleep);
     document.body.classList.toggle('is-asleep', asleep);
     app.renderer.paused = gamePause || asleep;
+    app.renderer.slow = !playing;
   }
   setInterval(updateRest, 2000);
   if (bridge && bridge.onMedia) bridge.onMedia(() => setTimeout(updateRest, 0));
