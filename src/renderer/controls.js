@@ -23,5 +23,14 @@
     $('shuffle').classList.toggle('on', !!(m && m.shuffle));
     $('repeat').classList.toggle('on', !!(m && m.repeat && m.repeat !== 'None'));
     $('repeatOne').classList.toggle('hidden', !(m && m.repeat === 'Track'));
+    // Sans compte Spotify connecté, Spotify ignore ces deux commandes : masquées.
+    const can = !!(m && m.canShuffle);
+    $('shuffle').classList.toggle('hidden', !can);
+    $('repeat').classList.toggle('hidden', !can);
+    // Grisés quand Spotify les interdit pour le moment (ça change en cours de lecture).
+    $('shuffle').classList.toggle('blocked', !!(m && m.shuffleAllowed === false));
+    $('repeat').classList.toggle('blocked', !!(m && m.repeatAllowed === false));
+    $('shuffle').title = m && m.shuffleAllowed === false ? 'Lecture aléatoire (indisponible pour le moment)' : 'Lecture aléatoire';
+    $('repeat').title = m && m.repeatAllowed === false ? 'Répéter (indisponible pour le moment)' : 'Répéter';
   });
 })();

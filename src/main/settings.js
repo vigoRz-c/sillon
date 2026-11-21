@@ -19,6 +19,12 @@ const DEFAULTS = {
   discX: 0.6,             // position du disque (fraction de l'écran)
   discY: 0.45,
   discSize: 1,            // taille du disque (0,6 à 1,6)
+  discRays: 'fine',       // rayons du disque : fine (fins, serrés) | bold (épais, espacés)
+  discColors: 'album',    // couleurs du disque : album (pochette) | violet | neon | sunset | ocean | spotify | mono
+  discBloom: 0.8,         // lueur au centre du disque (0 à 1,5)
+  edgeGlow: 0.8,          // bord de l'écran lumineux qui pulse (0 = aucun, jusqu'à 2)
+  panelRing: true,        // anneaux qui vibrent autour de la pochette du panneau
+  showClock: true,        // horloge en haut à droite de la scène
   veilleDelay: 5,         // minutes d'inactivité avant l'écran de veille (0 = jamais)
   veilleOnlyPlaying: true, // seulement quand de la musique joue
   veilleLock: true,       // verrouiller la session (comme Windows + L) en sortant

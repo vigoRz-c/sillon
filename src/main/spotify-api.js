@@ -1,4 +1,5 @@
-// Connexion à l'API Web de Spotify, pour la file d'attente (« À suivre »).
+// Connexion à l'API Web de Spotify : file d'attente (« À suivre »), et lecture
+// aléatoire / répétition (Spotify ignore ces deux commandes venant de Windows).
 //
 // Autorisation "Authorization Code + PKCE" : pas de secret dans l'app, et le
 // Client ID n'est pas secret non plus (il identifie l'app, pas l'utilisateur).
@@ -24,7 +25,8 @@ const BUILTIN_CLIENT_ID = '2205461c49cc4912a8e5f913ebc36c6d';
 
 const PORT = 43821;
 const REDIRECT_URI = `http://127.0.0.1:${PORT}/callback`;
-const SCOPES = 'user-read-playback-state user-read-currently-playing';
+const SCOPES = 'user-read-playback-state user-read-currently-playing user-modify-playback-state';
+const MODIFY = 'user-modify-playback-state';
 const ACCOUNTS = 'https://accounts.spotify.com';
 const API = 'https://api.spotify.com/v1';
 
@@ -80,8 +82,19 @@ class SpotifyApi extends EventEmitter {
     return !!(this.tokens && this.tokens.refresh && this.tokens.clientId === this.clientId());
   }
 
+  // Aléatoire / répétition pilotables : connecté avec l'autorisation de
+  // commander la lecture (connexions d'avant la 0.1.3 : se reconnecter).
+  // Spotify peut ensuite les interdire par moments : voir player().allowed.
+  canControl() {
+    return this.tokensMatch() && String(this.tokens.scope || '').split(' ').includes(MODIFY);
+  }
+
   status() {
-    return { connected: this.tokensMatch(), builtIn: this.builtIn(), error: this.lastError, redirectUri: REDIRECT_URI };
+    return {
+      connected: this.tokensMatch(), builtIn: this.builtIn(), error: this.lastError, redirectUri: REDIRECT_URI,
+      canControl: this.canControl(),
+      needsReconnect: this.tokensMatch() && !String(this.tokens.scope || '').split(' ').includes(MODIFY),
+    };
   }
 
   setError(msg) {
@@ -126,7 +139,7 @@ class SpotifyApi extends EventEmitter {
           grant_type: 'authorization_code', code: url.searchParams.get('code'),
           redirect_uri: REDIRECT_URI, client_id: clientId, code_verifier: verifier,
         });
-        await this.save({ access: tok.access_token, refresh: tok.refresh_token, expiresAt: Date.now() + tok.expires_in * 1000, clientId });
+        await this.save({ access: tok.access_token, refresh: tok.refresh_token, expiresAt: Date.now() + tok.expires_in * 1000, clientId, scope: tok.scope || '' });
         this.setError('');
         this.emit('connected');
         done(true, 'Tu peux fermer cet onglet et revenir au bureau.');
@@ -171,7 +184,7 @@ class SpotifyApi extends EventEmitter {
     if (t.access && Date.now() < t.expiresAt - 60000) return t.access;
     try {
       const tok = await this.tokenRequest({ grant_type: 'refresh_token', refresh_token: t.refresh, client_id: t.clientId });
-      await this.save({ ...t, access: tok.access_token, refresh: tok.refresh_token || t.refresh, expiresAt: Date.now() + tok.expires_in * 1000 });
+      await this.save({ ...t, access: tok.access_token, refresh: tok.refresh_token || t.refresh, expiresAt: Date.now() + tok.expires_in * 1000, scope: tok.scope || t.scope || '' });
       return this.tokens.access;
     } catch (e) {
       // Jeton révoqué ou app supprimée : il faut se reconnecter.
@@ -185,20 +198,59 @@ class SpotifyApi extends EventEmitter {
     const token = await this.accessToken();
     if (!token) return null;
     const res = await fetch(API + pathname, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000) });
+    if (res.status === 403) {
+      // La vraie raison donnée par Spotify, pour le diagnostic.
+      const body = await res.json().catch(() => ({}));
+      const why = (body.error && (body.error.reason || body.error.message)) || '';
+      throw new Error((this.builtIn()
+        ? 'Ton compte Spotify n\'est pas autorisé sur l\'app intégrée à Sillon (Spotify la limite à 5 comptes, ajoutés par son propriétaire). Demande-lui de t\'ajouter, ou utilise ton propre Client ID ci-dessous.'
+        : 'Spotify refuse l\'accès : le propriétaire de ton app doit avoir Premium, et ton compte doit être ajouté dans « User Management » de l\'app.')
+        + (why ? ` (Spotify : ${why})` : ''));
+    }
     if (res.status === 204) return null;
     if (res.status === 401 && retry) { this.tokens.expiresAt = 0; return this.get(pathname, false); }
     if (res.status === 429) {
       const wait = Number(res.headers.get('retry-after')) || 30;
       throw Object.assign(new Error(`Spotify : trop de requêtes, nouvel essai dans ${wait} s`), { retryAfter: wait });
     }
-    if (res.status === 403) {
-      throw new Error(this.builtIn()
-        ? 'Ton compte Spotify n\'est pas autorisé sur l\'app intégrée à Sillon (Spotify la limite à 5 comptes, ajoutés par son propriétaire). Demande-lui de t\'ajouter, ou utilise ton propre Client ID ci-dessous.'
-        : 'Spotify refuse l\'accès : le propriétaire de ton app doit avoir Premium, et ton compte doit être ajouté dans « User Management » de l\'app.');
-    }
     if (!res.ok) throw new Error(`Spotify ${res.status}`);
     return res.json();
   }
+
+  // Commande de lecture (PUT).
+  async put(pathname) {
+    const token = await this.accessToken();
+    if (!token) throw new Error('Spotify non connecté');
+    const res = await fetch(API + pathname, { method: 'PUT', headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000) });
+    if (res.ok) return;
+    const body = await res.json().catch(() => ({}));
+    const why = (body.error && (body.error.reason || body.error.message)) || res.status;
+    if (res.status === 403) {
+      // Interdit pour l'instant (selon le contexte de lecture ; toujours pour un
+      // compte gratuit). Ce n'est pas définitif : on relit l'état ensuite.
+      throw new Error(`Spotify n'autorise pas ce changement pour le moment (${why})`);
+    }
+    if (res.status === 404) throw new Error('Aucun lecteur Spotify actif (lance la lecture dans Spotify).');
+    throw new Error(`Spotify ${why}`);
+  }
+
+  // Aléatoire et répétition du lecteur : { shuffle, repeat: 'None'|'List'|'Track' }.
+  async player() {
+    const p = await this.get('/me/player');
+    if (!p) return null;
+    // actions.disallows : ce que Spotify interdit en ce moment (ça change selon
+    // la lecture : début d'album, pub, compte gratuit…).
+    const no = (p.actions && p.actions.disallows) || {};
+    return {
+      shuffle: !!p.shuffle_state,
+      repeat: { context: 'List', track: 'Track' }[p.repeat_state] || 'None',
+      shuffleAllowed: !no.toggling_shuffle,
+      repeatAllowed: !(no.toggling_repeat_context && no.toggling_repeat_track),
+    };
+  }
+
+  setShuffle(on) { return this.put(`/me/player/shuffle?state=${on ? 'true' : 'false'}`); }
+  setRepeat(mode) { return this.put(`/me/player/repeat?state=${{ List: 'context', Track: 'track' }[mode] || 'off'}`); }
 
   // Les prochains morceaux : [{ title, artist, image }] (image = URL Spotify).
   async queue(limit = 4) {

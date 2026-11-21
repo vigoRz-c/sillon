@@ -34,6 +34,7 @@ function win32() {
     SetWindowLongPtrW: user32.func('intptr_t __stdcall SetWindowLongPtrW(intptr_t hwnd, int index, intptr_t value)'),
     SetLayeredWindowAttributes: user32.func('bool __stdcall SetLayeredWindowAttributes(intptr_t hwnd, uint32_t key, uint8_t alpha, uint32_t flags)'),
     WindowFromPoint: user32.func('intptr_t __stdcall WindowFromPoint(POINT pt)'),
+    GetWindow: user32.func('intptr_t __stdcall GetWindow(intptr_t hwnd, uint32_t cmd)'),
     GetClassNameW: user32.func('int __stdcall GetClassNameW(intptr_t hwnd, _Out_ char16_t *buf, int max)'),
   };
   return api;
@@ -205,6 +206,22 @@ function foregroundRect() {
   } catch { return null; }
 }
 
+// Place une fenêtre juste au-dessus du bureau (Progman), sous toutes les
+// applications. Plus sûr que HWND_BOTTOM seul, qui peut la glisser sous le
+// bureau : elle devient alors invisible et les clics tombent sur le fond.
+function placeAboveDesktop(win) {
+  if (process.platform !== 'win32' || !win || win.isDestroyed()) return;
+  try {
+    const w = win32();
+    const me = hwndOf(win);
+    const progman = w.FindWindowW('Progman', null);
+    let above = progman ? w.GetWindow(progman, 3) : 0; // GW_HWNDPREV : la fenêtre juste au-dessus
+    if (above === me) return; // déjà à la bonne place
+    // « Insérer après X » = juste sous X, donc juste au-dessus de Progman.
+    w.SetWindowPos(me, above || HWND_BOTTOM, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
+  } catch (e) { console.error('Fenêtre au-dessus du bureau :', e.message); }
+}
+
 // Fenêtre sous un point de l'écran (pixels physiques), pour le diagnostic.
 function windowAt(pt) {
   if (process.platform !== 'win32') return null;
@@ -224,4 +241,4 @@ function lockWorkstation() {
   try { return win32().LockWorkStation(); } catch (e) { console.error('Verrouillage :', e.message); return false; }
 }
 
-module.exports = { WallpaperAttacher, sendToBottom, lockWorkstation, fullscreenAppRunning, foregroundRect, windowAt, hwndOf };
+module.exports = { WallpaperAttacher, sendToBottom, lockWorkstation, fullscreenAppRunning, foregroundRect, windowAt, hwndOf, placeAboveDesktop };

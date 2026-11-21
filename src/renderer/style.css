@@ -161,6 +161,16 @@ body.settings select, body.settings button {
   border: 1px solid rgba(255,255,255,.12); border-radius: 8px; padding: 6px 10px;
 }
 body.settings select option { background: #1f2028; }
+body.settings .row.col { flex-direction: column; align-items: stretch; }
+.gallery { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
+.gallery button {
+  display: flex; flex-direction: column; gap: 4px; padding: 6px; text-align: left;
+  border-radius: 10px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.03);
+}
+.gallery button:hover { background: rgba(255,255,255,.07); }
+.gallery button.on { border-color: #a855f7; box-shadow: 0 0 0 1px #a855f7, 0 0 18px rgba(168,85,247,.35); }
+.gallery canvas { width: 100%; height: 64px; border-radius: 6px; background: rgba(0,0,0,.35); }
+.gallery span { font-size: 11px; font-weight: 600; opacity: .85; }
 body.settings button { cursor: pointer; -webkit-app-region: no-drag; }
 body.settings button:hover { background: rgba(255,255,255,.14); }
 body.settings .buttons { justify-content: flex-start; }
@@ -183,26 +193,29 @@ body.settings button:disabled { opacity: .45; cursor: default; }
 
 body.widget.scene #glow, body.widget.scene #now { display: none !important; }
 body.widget.scene #viz { -webkit-mask-image: none; mask-image: none; height: 100%; opacity: 1; }
-.big-title, .lyrics, .panel { display: none; }
-body.scene .big-title, body.scene .lyrics { display: block; }
-body.scene .panel { display: flex; }
-body.scene .panel.hidden, body.scene.no-lyrics .lyrics { display: none; }
+/* Éléments de la scène : placés par widget.js selon la disposition. */
+.big-title, .lyrics, .el { display: none; }
+body.scene .el { display: block; position: absolute; }
+body.scene .el.off { display: none; }
+body.scene .el-ghost { pointer-events: none; }
 
 /* Grand titre au début du morceau */
 .big-title {
-  position: absolute; left: 0; right: 0; top: 7%;
-  text-align: center; padding: 0 4%;
+  text-align: center; white-space: nowrap;
   font-family: var(--heavy); font-weight: 900; font-size: var(--title-size);
   line-height: .95; letter-spacing: .01em; text-transform: uppercase;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   color: #fff; text-shadow: 0 4px 30px rgba(0,0,0,.35);
+}
+.big-title > span {
+  display: inline-block; max-width: 96vw; overflow: hidden; text-overflow: ellipsis; vertical-align: top;
   opacity: 0; transform: translateY(-12px) scale(.98);
   transition: opacity 1.2s ease, transform 1.2s ease;
 }
-.big-title.show { opacity: .92; transform: none; }
+.big-title.show > span { opacity: .92; transform: none; }
 
 /* Paroles */
 .lyrics { position: absolute; transform: translateY(-50%); text-align: center; pointer-events: none; }
+body.scene .lyrics { height: calc(var(--lyr-size) * 3.2); }
 .lyr-line {
   position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
   font-family: var(--heavy); font-weight: 900; font-size: var(--lyr-size);
@@ -232,31 +245,28 @@ body.scene .panel.hidden, body.scene.no-lyrics .lyrics { display: none; }
 .lyr-line.fallback .lyr-word { font-size: .8em; }
 .lyr-artist { margin-top: .4em; font-family: var(--font); font-weight: 600; font-size: calc(var(--lyr-size) * .32); letter-spacing: .12em; opacity: .75; }
 
-/* Panneau "en lecture" sur le bord gauche */
-.panel { position: absolute; left: 0; height: calc(var(--p-r) * 2); display: flex; align-items: center; }
-.panel.hidden { display: none; }
+/* Horloge */
+.clock { text-align: right; white-space: nowrap; color: #fff; text-shadow: 0 2px 12px rgba(0,0,0,.45); }
+.c-time { font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif; font-weight: 300; font-size: calc(var(--lyr-size) * 1.1); line-height: 1; letter-spacing: .02em; opacity: .9; }
+.c-date { margin-top: 4px; font-size: calc(var(--lyr-size) * .28); font-weight: 600; letter-spacing: .14em; text-transform: uppercase; opacity: .6; }
+
+/* Panneau « en lecture » : pochette, infos, boutons et file d'attente, placés
+   chacun où l'on veut. */
 .p-cover {
-  width: calc(var(--p-r) * 2); height: calc(var(--p-r) * 2); margin-left: calc(var(--p-r) * -1);
-  border-radius: 50%; object-fit: cover; flex: none;
+  border-radius: 50%; object-fit: cover;
   box-shadow: 0 0 60px var(--accent), 0 0 0 2px rgba(255,255,255,.15);
   transition: box-shadow 1.2s ease;
 }
 .p-cover.empty { background: radial-gradient(circle, var(--accent), rgba(0,0,0,.4)); }
-.p-text {
-  margin-left: 18px; min-width: 0; max-width: 260px;
-  text-shadow: 0 1px 3px rgba(0,0,0,.5), 0 0 16px rgba(0,0,0,.35);
-}
-.p-controls { width: 262px; height: 34px; margin-bottom: 10px; }
+.p-info, .p-queue { width: 260px; text-shadow: 0 1px 3px rgba(0,0,0,.5), 0 0 16px rgba(0,0,0,.35); }
+.p-controls { width: 262px; height: 34px; }
 .p-label { font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); filter: brightness(1.3); }
 .p-title { font-weight: 700; font-size: 17px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .p-artist { font-size: 12px; opacity: .75; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.p-text .progress { width: 200px; }
-.p-text .progress > div { width: 0; }
+.p-info .progress { width: 200px; }
+.p-info .progress > div { width: 0; }
 
-/* File d'attente sous le panneau */
-.panel { overflow: visible; }
-.p-text { align-self: flex-start; margin-top: calc(var(--p-r) * .45); }
-.p-queue { margin-top: 14px; }
+/* File d'attente */
 .p-queue .p-label { margin-bottom: 6px; opacity: .85; }
 .q-row { display: flex; align-items: center; gap: 9px; margin: 6px 0; max-width: 260px; }
 .q-cover { width: 30px; height: 30px; border-radius: 6px; object-fit: cover; flex: none; box-shadow: 0 2px 8px rgba(0,0,0,.4); }
@@ -266,9 +276,9 @@ body.scene .panel.hidden, body.scene.no-lyrics .lyrics { display: none; }
 .q-artist { font-size: 11px; opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Pause : atténuée ; sans musique depuis longtemps : masquée */
-body.widget #viz, body.widget .lyrics, body.widget .panel, body.widget .now { transition: opacity 1.5s ease; }
+body.widget #viz, body.widget .el, body.widget .now { transition: opacity 1.5s ease; }
 body.widget.is-paused #viz, body.widget.is-paused .lyrics, body.widget.is-paused .big-title { opacity: .45; }
-body.widget.is-paused .panel { opacity: .7; }
+body.widget.is-paused .p-info, body.widget.is-paused .p-queue, body.widget.is-paused .p-cover, body.widget.is-paused .clock { opacity: .7; }
 body.widget.is-asleep > * { opacity: 0 !important; }
 
 /* ================= Boutons du panneau (fenêtre à part) ================= */
@@ -284,6 +294,7 @@ body.ctrl-win button:hover { background: rgba(255,255,255,.22); transform: scale
 body.ctrl-win button:active { transform: scale(.95); }
 body.ctrl-win button.toggle { opacity: .55; }
 body.ctrl-win button.toggle.on { opacity: 1; color: #1ed760; border-color: rgba(30,215,96,.55); }
+body.ctrl-win button.toggle.blocked { opacity: .2; cursor: default; }
 body.ctrl-win .badge { position: absolute; right: 3px; bottom: 2px; font-size: 8px; font-weight: 800; }
 
 /* Écran de veille : pas de commandes, pas de curseur, disque dessiné au centre */
@@ -295,3 +306,64 @@ body.veille #viz { top: 0 !important; height: 100% !important; opacity: 1 !impor
 /* Paroles en plein écran : à gauche de la pochette */
 body.fullscreen .lyrics { display: block; z-index: 2; }
 body.fullscreen .lyrics.hidden { display: none; }
+
+/* ===== Éditeur de disposition (widget.html?edit=1) ===== */
+body.layout-edit { background: #0b0b10 center / cover no-repeat; }
+body.layout-edit #viz { opacity: 1; }
+body.layout-edit .el, body.layout-edit .el-ghost, body.layout-edit .lyrics {
+  pointer-events: auto; cursor: move; outline: 1px dashed rgba(255,255,255,.35); outline-offset: 2px;
+}
+body.layout-edit .el:hover { outline-color: rgba(255,255,255,.75); }
+body.layout-edit .el.sel { outline: none; }
+body.layout-edit .el-ghost { border-radius: 50%; }
+body.layout-edit #barsEl { border-radius: 4px; }
+body.layout-edit .lyrics:empty::before { content: 'Paroles du morceau'; font-size: var(--lyr-size); opacity: .6; }
+body.layout-edit .p-cover.empty { background: rgba(255,255,255,.12); }
+body.layout-edit #pControls { display: flex; gap: 6px; align-items: center; }
+body.layout-edit #pControls i {
+  width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,.18); flex: none;
+}
+body.layout-edit #pControls i:nth-child(4) { background: rgba(255,255,255,.85); }
+
+#selFrame {
+  position: absolute; z-index: 50; pointer-events: none;
+  border: 1.5px solid #a855f7; border-radius: 4px; box-shadow: 0 0 0 1px rgba(0,0,0,.4), 0 0 18px rgba(168,85,247,.45);
+}
+#selFrame .lbl {
+  position: absolute; left: -1px; top: -22px; padding: 2px 7px; border-radius: 4px 4px 0 0;
+  background: #a855f7; font: 600 11px var(--font); white-space: nowrap;
+}
+#selFrame .handle {
+  position: absolute; right: -7px; bottom: -7px; width: 14px; height: 14px; pointer-events: auto;
+  border-radius: 3px; background: #fff; border: 2px solid #a855f7; cursor: nwse-resize;
+}
+.guide { position: absolute; z-index: 40; pointer-events: none; display: none; background: rgba(236,72,153,.85); }
+.guide.on { display: block; }
+.guide.v { left: 50%; top: 0; bottom: 0; width: 1px; }
+.guide.h { top: 50%; left: 0; right: 0; height: 1px; }
+
+#editBar, #editSide {
+  position: absolute; z-index: 60; font: 13px var(--font); color: #fff;
+  background: rgba(18,18,26,.88); backdrop-filter: blur(14px);
+  border: 1px solid rgba(255,255,255,.1); border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,.5);
+}
+#editBar { top: 14px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; padding: 8px 10px; }
+#editBar strong { font-weight: 600; margin-right: 6px; }
+#editBar .sp { width: 18px; }
+#editBar button, #editBar select, #editSide select, #editSide button {
+  font: inherit; color: #fff; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12);
+  border-radius: 8px; padding: 5px 10px; cursor: pointer;
+}
+#editBar select option, #editSide select option { background: #1f2028; }
+#editBar button:hover, #editSide button:hover { background: rgba(255,255,255,.15); }
+#editBar button.primary { background: #a855f7; border-color: #a855f7; font-weight: 600; }
+#editSide { top: 70px; right: 14px; width: 240px; max-height: calc(100% - 90px); overflow-y: auto; padding: 10px 12px; }
+#editSide.left { right: auto; left: 14px; }
+#editSide .eh { display: flex; justify-content: space-between; align-items: center; margin: 6px 0 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; opacity: .6; }
+#editSide .eh button { padding: 1px 7px; font-size: 12px; }
+#editSide .ec { display: flex; gap: 8px; align-items: center; padding: 4px 6px; border-radius: 6px; cursor: pointer; }
+#editSide .ec.cur { background: rgba(168,85,247,.22); }
+#editSide .ec input { accent-color: #a855f7; }
+#editSide .er { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; font-size: 12px; opacity: .9; }
+#editSide .er input[type=range] { accent-color: #a855f7; }
+#editSide .eh2 { margin-top: 10px; font-size: 11px; line-height: 1.45; opacity: .5; }

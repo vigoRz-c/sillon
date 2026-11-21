@@ -29,6 +29,7 @@ const queue = require('./queue');
 const { buildTray } = require('./tray');
 const updater = require('./updater');
 const diagnostic = require('./diagnostic');
+const layoutEditor = require('./layout-editor');
 
 if (!app.requestSingleInstanceLock()) app.quit();
 
@@ -36,12 +37,12 @@ if (!app.requestSingleInstanceLock()) app.quit();
 
 function updateSettings(patch) {
   const all = S.settings.set(patch);
-  S.send([S.widget, S.fullscreen, S.settingsWin], 'settings', all);
+  S.send([S.widget, S.fullscreen, S.settingsWin, S.editorWin], 'settings', all);
   if ('mode' in patch || 'layout' in patch || 'sceneHidden' in patch || 'sceneScreen' in patch) {
     widgetWindow.applyMode();
     setTimeout(capture.sampleWallpaper, 1200);
   }
-  if ('showPanel' in patch) updateControls();
+  if ('sceneLayout' in patch) updateControls();
   if (('spotifyCustomClientId' in patch || 'spotifyClientId' in patch) && S.spotify) {
     S.spotify.setError('');
     queue.refreshQueue();
@@ -55,13 +56,15 @@ function updateSettings(patch) {
 // Fonctions partagées entre modules (voir state.js).
 Object.assign(S.actions, {
   updateSettings, buildTray, updateControls,
-  isScene: widgetWindow.isScene, widgetBounds: widgetWindow.widgetBounds,
+  isScene: widgetWindow.isScene, sceneDisplay: widgetWindow.sceneDisplay, openLayoutEditor: layoutEditor.openLayoutEditor,
+  widgetBounds: widgetWindow.widgetBounds,
   applyMode: widgetWindow.applyMode, setEditing: widgetWindow.setEditing,
   startAudio: capture.startAudio, sampleWallpaper: capture.sampleWallpaper,
   startWallpaperSampling: capture.startWallpaperSampling,
   toggleFullscreen: windows.toggleFullscreen, openSettings: windows.openSettings,
   startVeille: veille.startVeille,
-  refreshQueue: queue.refreshQueue,
+  refreshQueue: queue.refreshQueue, mediaCommand: queue.mediaCommand, refreshPlayer: queue.refreshPlayer,
+  rebroadcast: () => {}, // remplacé par now-playing.js
   lyricsOffsetFor: nowPlaying.lyricsOffsetFor, nudgeLyrics: nowPlaying.nudgeLyrics,
   copyDiagnostic: () => copyDiagnostic(),
   updateStatus: updater.status, checkUpdates: updater.check, installUpdate: updater.installNow,
@@ -127,7 +130,7 @@ ipcMain.on('media:command', (e, cmd) => {
   const from = S.controlsWin && e.sender === S.controlsWin.webContents ? 'boutons de la scène'
     : S.fullscreen && e.sender === S.fullscreen.webContents ? 'plein écran' : 'autre fenêtre';
   diagnostic.note('clic', `${cmd} depuis ${from}`);
-  if (S.media) S.media.command(cmd);
+  queue.mediaCommand(cmd);
 });
 function copyDiagnostic() {
   const text = diagnostic.collect();

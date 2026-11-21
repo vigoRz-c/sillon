@@ -51,7 +51,7 @@ async function sampleWallpaper() {
     };
     const img = crop.width > 4 && crop.height > 4 ? src.thumbnail.crop(crop) : src.thumbnail;
     S.wallpaperSample = img.toDataURL();
-    S.send([S.widget, S.fullscreen], 'wallpaper', S.wallpaperSample);
+    S.send([S.widget, S.fullscreen, S.editorWin], 'wallpaper', S.wallpaperSample);
   } catch (e) {
     console.error('Couleurs du fond d\'écran :', e.message);
   }

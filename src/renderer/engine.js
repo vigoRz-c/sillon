@@ -119,6 +119,7 @@
     sunset: ['#f97316', '#ef4444', '#facc15'],
     ocean: ['#0ea5e9', '#6366f1', '#5eead4'],
     mono: ['#e5e7eb', '#ffffff', '#cbd5e1'],
+    violet: ['#a855f7', '#ec4899', '#f0abfc'],
   };
 
   function hexToRgb(h) {
@@ -333,6 +334,64 @@
       ctx.globalCompositeOperation = 'source-over';
     },
 
+    // Colonnes de blocs empilés, façon VU-mètre : le bloc du haut retombe
+    // lentement (crête).
+    blocks(ctx, w, h, a, pal) {
+      const n = Math.max(12, Math.min(48, Math.floor(w / 26)));
+      const rows = Math.max(8, Math.min(24, Math.floor(h / 16)));
+      const bands = a.bands(n);
+      const slot = w / n, bw = slot * 0.72, bh = (h / rows) * 0.7, gap = h / rows;
+      if (!blocksState.peaks || blocksState.peaks.length !== n) blocksState.peaks = new Float32Array(n);
+      const peaks = blocksState.peaks;
+      for (let i = 0; i < n; i++) {
+        const lit = Math.round(bands[i] * rows);
+        peaks[i] = Math.max(lit, peaks[i] - 0.12);
+        const x = i * slot + (slot - bw) / 2;
+        for (let r = 0; r < rows; r++) {
+          const y = h - (r + 1) * gap + (gap - bh) / 2;
+          const on = r < lit;
+          const top = Math.round(peaks[i]) === r + 1 && r >= lit - 1;
+          if (!on && !top) { ctx.globalAlpha = 0.07; ctx.fillStyle = pal[0]; }
+          else {
+            ctx.globalAlpha = top && !on ? 0.9 : 0.55 + 0.45 * (r / rows);
+            ctx.fillStyle = r / rows > 0.75 ? pal[2] : r / rows > 0.4 ? pal[1] : pal[0];
+          }
+          ctx.beginPath(); ctx.roundRect(x, y, bw, bh, Math.min(3, bh / 3)); ctx.fill();
+        }
+      }
+      ctx.globalAlpha = 1;
+    },
+
+    // Anneau dense de traits fins autour d'un cœur lumineux qui respire.
+    halo(ctx, w, h, a, pal, opts) {
+      const cx = w / 2, cy = h / 2, m = Math.min(w, h);
+      const r = m * 0.17 * (1 + a.bass * 0.06);
+      const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 2.6);
+      core.addColorStop(0, withAlpha('#ffffff', 0.35 + a.level * 0.5));
+      core.addColorStop(0.3, withAlpha(pal[0], 0.35 + a.bass * 0.4));
+      core.addColorStop(1, withAlpha(pal[0], 0));
+      ctx.fillStyle = core;
+      ctx.beginPath(); ctx.arc(cx, cy, r * 2.6, 0, Math.PI * 2); ctx.fill();
+      const n = 180, bands = a.bands(64), len = m * 0.22;
+      ctx.lineCap = 'round';
+      ctx.lineWidth = Math.max(1, m * 0.004);
+      ctx.shadowBlur = opts.glow === false ? 0 : 10;
+      const rot = (opts.t || 0) * 0.00004;
+      for (let i = 0; i < n; i++) {
+        const half = i < n / 2 ? i : n - 1 - i;
+        const v = bands[Math.min(63, Math.floor((half / (n / 2)) * 64))];
+        const ang = (i / n) * Math.PI * 2 - Math.PI / 2 + rot;
+        const c = pal[i % 2 ? 1 : 2];
+        ctx.strokeStyle = c; ctx.shadowColor = c;
+        ctx.globalAlpha = 0.5 + v * 0.5;
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(ang) * r, cy + Math.sin(ang) * r);
+        ctx.lineTo(cx + Math.cos(ang) * (r + 4 + v * len), cy + Math.sin(ang) * (r + 4 + v * len));
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    },
+
     // Pochette ronde qui tourne, couronne de points et rayons en soleil qui
     // jaillissent avec le son, sur un halo aux couleurs de la pochette.
     // opts : cx, cy, radius, image, spin (lecture en cours), halo (couleur).
@@ -359,12 +418,26 @@
       ctx.fillStyle = halo;
       ctx.beginPath(); ctx.arc(cx, cy, haloR, 0, Math.PI * 2); ctx.fill();
 
-      // Rayons : traits fins et serrés, symétriques, basses en haut et en bas.
-      const n = Math.min(320, Math.round(140 + 90 * k));
+      // Lueur du centre : un cœur presque blanc qui s'illumine avec le son.
+      const bloom = Math.max(0, Math.min(1.5, opts.bloom ?? 0.8));
+      if (bloom > 0) {
+        const bR = r * (1.9 + a.level * 0.8);
+        const b = ctx.createRadialGradient(cx, cy, r * 0.9, cx, cy, bR);
+        b.addColorStop(0, withAlpha('#ffffff', Math.min(0.85, bloom * (0.3 + a.bass * 0.45))));
+        b.addColorStop(0.35, withAlpha(pal[2], Math.min(0.6, bloom * (0.18 + a.level * 0.3))));
+        b.addColorStop(1, withAlpha(pal[2], 0));
+        ctx.fillStyle = b;
+        ctx.beginPath(); ctx.arc(cx, cy, bR, 0, Math.PI * 2); ctx.fill();
+      }
+
+      // Rayons : traits fins et serrés (« fins ») ou barres épaisses et espacées
+      // (« épais »), symétriques, basses en haut et en bas.
+      const bold = opts.rays === 'bold';
+      const n = bold ? Math.round(56 + 16 * k) : Math.min(320, Math.round(140 + 90 * k));
       const bands = a.bands(64);
-      const inner = r + 12, len = r * 1.15 * k;
+      const inner = r + 12, len = r * (bold ? 1.35 : 1.15) * k;
       ctx.lineCap = 'round';
-      ctx.lineWidth = Math.max(1.1, r * 0.014);
+      ctx.lineWidth = bold ? Math.max(3, r * 0.055) : Math.max(1.1, r * 0.014);
       ctx.shadowBlur = opts.glow === false ? 0 : 8 + 6 * k;
       for (let i = 0; i < n; i++) {
         const half = i < n / 2 ? i : n - 1 - i;
@@ -412,6 +485,78 @@
   };
 
   const discState = { rot: 0, last: 0 };
+  const blocksState = { peaks: null };
+
+  // ================= Décors de la scène =================
+
+  // Bord de l'écran lumineux qui pulse avec les basses.
+  function drawEdgeGlow(ctx, w, h, a, pal, strength = 1) {
+    const s = Math.max(0, Math.min(2, strength));
+    if (!s) return;
+    const thick = Math.min(w, h) * (0.035 + a.bass * 0.03);
+    const alpha = Math.min(0.9, s * (0.18 + a.bass * 0.55));
+    const edges = [
+      [0, 0, 0, thick, 0, 0, w, thick, pal[0]],
+      [0, h, 0, h - thick, 0, h - thick, w, thick, pal[1]],
+      [0, 0, thick, 0, 0, 0, thick, h, pal[1]],
+      [w, 0, w - thick, 0, w - thick, 0, thick, h, pal[0]],
+    ];
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (const [x0, y0, x1, y1, rx, ry, rw, rh, c] of edges) {
+      const g = ctx.createLinearGradient(x0, y0, x1, y1);
+      g.addColorStop(0, withAlpha(c, alpha));
+      g.addColorStop(1, withAlpha(c, 0));
+      ctx.fillStyle = g;
+      ctx.fillRect(rx, ry, rw, rh);
+    }
+    ctx.restore();
+  }
+
+  // Anneaux qui vibrent autour de la petite pochette du panneau.
+  function drawCoverRings(ctx, cx, cy, R, a, pal) {
+    const bands = a.bands(16);
+    ctx.save();
+    ctx.lineWidth = Math.max(1.5, R * 0.025);
+    for (let i = 0; i < 3; i++) {
+      const v = (bands[i * 2] + bands[i * 2 + 1]) / 2;
+      const rr = R + 7 + i * (R * 0.11) + v * R * 0.12;
+      ctx.strokeStyle = pal[i % 3];
+      ctx.shadowColor = pal[i % 3];
+      ctx.shadowBlur = 12;
+      ctx.globalAlpha = Math.min(0.95, 0.2 + v * 0.9) * (1 - i * 0.22);
+      ctx.beginPath(); ctx.arc(cx, cy, rr, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // ================= Audio simulé (aperçus des paramètres) =================
+  // La fenêtre des paramètres ne capte pas le son : ses aperçus bougent sur un
+  // rythme inventé, pour montrer à quoi ressemble chaque style.
+  class FakeAudio {
+    constructor() { this.cache = new Map(); this.wave = new Float32Array(1024); this.t = 0; }
+    frame(now) {
+      this.t = now / 1000;
+      const beat = Math.pow(Math.max(0, Math.sin(this.t * Math.PI * 2 * 1.9)), 8);
+      for (let i = 0; i < this.wave.length; i++) {
+        this.wave[i] = Math.sin(i * 0.05 + this.t * 6) * 0.18 * (0.5 + beat) + Math.sin(i * 0.013 - this.t * 2) * 0.08;
+      }
+      const self = this;
+      return { bands: (n) => self.bands(n), wave: this.wave, bass: 0.25 + beat * 0.7, level: 0.3 + beat * 0.4, beat: beat > 0.9 };
+    }
+    bands(n) {
+      const t = this.t;
+      const beat = Math.pow(Math.max(0, Math.sin(t * Math.PI * 2 * 1.9)), 8);
+      const arr = new Float32Array(n);
+      for (let i = 0; i < n; i++) {
+        const x = i / n;
+        const v = (1 - x) * (0.35 + beat * 0.55) + 0.25 * Math.max(0, Math.sin(x * 14 + t * 3.1)) + 0.15 * Math.sin(x * 37 - t * 5);
+        arr[i] = Math.max(0.03, Math.min(1, v * 0.85));
+      }
+      return arr;
+    }
+    tick() {}
+  }
 
   // "hsl(10 80% 50%)" ou "#rrggbb" -> même couleur avec une opacité.
   function withAlpha(color, alpha) {
@@ -423,8 +568,8 @@
     return color;
   }
 
-  const STYLE_ORDER = ['bars', 'mirror', 'ring', 'wave', 'aurora'];
-  const THEME_ORDER = ['wallpaper', 'album', 'spotify', 'neon', 'sunset', 'ocean', 'mono'];
+  const STYLE_ORDER = ['bars', 'mirror', 'blocks', 'ring', 'halo', 'wave', 'aurora'];
+  const THEME_ORDER = ['wallpaper', 'album', 'spotify', 'neon', 'sunset', 'ocean', 'violet', 'mono'];
 
   // ================= Boucle de rendu =================
 
@@ -486,5 +631,6 @@
   window.SV = {
     AudioEngine, Renderer, VISUALIZERS, THEMES, STYLE_ORDER, THEME_ORDER,
     paletteFromImage, paletteFromColor, currentPosition, fmt, withAlpha,
+    drawEdgeGlow, drawCoverRings, FakeAudio,
   };
 })();

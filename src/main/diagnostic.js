@@ -8,6 +8,7 @@
 const { app, screen } = require('electron');
 const os = require('os');
 const S = require('./state');
+const SceneLayout = require('../renderer/scene-layout');
 const { windowAt, hwndOf } = require('./wallpaper');
 
 const LOG_MAX = 40;
@@ -55,7 +56,9 @@ function collect() {
   }
 
   L.push('', '— Scène');
-  L.push(`disposition ${s.layout} · mode ${s.mode} · écran ${s.sceneScreen} · masquée ${yes(s.sceneHidden)} · panneau ${yes(s.showPanel !== false)}`);
+  L.push(`disposition ${s.layout} · mode ${s.mode} · écran ${s.sceneScreen} · masquée ${yes(s.sceneHidden)}`);
+  const lay = SceneLayout.fromSettings(s);
+  L.push(`éléments : ${SceneLayout.ORDER.map((id) => `${id} ${lay[id].visible ? 'oui' : 'non'}`).join(' · ')}${s.sceneLayout ? '' : " (disposition d'origine)"}`);
   const w = S.widget;
   L.push(`fenêtre : ${S.alive(w) ? `${rect(w.getBounds())} visible ${yes(w.isVisible())}` : 'absente'}`);
   const host = S.attacher && S.attacher.host;

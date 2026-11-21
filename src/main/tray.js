@@ -33,7 +33,7 @@ function radio(list, key) {
 function buildTray() {
   const A = S.actions;
   const set = (patch) => A.updateSettings(patch);
-  const cmd = (c) => S.media && S.media.command(c);
+  const cmd = (c) => A.mediaCommand(c);
   if (!S.tray) {
     S.tray = new Tray(nativeImage.createFromPath(path.join(S.ASSETS, 'tray.png')));
     S.tray.setToolTip('Sillon');
@@ -54,8 +54,10 @@ function buildTray() {
     { label: 'Lecture / pause', click: () => cmd('playpause') },
     { label: 'Suivant', click: () => cmd('next') },
     { label: 'Précédent', click: () => cmd('previous') },
-    { label: 'Lecture aléatoire', type: 'checkbox', checked: !!m.shuffle, click: () => cmd('shuffle') },
-    { label: 'Répéter', type: 'checkbox', checked: !!m.repeat && m.repeat !== 'None', click: () => cmd('repeat') },
+    ...(m.canShuffle ? [
+      { label: 'Lecture aléatoire', type: 'checkbox', checked: !!m.shuffle, click: () => cmd('shuffle') },
+      { label: 'Répéter', type: 'checkbox', checked: !!m.repeat && m.repeat !== 'None', click: () => cmd('repeat') },
+    ] : []),
     { type: 'separator' },
     ...(m.active && m.title ? [{
       label: `Paroles de ce morceau : décalage ${offset > 0 ? '+' : ''}${offset.toFixed(2)} s`,
@@ -74,10 +76,8 @@ function buildTray() {
       label: 'Réglages', submenu: [
         { label: 'Afficher le morceau en cours', type: 'checkbox', checked: s.showNowPlaying,
           click: (i) => set({ showNowPlaying: i.checked }) },
-        { label: 'Afficher les paroles', type: 'checkbox', checked: s.showLyrics !== false,
+        { label: 'Paroles en plein écran', type: 'checkbox', checked: s.showLyrics !== false,
           click: (i) => set({ showLyrics: i.checked }) },
-        { label: 'Afficher le panneau (scène)', type: 'checkbox', checked: s.showPanel !== false,
-          click: (i) => set({ showPanel: i.checked }) },
         { label: 'Sensibilité', submenu: [0.6, 1, 1.5, 2.2].map((v) => ({
           label: `× ${v}`, type: 'radio', checked: s.sensitivity === v, click: () => set({ sensitivity: v }) })) },
         { label: 'Opacité', submenu: [0.4, 0.6, 0.8, 1].map((v) => ({
@@ -110,6 +110,7 @@ function buildTray() {
     },
     { type: 'separator' },
     { label: 'Paramètres…', click: A.openSettings },
+    { label: 'Personnaliser la scène…', click: A.openLayoutEditor, enabled: A.isScene() },
     { label: S.editing ? '✔ Terminer le placement' : 'Déplacer / redimensionner…', click: () => A.setEditing(!S.editing),
       enabled: S.editing || !A.isScene() },
     { label: 'Plein écran   Ctrl+Alt+F', click: A.toggleFullscreen },

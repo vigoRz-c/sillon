@@ -8,13 +8,40 @@
 const { BrowserWindow } = require('electron');
 const path = require('path');
 const S = require('./state');
-const { sendToBottom } = require('./wallpaper');
+const { screen } = require('electron');
+const { sendToBottom, windowAt, hwndOf, placeAboveDesktop } = require('./wallpaper');
+const diagnostic = require('./diagnostic');
+
+// Surveillance : si le bureau repasse au-dessus des boutons (verrouillage,
+// redémarrage d'Explorer…), ils deviennent invisibles et les clics tombent sur
+// le fond d'écran. On le détecte et on les remet au-dessus du bureau.
+const DESKTOP = /^(Progman|WorkerW)$/;
+let watching = null;
+function watchControls() {
+  if (watching) return;
+  watching = setInterval(() => {
+    const win = S.controlsWin;
+    if (!S.alive(win)) return;
+    if (win.isMinimized() || !win.isVisible()) {
+      diagnostic.note('boutons', 'fenêtre réduite ou masquée : réaffichée');
+      win.showInactive();
+      placeAboveDesktop(win);
+      return;
+    }
+    const b = win.getBounds();
+    const hit = windowAt(screen.dipToScreenPoint({ x: b.x + b.width / 2, y: b.y + b.height / 2 }));
+    if (hit && hit.root !== hwndOf(win) && DESKTOP.test(hit.rootCls)) {
+      diagnostic.note('boutons', `passés sous le bureau (${hit.rootCls}) : remis au-dessus`);
+      placeAboveDesktop(win);
+    }
+  }, 2000);
+}
 
 function updateControls() {
   const { isScene, widgetBounds } = S.actions;
   const rect = S.controlsRect;
-  const wanted = isScene() && !S.editing && !S.settings.get('sceneHidden')
-    && S.settings.get('showPanel') !== false && rect;
+  const wanted = isScene() && !S.editing && !S.settings.get('sceneHidden') && rect
+    && !S.alive(S.editorWin); // l'éditeur a ses propres boutons factices
   if (!wanted) {
     if (S.alive(S.controlsWin)) S.controlsWin.close();
     return;
@@ -41,11 +68,16 @@ function updateControls() {
       win.webContents.send('media', S.lastMedia);
       win.showInactive();
       sendToBottom(win);
+      placeAboveDesktop(win);
     });
+    win.webContents.on('render-process-gone', (_e, d) => diagnostic.note('boutons', `page plantée (${d.reason}) : rechargement`));
+    win.webContents.on('render-process-gone', () => setTimeout(() => S.alive(win) && win.reload(), 500));
+    watchControls();
     win.on('closed', () => { if (S.controlsWin === win) S.controlsWin = null; });
   } else {
     S.controlsWin.setBounds(bounds);
     sendToBottom(S.controlsWin);
+    placeAboveDesktop(S.controlsWin);
   }
 }
 

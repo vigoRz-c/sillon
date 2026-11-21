@@ -31,4 +31,9 @@ contextBridge.exposeInMainWorld('bridge', {
   startVeille: () => ipcRenderer.send('veille:start'),
   veilleExit: () => ipcRenderer.send('veille:exit'),
   closeFullscreen: () => ipcRenderer.send('fullscreen:close'),
+  // Éditeur de disposition de la scène.
+  openLayoutEditor: () => ipcRenderer.send('layout:open'),
+  layoutDone: (patch) => ipcRenderer.send('layout:done', patch),
+  layoutCancel: () => ipcRenderer.send('layout:cancel'),
+  onEditorBackground: (cb) => ipcRenderer.on('editor-background', (_e, url) => cb(url)),
 });

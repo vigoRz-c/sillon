@@ -136,4 +136,4 @@ function setEditing(on) {
   if (!on) setTimeout(S.actions.sampleWallpaper, 800);
 }
 
-module.exports = { isScene, widgetBounds, createWidget, applyMode, setEditing };
+module.exports = { isScene, sceneDisplay, widgetBounds, createWidget, applyMode, setEditing };

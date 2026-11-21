@@ -27,7 +27,7 @@ function nudgeLyrics(delta) {
   S.actions.updateSettings({ lyricsOffsets: all });
   if (S.lastLyrics) {
     S.lastLyrics = { ...S.lastLyrics, offset: v };
-    S.send([S.widget, S.fullscreen], 'lyrics', S.lastLyrics);
+    S.send([S.widget, S.fullscreen, S.editorWin], 'lyrics', S.lastLyrics);
   }
 }
 
@@ -36,19 +36,33 @@ function nudgeLyrics(delta) {
 function startMedia() {
   const media = new WindowsMediaSource({ prefer: S.settings.get('preferApp') });
   S.media = media;
+  // canShuffle : boutons aléatoire / répétition affichés (compte Spotify
+  // connecté et autorisé) ; leur état vient alors de l'API Spotify.
   const broadcast = (m) => {
-    S.lastMedia = m;
-    S.send([S.widget, S.fullscreen, S.controlsWin], 'media', m);
+    const ps = S.playerState;
+    const canShuffle = !!(S.spotify && S.spotify.canControl());
+    S.lastMedia = {
+      ...m, canShuffle,
+      ...(canShuffle && ps ? {
+        shuffle: ps.shuffle, repeat: ps.repeat,
+        shuffleAllowed: ps.shuffleAllowed, repeatAllowed: ps.repeatAllowed,
+      } : { shuffleAllowed: true, repeatAllowed: true }),
+    };
+    S.send([S.widget, S.fullscreen, S.controlsWin, S.editorWin], 'media', S.lastMedia);
   };
+  S.actions.rebroadcast = () => { broadcast(S.lastMedia); S.actions.buildTray(); };
   const sendLyrics = (l) => {
     S.lastLyrics = { ...l, offset: lyricsOffsetFor(l) };
-    S.send([S.widget, S.fullscreen], 'lyrics', S.lastLyrics);
+    S.send([S.widget, S.fullscreen, S.editorWin], 'lyrics', S.lastLyrics);
   };
   // L'image donnée par Windows est remplacée par la pochette officielle (Deezer)
   // dès qu'elle est trouvée ; sinon on garde celle de Windows.
   let trackKey = '';
   let officialCover = null;
+  let lastStatus = '';
   media.on('media', (m) => {
+    // Lecture / pause : ce que Spotify autorise (aléatoire, répétition) peut changer.
+    if (m.status !== lastStatus) { lastStatus = m.status; setTimeout(S.actions.refreshPlayer, 1000); }
     const key = m.active ? `${m.app}|${m.title}|${m.artist}|${m.album}` : '';
     if (key !== trackKey) {
       trackKey = key;

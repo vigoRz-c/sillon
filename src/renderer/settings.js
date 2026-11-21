@@ -4,21 +4,47 @@
   const $ = (id) => document.getElementById(id);
   const bridge = window.bridge;
 
-  const selects = ['layout', 'style', 'theme', 'mode', 'preferApp', 'fps', 'veilleDelay', 'sceneScreen', 'sleepAfter'];
-  const checks = ['showNowPlaying', 'showLyrics', 'showPanel', 'launchAtLogin', 'veilleOnlyPlaying', 'veilleLock', 'gameMode', 'dimOnPause', 'autoUpdate'];
+  const selects = ['layout', 'theme', 'discRays', 'discColors', 'mode', 'preferApp', 'fps', 'veilleDelay', 'sceneScreen', 'sleepAfter'];
+  const checks = ['showNowPlaying', 'showLyrics', 'launchAtLogin', 'veilleOnlyPlaying', 'veilleLock', 'gameMode', 'dimOnPause', 'autoUpdate'];
   const numeric = new Set(['fps', 'veilleDelay', 'sleepAfter']);
   const pct = (v) => `${Math.round(v * 100)} %`;
   const ranges = {
     sensitivity: (v) => `× ${v.toFixed(1)}`, opacity: pct,
-    discIntensity: (v) => `× ${v.toFixed(1)}`, discSize: pct, discX: pct, discY: pct,
+    discIntensity: (v) => `× ${v.toFixed(1)}`, 
+    discBloom: (v) => (v ? `× ${v.toFixed(1)}` : 'aucune'), edgeGlow: (v) => (v ? `× ${v.toFixed(1)}` : 'aucun'),
   };
 
+  // ----- Galerie des visualiseurs : aperçus animés -----
+  const { VISUALIZERS, THEMES, FakeAudio } = window.SV;
+  const gallery = [...document.querySelectorAll('#styleGallery button')];
+  let current = {};
+  const fake = new FakeAudio();
+  for (const b of gallery) b.onclick = () => bridge.setSettings({ style: b.dataset.style });
+  function drawGallery(now) {
+    requestAnimationFrame(drawGallery);
+    const a = fake.frame(now);
+    const pal = THEMES[current.theme] || THEMES.violet;
+    for (const b of gallery) {
+      const c = b.querySelector('canvas');
+      const dpr = window.devicePixelRatio || 1;
+      const w = c.clientWidth, h = c.clientHeight;
+      if (!w) continue;
+      if (c.width !== Math.round(w * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
+      const ctx = c.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      VISUALIZERS[b.dataset.style](ctx, w, h, a, pal, { glow: true, t: now, reflection: false, sensitivity: 1 });
+    }
+  }
+  requestAnimationFrame(drawGallery);
+
   function fill(s) {
-    const defaults = { layout: 'scene', sceneScreen: 'primary', sleepAfter: 5 };
+    const defaults = { layout: 'scene', sceneScreen: 'primary', sleepAfter: 5, discRays: 'fine', discColors: 'album' };
     for (const k of selects) if (document.activeElement !== $(k)) $(k).value = String(s[k] ?? defaults[k] ?? '');
     $('showNowPlaying').checked = s.showNowPlaying !== false;
     $('showLyrics').checked = s.showLyrics !== false;
-    $('showPanel').checked = s.showPanel !== false;
+    current = s;
+    for (const b of gallery) b.classList.toggle('on', b.dataset.style === (s.style || 'bars'));
     $('launchAtLogin').checked = !!s.launchAtLogin;
     if (document.activeElement !== $('spotifyClientId')) $('spotifyClientId').value = s.spotifyClientId || '';
     $('spotifyCustomClientId').checked = !!s.spotifyCustomClientId;
@@ -83,7 +109,10 @@
     $('spotifyLogin').textContent = st.connected ? 'Se reconnecter' : 'Se connecter à Spotify';
     $('spotifyLogout').classList.toggle('hidden', !st.connected);
     const el = $('spotifyState');
-    el.textContent = st.error ? st.error : st.connected ? 'Connecté : la file d\'attente s\'affiche sous le panneau.' : 'Non connecté.';
+    el.textContent = st.error ? st.error
+      : !st.connected ? 'Non connecté.'
+      : st.needsReconnect ? 'Connecté. Clique sur « Se reconnecter » pour activer aussi les boutons aléatoire et répétition.'
+      : 'Connecté : file d\'attente, aléatoire et répétition actifs.';
     el.className = `state${st.error ? ' error' : st.connected ? ' ok' : ''}`;
   }
   bridge.onSpotifyStatus(showSpotify);
@@ -115,6 +144,7 @@
   bridge.updateStatus().then(showUpdate);
 
   // ----- Diagnostic -----
+  $('openLayout').onclick = () => bridge.openLayoutEditor();
   $('copyDiagnostic').onclick = async () => {
     const el = $('diagnosticState');
     try {

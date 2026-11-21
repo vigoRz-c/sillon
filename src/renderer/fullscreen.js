@@ -92,7 +92,12 @@
       spin: st.media.status === 'Playing',
       halo: (st.albumPalette && st.albumPalette[0]) || app.renderer.palette[0],
       palette: st.albumPalette || null,
+      rays: st.settings.discRays || 'fine',
+      bloom: st.settings.discBloom ?? 0.8,
     };
+    // Couleurs fixes choisies pour le disque (sinon celles de la pochette).
+    const c = st.settings.discColors;
+    if (c && c !== 'album' && window.SV.THEMES[c]) { app.renderer.opts.palette = window.SV.THEMES[c]; app.renderer.opts.halo = window.SV.THEMES[c][0]; }
   }
 
   // ----- Ondes au rythme des basses -----

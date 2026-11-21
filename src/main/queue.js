@@ -22,9 +22,51 @@ async function imageData(url) {
   } catch { return null; }
 }
 
+// État aléatoire / répétition lu dans l'API (celui de Windows n'est pas fiable).
+async function refreshPlayer() {
+  const spotify = S.spotify;
+  if (!spotify || !spotify.canControl()) { S.playerState = null; S.actions.rebroadcast(); return; }
+  try {
+    S.playerState = await spotify.player();
+  } catch { S.playerState = null; }
+  S.actions.rebroadcast();
+}
+
+// Toutes les commandes de lecture passent par ici (boutons, plein écran, icône).
+// Lecture, précédent, suivant : Windows. Aléatoire, répétition : API Spotify,
+// car l'app Spotify ignore ces deux commandes venant de Windows.
+async function mediaCommand(cmd) {
+  const spotify = S.spotify;
+  if (cmd !== 'shuffle' && cmd !== 'repeat') { if (S.media) S.media.command(cmd); return; }
+  if (!spotify || !spotify.canControl()) { diagnostic.note('spotify', `${cmd} ignoré : compte Spotify non connecté`); return; }
+  try {
+    const cur = S.playerState || (await spotify.player()) || { shuffle: false, repeat: 'None' };
+    if (cmd === 'shuffle' ? cur.shuffleAllowed === false : cur.repeatAllowed === false) {
+      diagnostic.note('spotify', `${cmd} → interdit par Spotify pour le moment`);
+      refreshPlayer();
+      return;
+    }
+    if (cmd === 'shuffle') {
+      await spotify.setShuffle(!cur.shuffle);
+      S.playerState = { ...cur, shuffle: !cur.shuffle };
+    } else {
+      const next = { None: 'List', List: 'Track', Track: 'None' }[cur.repeat] || 'List';
+      await spotify.setRepeat(next);
+      S.playerState = { ...cur, repeat: next };
+    }
+    diagnostic.note('spotify', `${cmd} → accepté (aléatoire ${S.playerState.shuffle ? 'oui' : 'non'}, répétition ${S.playerState.repeat})`);
+    S.actions.rebroadcast();
+    setTimeout(refreshPlayer, 1500);
+  } catch (e) {
+    diagnostic.note('spotify', `${cmd} → ${e.message}`);
+    if (e.retryAfter) pauseUntil = Date.now() + e.retryAfter * 1000;
+    refreshPlayer();
+  }
+}
+
 function sendQueue(q) {
   S.lastQueue = q;
-  S.send([S.widget], 'queue', q);
+  S.send([S.widget, S.editorWin], 'queue', q);
 }
 
 let busy = false;
@@ -37,6 +79,7 @@ async function refreshQueue() {
     return;
   }
   busy = true;
+  refreshPlayer();
   try {
     const items = await spotify.queue(4);
     const withImages = await Promise.all(items.map(async (it) => ({ ...it, image: await imageData(it.image) })));
@@ -61,6 +104,7 @@ function startSpotify() {
     if (st.error && st.error !== lastError) diagnostic.note('spotify', st.error);
     lastError = st.error || '';
     S.send([S.settingsWin], 'spotify-status', st);
+    S.actions.rebroadcast(); // boutons aléatoire / répétition affichés ou non
   };
   spotify.on('status', pushStatus);
   spotify.on('connected', () => { pushStatus(spotify.status()); refreshQueue(); });
@@ -68,4 +112,4 @@ function startSpotify() {
   spotify.ready.then(() => { pushStatus(spotify.status()); refreshQueue(); });
 }
 
-module.exports = { refreshQueue, startSpotify };
+module.exports = { refreshQueue, refreshPlayer, startSpotify, mediaCommand };
