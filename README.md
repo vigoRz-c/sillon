@@ -6,7 +6,7 @@ Visualiseur musical qui vit **sur le fond d'écran Windows**, derrière toutes l
 - Couleurs tirées automatiquement de la pochette du morceau (ou 5 thèmes fixes)
 - Titre, artiste, pochette et progression du morceau en cours
 - Mode plein écran (**Ctrl + Alt + F**) : pochette au centre, fond flouté qui dérive, ondes sur les basses
-- Aucun compte, aucune API : fonctionne avec Spotify **et** tout lecteur qui s'affiche dans les contrôles média de Windows (YouTube dans le navigateur, VLC…)
+- Aucun compte : fonctionne avec Spotify **et** tout lecteur qui s'affiche dans les contrôles média de Windows (YouTube dans le navigateur, VLC…)
 
 Windows 10 et 11.
 
@@ -50,6 +50,7 @@ En plein écran : **Espace** lecture/pause · **← →** morceau précédent/su
 | Besoin | Solution |
 |---|---|
 | Savoir ce qui joue | Les contrôles média de Windows (SMTC), lus par `src/main/media-helper.ps1`. C'est la même source que le panneau média du volume Windows : pas de connexion à Spotify. |
+| Afficher la bonne pochette | Spotify transmet parfois à Windows une image du clip au lieu de la pochette. `src/main/cover-lookup.js` cherche sur la recherche publique de Deezer (sans compte) la pochette de l'album studio où figure le morceau, à défaut celle de l'EP ou du single : seuls l'artiste, l'album et le titre sont envoyés. Rien de fiable trouvé : on garde l'image de Windows. |
 | Réagir au son | Capture « loopback » de la sortie audio du PC via Electron (`getDisplayMedia` + `audio: 'loopback'`). Jamais le micro. Le son n'est ni enregistré ni envoyé nulle part. |
 | Être sur le fond d'écran | `src/main/wallpaper.js` place la fenêtre dans le `WorkerW` d'Explorer (via `koffi` + `user32.dll`), avec une variante pour Windows 11 24H2. Ré-accroche automatique si Explorer redémarre. |
 | Dessiner | Canvas 2D dans `src/renderer/engine.js`, analyse FFT en bandes logarithmiques (35 Hz → 16 kHz). |

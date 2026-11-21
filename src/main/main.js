@@ -5,6 +5,7 @@ const {
 const path = require('path');
 const { Settings } = require('./settings');
 const { WindowsMediaSource } = require('./media');
+const { lookupCover } = require('./cover-lookup');
 const { WallpaperAttacher } = require('./wallpaper');
 
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -273,11 +274,30 @@ function openSettings() {
 
 function startMedia() {
   media = new WindowsMediaSource({ prefer: settings.get('preferApp') });
-  media.on('media', (m) => {
+  const broadcast = (m) => {
     lastMedia = m;
     for (const w of [widget, fullscreen]) {
       if (w && !w.isDestroyed()) w.webContents.send('media', m);
     }
+  };
+  // L'image donnée par Windows est remplacée par la pochette officielle (Deezer)
+  // dès qu'elle est trouvée ; sinon on garde celle de Windows.
+  let trackKey = '';
+  let officialCover = null;
+  media.on('media', (m) => {
+    const key = m.active ? `${m.app}|${m.title}|${m.artist}|${m.album}` : '';
+    if (key !== trackKey) {
+      trackKey = key;
+      officialCover = null;
+      if (key) {
+        lookupCover(m).then((cover) => {
+          if (!cover || trackKey !== key) return;
+          officialCover = cover;
+          broadcast({ ...lastMedia, cover });
+        });
+      }
+    }
+    broadcast(officialCover ? { ...m, cover: officialCover } : m);
     buildTray();
   });
   media.on('error', (e) => console.error('Média :', e.message));
