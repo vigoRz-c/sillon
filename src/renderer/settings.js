@@ -4,14 +4,18 @@
   const $ = (id) => document.getElementById(id);
   const bridge = window.bridge;
 
-  const selects = ['style', 'theme', 'mode', 'preferApp', 'fps'];
-  const checks = ['showNowPlaying', 'launchAtLogin'];
+  const selects = ['layout', 'style', 'theme', 'mode', 'preferApp', 'fps'];
+  const checks = ['showNowPlaying', 'showLyrics', 'showPanel', 'launchAtLogin'];
   const ranges = { sensitivity: (v) => `× ${v.toFixed(1)}`, opacity: (v) => `${Math.round(v * 100)} %` };
 
   function fill(s) {
-    for (const k of selects) if (document.activeElement !== $(k)) $(k).value = String(s[k] ?? '');
+    for (const k of selects) if (document.activeElement !== $(k)) $(k).value = String(s[k] ?? (k === 'layout' ? 'scene' : ''));
     $('showNowPlaying').checked = s.showNowPlaying !== false;
+    $('showLyrics').checked = s.showLyrics !== false;
+    $('showPanel').checked = s.showPanel !== false;
     $('launchAtLogin').checked = !!s.launchAtLogin;
+    // La scène occupe tout le bureau : rien à déplacer.
+    $('editRow').classList.toggle('hidden', (s.layout || 'scene') !== 'strip' && s.mode === 'wallpaper');
     for (const [k, f] of Object.entries(ranges)) {
       if (document.activeElement !== $(k)) $(k).value = s[k];
       $(`${k}Out`).textContent = f(Number(s[k]));

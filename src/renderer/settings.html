@@ -15,7 +15,13 @@
   <main>
     <section>
       <h2>Affichage</h2>
-      <label class="row">Visualiseur
+      <label class="row">Disposition
+        <select id="layout">
+          <option value="scene">Scène : disque, paroles, panneau</option>
+          <option value="strip">Bandeau en bas de l'écran</option>
+        </select>
+      </label>
+      <label class="row">Visualiseur (bandeau, plein écran)
         <select id="style">
           <option value="bars">Barres</option>
           <option value="mirror">Miroir</option>
@@ -37,6 +43,12 @@
       </label>
       <label class="row">Afficher le morceau en cours
         <input id="showNowPlaying" type="checkbox">
+      </label>
+      <label class="row">Afficher les paroles
+        <input id="showLyrics" type="checkbox">
+      </label>
+      <label class="row">Afficher le panneau « en lecture »
+        <input id="showPanel" type="checkbox">
       </label>
     </section>
 
@@ -62,7 +74,7 @@
           <option value="normal">Fenêtre normale</option>
         </select>
       </label>
-      <div class="row buttons">
+      <div id="editRow" class="row buttons">
         <button id="edit">Déplacer / redimensionner…</button>
         <button id="resetBounds">Position par défaut</button>
       </div>

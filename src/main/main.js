@@ -6,7 +6,8 @@ const path = require('path');
 const { Settings } = require('./settings');
 const { WindowsMediaSource } = require('./media');
 const { lookupCover } = require('./cover-lookup');
-const { WallpaperAttacher } = require('./wallpaper');
+const { lookupLyrics } = require('./lyrics');
+const { WallpaperAttacher, sendToBottom } = require('./wallpaper');
 
 if (!app.requestSingleInstanceLock()) app.quit();
 
@@ -20,8 +21,11 @@ let widget;
 let attacher;
 let fullscreen = null;
 let settingsWin = null;
+let controlsWin = null;
+let controlsRect = null;
 let editing = false;
 let lastMedia = { active: false };
+let lastLyrics = null;
 
 const STYLES = [
   ['bars', 'Barres'], ['mirror', 'Miroir'], ['ring', 'Anneau'],
@@ -31,6 +35,10 @@ const THEMES = [
   ['wallpaper', 'Couleurs du fond d\'écran'],
   ['album', 'Couleurs de la pochette'], ['spotify', 'Spotify'], ['neon', 'Néon'],
   ['sunset', 'Coucher de soleil'], ['ocean', 'Océan'], ['mono', 'Blanc'],
+];
+const LAYOUTS = [
+  ['scene', 'Scène : disque, paroles et panneau sur tout le bureau'],
+  ['strip', 'Bandeau : barres et morceau en bas de l\'écran'],
 ];
 const MODES = [
   ['wallpaper', 'Sur le fond d\'écran (derrière les fenêtres)'],
@@ -54,7 +62,18 @@ function defaultBounds() {
 // Le widget suit l'écran principal choisi dans Windows : la position enregistrée
 // est relative à la zone de travail de cet écran (rx, ry), pas au bureau entier.
 // Changer d'écran principal le fait donc suivre, à la même place.
+// La scène occupe toute la zone de travail de l'écran principal. Elle n'a de
+// sens que sur le fond d'écran : en mode "premier plan" ou "fenêtre", elle
+// couvrirait tout, on revient alors au bandeau.
+function isScene() {
+  return settings.get('layout') !== 'strip' && settings.get('mode') === 'wallpaper';
+}
+
 function widgetBounds() {
+  if (isScene()) {
+    const { workArea: wa } = screen.getPrimaryDisplay();
+    return { x: wa.x, y: wa.y, width: wa.width, height: wa.height };
+  }
   const b = settings.get('bounds');
   if (!b) return defaultBounds();
   const { workArea: wa } = screen.getPrimaryDisplay();
@@ -102,6 +121,7 @@ function createWidget() {
   widget.webContents.on('did-finish-load', () => {
     widget.webContents.send('settings', settings.get());
     widget.webContents.send('media', lastMedia);
+    if (lastLyrics) widget.webContents.send('lyrics', lastLyrics);
     if (wallpaperSample) widget.webContents.send('wallpaper', wallpaperSample);
   });
 }
@@ -140,6 +160,48 @@ function applyMode() {
     widget.showInactive();
   }
   widget.webContents.send('editing', editing);
+  updateControls();
+}
+
+// ---------- Boutons du panneau (scène) ----------
+// La scène vit sous les icônes du bureau : elle ne reçoit aucun clic. Les
+// boutons du panneau sont donc une petite fenêtre à part, posée exactement
+// au-dessus d'eux et maintenue tout en bas de la pile des fenêtres (au-dessus
+// du bureau, sous toutes les applications). Elle ne prend jamais le focus.
+
+function updateControls() {
+  const wanted = isScene() && !editing && settings.get('showPanel') !== false && controlsRect;
+  if (!wanted) {
+    if (controlsWin && !controlsWin.isDestroyed()) controlsWin.close();
+    return;
+  }
+  const wb = widgetBounds();
+  const bounds = {
+    x: Math.round(wb.x + controlsRect.x), y: Math.round(wb.y + controlsRect.y),
+    width: Math.round(controlsRect.width), height: Math.round(controlsRect.height),
+  };
+  if (!controlsWin || controlsWin.isDestroyed()) {
+    controlsWin = new BrowserWindow({
+      ...bounds,
+      frame: false, transparent: true, backgroundColor: '#00000000', hasShadow: false,
+      // Non activable : un clic sur un bouton ne la fait pas passer devant les
+      // autres fenêtres et ne vole pas le focus.
+      resizable: false, minimizable: false, maximizable: false, skipTaskbar: true,
+      focusable: false, show: false,
+      title: 'Spoti-View · boutons',
+      webPreferences: { preload: path.join(__dirname, 'preload.js'), backgroundThrottling: false },
+    });
+    controlsWin.loadFile(path.join(RENDERER, 'controls.html'));
+    controlsWin.webContents.on('did-finish-load', () => {
+      controlsWin.webContents.send('media', lastMedia);
+      controlsWin.showInactive();
+      sendToBottom(controlsWin);
+    });
+    controlsWin.on('closed', () => { controlsWin = null; });
+  } else {
+    controlsWin.setBounds(bounds);
+    sendToBottom(controlsWin);
+  }
 }
 
 function setEditing(on) {
@@ -236,6 +298,7 @@ function toggleFullscreen() {
   fullscreen.webContents.on('did-finish-load', () => {
     fullscreen.webContents.send('settings', settings.get());
     fullscreen.webContents.send('media', lastMedia);
+    if (lastLyrics) fullscreen.webContents.send('lyrics', lastLyrics);
     if (wallpaperSample) fullscreen.webContents.send('wallpaper', wallpaperSample);
     startAudio(fullscreen);
   });
@@ -267,7 +330,11 @@ function openSettings() {
     webPreferences: { preload: path.join(__dirname, 'preload.js') },
   });
   settingsWin.loadFile(path.join(RENDERER, 'settings.html'));
-  settingsWin.on('closed', () => { settingsWin = null; });
+  settingsWin.on('closed', () => {
+    settingsWin = null;
+    // La fenêtre de paramètres a pu remonter les boutons : on les renvoie au fond.
+    if (controlsWin && !controlsWin.isDestroyed()) sendToBottom(controlsWin);
+  });
 }
 
 // ---------- Morceau en cours ----------
@@ -276,8 +343,14 @@ function startMedia() {
   media = new WindowsMediaSource({ prefer: settings.get('preferApp') });
   const broadcast = (m) => {
     lastMedia = m;
-    for (const w of [widget, fullscreen]) {
+    for (const w of [widget, fullscreen, controlsWin]) {
       if (w && !w.isDestroyed()) w.webContents.send('media', m);
+    }
+  };
+  const sendLyrics = (l) => {
+    lastLyrics = l;
+    for (const w of [widget, fullscreen]) {
+      if (w && !w.isDestroyed()) w.webContents.send('lyrics', l);
     }
   };
   // L'image donnée par Windows est remplacée par la pochette officielle (Deezer)
@@ -289,7 +362,13 @@ function startMedia() {
     if (key !== trackKey) {
       trackKey = key;
       officialCover = null;
+      // Paroles : vides tant qu'on cherche, puis celles de LRCLIB si elles existent.
+      sendLyrics({ title: m.title || '', artist: m.artist || '', lines: [], pending: !!key });
       if (key) {
+        lookupLyrics(m).then((l) => {
+          if (trackKey !== key) return;
+          sendLyrics({ title: m.title, artist: m.artist, lines: l ? l.lines : [], instrumental: !!(l && l.instrumental) });
+        });
         lookupCover(m).then((cover) => {
           if (!cover || trackKey !== key) return;
           officialCover = cover;
@@ -311,7 +390,11 @@ function updateSettings(patch) {
   for (const w of [widget, fullscreen, settingsWin]) {
     if (w && !w.isDestroyed()) w.webContents.send('settings', all);
   }
-  if ('mode' in patch) applyMode();
+  if ('mode' in patch || 'layout' in patch) {
+    applyMode();
+    setTimeout(sampleWallpaper, 1200);
+  }
+  if ('showPanel' in patch) updateControls();
   if ('preferApp' in patch && media) media.setPreferredApp(patch.preferApp);
   if ('launchAtLogin' in patch) app.setLoginItemSettings({ openAtLogin: !!patch.launchAtLogin });
   buildTray();
@@ -344,11 +427,16 @@ function buildTray() {
     { type: 'separator' },
     { label: 'Style', submenu: radio(STYLES, 'style') },
     { label: 'Couleurs', submenu: radio(THEMES, 'theme') },
+    { label: 'Disposition', submenu: radio(LAYOUTS, 'layout') },
     { label: 'Position', submenu: radio(MODES, 'mode') },
     {
       label: 'Réglages', submenu: [
         { label: 'Afficher le morceau en cours', type: 'checkbox', checked: s.showNowPlaying,
           click: (i) => updateSettings({ showNowPlaying: i.checked }) },
+        { label: 'Afficher les paroles', type: 'checkbox', checked: s.showLyrics !== false,
+          click: (i) => updateSettings({ showLyrics: i.checked }) },
+        { label: 'Afficher le panneau (scène)', type: 'checkbox', checked: s.showPanel !== false,
+          click: (i) => updateSettings({ showPanel: i.checked }) },
         { label: 'Sensibilité', submenu: [0.6, 1, 1.5, 2.2].map((v) => ({
           label: `× ${v}`, type: 'radio', checked: s.sensitivity === v,
           click: () => updateSettings({ sensitivity: v }) })) },
@@ -371,7 +459,8 @@ function buildTray() {
     },
     { type: 'separator' },
     { label: 'Paramètres…', click: openSettings },
-    { label: editing ? '✔ Terminer le placement' : 'Déplacer / redimensionner…', click: () => setEditing(!editing) },
+    { label: editing ? '✔ Terminer le placement' : 'Déplacer / redimensionner…', click: () => setEditing(!editing),
+      enabled: editing || !isScene() },
     { label: 'Plein écran   Ctrl+Alt+F', click: toggleFullscreen },
     { type: 'separator' },
     { label: 'Quitter', click: () => app.quit() },
@@ -386,6 +475,7 @@ ipcMain.on('media:command', (_e, cmd) => media && media.command(cmd));
 ipcMain.on('edit:done', () => setEditing(false));
 ipcMain.on('settings:open', openSettings);
 ipcMain.on('edit:start', () => {
+  if (isScene()) return; // la scène occupe tout l'écran : rien à déplacer
   if (fullscreen && !fullscreen.isDestroyed()) fullscreen.close();
   if (settingsWin && !settingsWin.isDestroyed()) settingsWin.close();
   setEditing(true);
@@ -395,6 +485,11 @@ ipcMain.on('widget:resize', (_e, { width, height }) => {
   if (!editing || !widget || widget.isDestroyed()) return;
   const b = widget.getBounds();
   widget.setBounds({ ...b, width: Math.max(240, Math.round(width)), height: Math.max(120, Math.round(height)) });
+});
+ipcMain.on('scene:controls-rect', (e, rect) => {
+  if (!widget || e.sender !== widget.webContents) return;
+  controlsRect = rect && rect.width > 0 ? rect : null;
+  updateControls();
 });
 ipcMain.on('fullscreen:close', () => fullscreen && !fullscreen.isDestroyed() && fullscreen.close());
 
@@ -436,4 +531,5 @@ app.on('will-quit', () => {
   globalShortcut.unregisterAll();
   if (media) media.stop();
   if (attacher) attacher.detach();
+  if (controlsWin && !controlsWin.isDestroyed()) controlsWin.destroy();
 });

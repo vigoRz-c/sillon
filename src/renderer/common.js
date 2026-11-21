@@ -3,7 +3,7 @@
   'use strict';
   const { AudioEngine, Renderer, THEMES, paletteFromImage, paletteFromColor } = window.SV;
 
-  function createApp(canvas, { onMedia, onPalette, onSettings, transformSettings } = {}) {
+  function createApp(canvas, { onMedia, onPalette, onSettings, onLyrics, transformSettings } = {}) {
     const engine = new AudioEngine();
     const renderer = new Renderer(canvas, engine);
     const state = { settings: {}, media: { active: false }, albumPalette: null, wallpaperPalette: null, theme: 'wallpaper' };
@@ -51,6 +51,7 @@
     if (bridge) {
       bridge.onSettings(applySettings);
       bridge.onMedia(applyMedia);
+      if (bridge.onLyrics && onLyrics) bridge.onLyrics(onLyrics);
       if (bridge.onWallpaper) bridge.onWallpaper((url) => {
         const img = new Image();
         img.onload = () => { state.wallpaperPalette = paletteFromImage(img, { soft: true }); applyPalette(); };

@@ -6,6 +6,9 @@ const DEFAULTS = {
   style: 'bars',          // bars | mirror | ring | wave | aurora
   theme: 'wallpaper',     // wallpaper | album | neon | sunset | ocean | spotify | mono
   mode: 'wallpaper',      // wallpaper | top | normal
+  layout: 'scene',        // scene (disque, paroles, panneau) | strip (bandeau)
+  showLyrics: true,
+  showPanel: true,
   bounds: null,           // { x, y, width, height } en DIP, null = placement par défaut
   showNowPlaying: true,
   opacity: 1,

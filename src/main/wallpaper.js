@@ -150,4 +150,16 @@ class WallpaperAttacher {
   }
 }
 
-module.exports = { WallpaperAttacher };
+// Place une fenêtre tout en bas de la pile (au-dessus du bureau, sous toutes
+// les applications), sans l'activer.
+const HWND_BOTTOM = 1;
+const SWP_NOSIZE = 0x0001;
+const SWP_NOMOVE = 0x0002;
+function sendToBottom(win) {
+  if (process.platform !== 'win32' || !win || win.isDestroyed()) return;
+  try {
+    win32().SetWindowPos(hwndOf(win), HWND_BOTTOM, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
+  } catch (e) { console.error('Fenêtre au fond :', e.message); }
+}
+
+module.exports = { WallpaperAttacher, sendToBottom };

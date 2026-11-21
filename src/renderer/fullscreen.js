@@ -12,7 +12,10 @@
   let localTheme = null;
   let lastRaw = null;
 
+  const lyrics = new window.LyricsView($('lyrics'), { maxChars: 16 });
+
   const app = window.SVApp.createApp($('viz'), {
+    onLyrics: (l) => lyrics.set(l),
     onMedia(m, coverChanged) {
       $('title').textContent = m.active ? (m.title || '') : 'Rien en lecture';
       $('artist').textContent = m.active ? [m.artist, m.album].filter(Boolean).join(' · ') : '';
@@ -48,6 +51,12 @@
     const size = Math.min(w, h) * 0.34;
     const coverEl = $('cover');
     coverEl.style.width = coverEl.style.height = `${size}px`;
+    // Paroles à gauche de la pochette.
+    const ly = $('lyrics').style;
+    ly.left = `${w * 0.04}px`;
+    ly.width = `${Math.max(200, w / 2 - size * 0.75 - w * 0.06)}px`;
+    ly.top = `${h * 0.45}px`;
+    document.documentElement.style.setProperty('--lyr-size', `${Math.round(Math.min(h * 0.07, w * 0.04))}px`);
     const isRing = r.style === 'ring';
     document.body.classList.toggle('ring-mode', isRing);
     r.opts = isRing
@@ -92,6 +101,9 @@
     const pos = currentPosition(m);
     $('bar').style.width = m.duration ? `${(pos / m.duration) * 100}%` : '0%';
     $('time').textContent = m.duration ? `${fmt(pos)} / ${fmt(m.duration)}` : '';
+    const showLyrics = app.state.settings.showLyrics !== false;
+    $('lyrics').classList.toggle('hidden', !showLyrics);
+    if (showLyrics) lyrics.update(m, pos);
   });
 
   // ----- Commandes -----

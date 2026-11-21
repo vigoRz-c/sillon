@@ -332,7 +332,92 @@
       ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = 'source-over';
     },
+
+    // Pochette ronde qui tourne, couronne de points et rayons en soleil qui
+    // jaillissent avec le son, sur un halo aux couleurs de la pochette.
+    // opts : cx, cy, radius, image, spin (lecture en cours), halo (couleur).
+    disc(ctx, w, h, a, basePal, opts) {
+      // Comme sur une pochette de vinyle : rayons et points aux couleurs de la pochette.
+      const pal = opts.palette || basePal;
+      const cx = opts.cx ?? w / 2, cy = opts.cy ?? h / 2;
+      const pulse = 1 + a.bass * 0.06;
+      const r = (opts.radius ?? Math.min(w, h) * 0.12) * pulse;
+      const t = opts.t || 0;
+      const dt = Math.min(100, t - (discState.last || t));
+      discState.last = t;
+      if (opts.spin) discState.rot += dt * 0.00012; // ~1 tour en 50 s
+
+      // Halo : respire avec le niveau sonore.
+      const halo = ctx.createRadialGradient(cx, cy, r * 0.6, cx, cy, r * (2.6 + a.level * 0.8));
+      halo.addColorStop(0, withAlpha(opts.halo || pal[0], 0.55 + a.bass * 0.25));
+      halo.addColorStop(0.45, withAlpha(opts.halo || pal[0], 0.18));
+      halo.addColorStop(1, withAlpha(opts.halo || pal[0], 0));
+      ctx.fillStyle = halo;
+      ctx.beginPath(); ctx.arc(cx, cy, r * 3.6, 0, Math.PI * 2); ctx.fill();
+
+      // Rayons : 180 traits fins, symétriques, basses en haut et en bas.
+      const n = 180;
+      const bands = a.bands(64);
+      const inner = r + 12, len = r * 1.05;
+      ctx.lineCap = 'round';
+      ctx.lineWidth = Math.max(1.2, r * 0.016);
+      ctx.shadowBlur = opts.glow === false ? 0 : 10;
+      for (let i = 0; i < n; i++) {
+        const half = i < n / 2 ? i : n - 1 - i;
+        const v = bands[Math.min(63, Math.floor((half / (n / 2)) * 64))];
+        const wob = 0.5 + 0.5 * Math.sin(i * 1.7 + t * 0.004); // un peu de vie au repos
+        const l = 3 + v * len + wob * 3;
+        const ang = (i / n) * Math.PI * 2 - Math.PI / 2;
+        const c = pal[i % 2 ? 2 : 1];
+        ctx.strokeStyle = c; ctx.shadowColor = c;
+        ctx.globalAlpha = 0.55 + v * 0.45;
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(ang) * inner, cy + Math.sin(ang) * inner);
+        ctx.lineTo(cx + Math.cos(ang) * (inner + l), cy + Math.sin(ang) * (inner + l));
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
+
+      // Couronne de points.
+      ctx.fillStyle = pal[2];
+      const dots = 96;
+      for (let i = 0; i < dots; i++) {
+        const ang = (i / dots) * Math.PI * 2 + discState.rot * 0.5;
+        ctx.beginPath();
+        ctx.arc(cx + Math.cos(ang) * (r + 5), cy + Math.sin(ang) * (r + 5), Math.max(1, r * 0.012), 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Pochette ronde qui tourne.
+      ctx.save();
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+      if (opts.image && opts.image.complete && opts.image.naturalWidth) {
+        ctx.translate(cx, cy); ctx.rotate(discState.rot);
+        ctx.drawImage(opts.image, -r, -r, r * 2, r * 2);
+      } else {
+        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+        g.addColorStop(0, pal[1]); g.addColorStop(1, pal[0]);
+        ctx.fillStyle = g; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+      }
+      ctx.restore();
+      // Liseré sombre pour détacher la pochette des rayons.
+      ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    },
   };
+
+  const discState = { rot: 0, last: 0 };
+
+  // "hsl(10 80% 50%)" ou "#rrggbb" -> même couleur avec une opacité.
+  function withAlpha(color, alpha) {
+    if (color.startsWith('#')) {
+      const [r, g, b] = hexToRgb(color);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+    if (color.startsWith('hsl(')) return color.replace(')', ` / ${alpha})`);
+    return color;
+  }
 
   const STYLE_ORDER = ['bars', 'mirror', 'ring', 'wave', 'aurora'];
   const THEME_ORDER = ['wallpaper', 'album', 'spotify', 'neon', 'sunset', 'ocean', 'mono'];
@@ -391,6 +476,6 @@
 
   window.SV = {
     AudioEngine, Renderer, VISUALIZERS, THEMES, STYLE_ORDER, THEME_ORDER,
-    paletteFromImage, paletteFromColor, currentPosition, fmt,
+    paletteFromImage, paletteFromColor, currentPosition, fmt, withAlpha,
   };
 })();

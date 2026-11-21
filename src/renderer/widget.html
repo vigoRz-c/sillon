@@ -10,12 +10,27 @@
   <div id="glow"></div>
   <canvas id="viz"></canvas>
 
+  <!-- Bandeau -->
   <div id="now" class="now hidden">
     <img id="cover" alt="">
     <div class="meta">
       <div id="title" class="title"></div>
       <div id="artist" class="artist"></div>
       <div class="progress"><div id="bar"></div></div>
+    </div>
+  </div>
+
+  <!-- Scène : grand titre, paroles et panneau "en lecture" -->
+  <div id="bigTitle" class="big-title"></div>
+  <div id="lyrics" class="lyrics"></div>
+  <div id="panel" class="panel hidden">
+    <img id="pCover" class="p-cover" alt="">
+    <div class="p-text">
+      <div id="pControls" class="p-controls"></div>
+      <div class="p-label">En lecture</div>
+      <div id="pTitle" class="p-title"></div>
+      <div id="pArtist" class="p-artist"></div>
+      <div class="progress"><div id="pBar"></div></div>
     </div>
   </div>
 
@@ -29,6 +44,7 @@
 
   <script src="engine.js"></script>
   <script src="common.js"></script>
+  <script src="lyrics-view.js"></script>
   <script src="widget.js"></script>
 </body>
 </html>

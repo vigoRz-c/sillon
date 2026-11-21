@@ -2,7 +2,8 @@
 
 Visualiseur musical qui vit **sur le fond d'écran Windows**, derrière toutes les fenêtres, et réagit à ce que tu écoutes sur Spotify.
 
-- 5 visualiseurs : Barres, Miroir, Anneau, Onde, Aurore
+- Scène sur tout le bureau : pochette en disque avec rayons en soleil, paroles synchronisées mot par mot, panneau « en lecture » avec boutons
+- 5 visualiseurs pour le bandeau et le plein écran : Barres, Miroir, Anneau, Onde, Aurore
 - Couleurs tirées automatiquement de la pochette du morceau (ou 5 thèmes fixes)
 - Titre, artiste, pochette et progression du morceau en cours
 - Mode plein écran (**Ctrl + Alt + F**) : pochette au centre, fond flouté qui dérive, ondes sur les basses
@@ -51,6 +52,8 @@ En plein écran : **Espace** lecture/pause · **← →** morceau précédent/su
 |---|---|
 | Savoir ce qui joue | Les contrôles média de Windows (SMTC), lus par `src/main/media-helper.ps1`. C'est la même source que le panneau média du volume Windows : pas de connexion à Spotify. |
 | Afficher la bonne pochette | Spotify transmet parfois à Windows une image du clip au lieu de la pochette. `src/main/cover-lookup.js` cherche sur la recherche publique de Deezer (sans compte) la pochette de l'album studio où figure le morceau, à défaut celle de l'EP ou du single : seuls l'artiste, l'album et le titre sont envoyés. Rien de fiable trouvé : on garde l'image de Windows. |
+| Paroles synchronisées | `src/main/lyrics.js` les demande à [LRCLIB](https://lrclib.net) (gratuit, sans compte), mot par mot quand c'est disponible : seuls l'artiste, le titre, l'album et la durée sont envoyés. Pas de paroles synchronisées : le titre s'affiche à la place. |
+| Boutons de la scène | La scène est sous les icônes du bureau et ne reçoit pas les clics : les boutons du panneau sont une petite fenêtre à part (`controls.html`), gardée tout en bas de la pile des fenêtres. |
 | Réagir au son | Capture « loopback » de la sortie audio du PC via Electron (`getDisplayMedia` + `audio: 'loopback'`). Jamais le micro. Le son n'est ni enregistré ni envoyé nulle part. |
 | Être sur le fond d'écran | `src/main/wallpaper.js` place la fenêtre dans le `WorkerW` d'Explorer (via `koffi` + `user32.dll`), avec une variante pour Windows 11 24H2. Ré-accroche automatique si Explorer redémarre. |
 | Dessiner | Canvas 2D dans `src/renderer/engine.js`, analyse FFT en bandes logarithmiques (35 Hz → 16 kHz). |

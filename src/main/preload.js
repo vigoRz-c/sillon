@@ -4,6 +4,8 @@ contextBridge.exposeInMainWorld('bridge', {
   getSettings: () => ipcRenderer.invoke('settings:get'),
   setSettings: (patch) => ipcRenderer.send('settings:set', patch),
   onSettings: (cb) => ipcRenderer.on('settings', (_e, s) => cb(s)),
+  onLyrics: (cb) => ipcRenderer.on('lyrics', (_e, l) => cb(l)),
+  reportControlsRect: (rect) => ipcRenderer.send('scene:controls-rect', rect),
   onMedia: (cb) => ipcRenderer.on('media', (_e, m) => cb(m)),
   onWallpaper: (cb) => ipcRenderer.on('wallpaper', (_e, url) => cb(url)),
   onEditing: (cb) => ipcRenderer.on('editing', (_e, on) => cb(on)),

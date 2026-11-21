@@ -165,3 +165,85 @@ body.settings button { cursor: pointer; -webkit-app-region: no-drag; }
 body.settings button:hover { background: rgba(255,255,255,.14); }
 body.settings .buttons { justify-content: flex-start; }
 body.settings .icon { width: 30px; height: 30px; padding: 0; border-radius: 50%; }
+
+/* ================= Scène (disque, paroles, panneau) ================= */
+
+:root { --lyr-size: 48px; --title-size: 96px; --p-r: 110px; --heavy: "Segoe UI Black", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif; }
+
+body.widget.scene #glow, body.widget.scene #now { display: none !important; }
+body.widget.scene #viz { -webkit-mask-image: none; mask-image: none; height: 100%; opacity: 1; }
+.big-title, .lyrics, .panel { display: none; }
+body.scene .big-title, body.scene .lyrics { display: block; }
+body.scene .panel { display: flex; }
+body.scene .panel.hidden, body.scene.no-lyrics .lyrics { display: none; }
+
+/* Grand titre au début du morceau */
+.big-title {
+  position: absolute; left: 0; right: 0; top: 7%;
+  text-align: center; padding: 0 4%;
+  font-family: var(--heavy); font-weight: 900; font-size: var(--title-size);
+  line-height: .95; letter-spacing: .01em; text-transform: uppercase;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: #fff; text-shadow: 0 4px 30px rgba(0,0,0,.35);
+  opacity: 0; transform: translateY(-12px) scale(.98);
+  transition: opacity 1.2s ease, transform 1.2s ease;
+}
+.big-title.show { opacity: .92; transform: none; }
+
+/* Paroles */
+.lyrics { position: absolute; transform: translateY(-50%); text-align: center; pointer-events: none; }
+.lyr-line {
+  position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
+  font-family: var(--heavy); font-weight: 900; font-size: var(--lyr-size);
+  line-height: 1.02; text-transform: uppercase; color: #fff;
+  text-shadow: 0 2px 6px rgba(0,0,0,.35), 0 0 30px rgba(0,0,0,.25);
+  transition: opacity .4s ease, filter .4s ease;
+}
+.lyr-line.out { opacity: 0; filter: blur(6px); }
+.lyr-row { white-space: nowrap; }
+.lyr-word {
+  display: inline-block; margin: 0 .12em; vertical-align: baseline;
+  opacity: 0; transform: translateY(.25em) scale(.92); filter: blur(4px);
+  transition: opacity .25s ease, transform .35s cubic-bezier(.2,.9,.3,1.3), filter .3s ease;
+}
+.lyr-word.small { font-size: .52em; letter-spacing: .02em; opacity: 0; }
+.lyr-word.on { opacity: 1; transform: none; filter: none; }
+.lyr-line.fallback .lyr-word { font-size: .8em; }
+.lyr-artist { margin-top: .4em; font-family: var(--font); font-weight: 600; font-size: calc(var(--lyr-size) * .32); letter-spacing: .12em; opacity: .75; }
+
+/* Panneau "en lecture" sur le bord gauche */
+.panel { position: absolute; left: 0; height: calc(var(--p-r) * 2); display: flex; align-items: center; }
+.panel.hidden { display: none; }
+.p-cover {
+  width: calc(var(--p-r) * 2); height: calc(var(--p-r) * 2); margin-left: calc(var(--p-r) * -1);
+  border-radius: 50%; object-fit: cover; flex: none;
+  box-shadow: 0 0 60px var(--accent), 0 0 0 2px rgba(255,255,255,.15);
+  transition: box-shadow 1.2s ease;
+}
+.p-cover.empty { background: radial-gradient(circle, var(--accent), rgba(0,0,0,.4)); }
+.p-text {
+  margin-left: 18px; min-width: 0; max-width: 260px;
+  text-shadow: 0 1px 3px rgba(0,0,0,.5), 0 0 16px rgba(0,0,0,.35);
+}
+.p-controls { width: 168px; height: 36px; margin-bottom: 10px; }
+.p-label { font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); filter: brightness(1.3); }
+.p-title { font-weight: 700; font-size: 17px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-artist { font-size: 12px; opacity: .75; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-text .progress { width: 200px; }
+.p-text .progress > div { width: 0; }
+
+/* ================= Boutons du panneau (fenêtre à part) ================= */
+
+body.ctrl-win { display: flex; align-items: center; gap: 8px; padding: 1px; }
+body.ctrl-win button {
+  width: 34px; height: 34px; border-radius: 50%; flex: none; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.22); background: rgba(20,20,28,.35);
+  backdrop-filter: blur(8px); color: #fff; font-size: 14px; line-height: 1;
+  display: grid; place-items: center; transition: background .2s, transform .2s;
+}
+body.ctrl-win button:hover { background: rgba(255,255,255,.22); transform: scale(1.08); }
+body.ctrl-win button:active { transform: scale(.95); }
+
+/* Paroles en plein écran : à gauche de la pochette */
+body.fullscreen .lyrics { display: block; z-index: 2; }
+body.fullscreen .lyrics.hidden { display: none; }
