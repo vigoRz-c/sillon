@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'">
+  <title>Spoti-View</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="widget">
+  <div id="glow"></div>
+  <canvas id="viz"></canvas>
+
+  <div id="now" class="now hidden">
+    <img id="cover" alt="">
+    <div class="meta">
+      <div id="title" class="title"></div>
+      <div id="artist" class="artist"></div>
+      <div class="progress"><div id="bar"></div></div>
+    </div>
+  </div>
+
+  <div id="status" class="status hidden"></div>
+
+  <div id="edit" class="edit hidden">
+    <div class="edit-hint">Glisse pour déplacer · tire le coin pour redimensionner</div>
+    <button id="done">Terminé</button>
+    <div id="grip" class="grip" title="Redimensionner"></div>
+  </div>
+
+  <script src="engine.js"></script>
+  <script src="common.js"></script>
+  <script src="widget.js"></script>
+</body>
+</html>

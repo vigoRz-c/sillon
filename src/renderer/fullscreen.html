@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'">
+  <title>Spoti-View</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="fullscreen">
+  <div id="room"><img id="roomImg" alt=""></div>
+  <div id="shade"></div>
+  <canvas id="ripples"></canvas>
+  <canvas id="viz"></canvas>
+  <img id="cover" class="big-cover hidden" alt="">
+
+  <div class="fs-meta">
+    <div id="title" class="title"></div>
+    <div id="artist" class="artist"></div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <div id="controls" class="controls">
+    <button id="prev" title="Précédent (←)">&#9198;</button>
+    <button id="play" title="Lecture / pause (Espace)">&#9199;</button>
+    <button id="next" title="Suivant (→)">&#9197;</button>
+    <div class="progress wide"><div id="bar"></div></div>
+    <div id="time" class="time"></div>
+  </div>
+
+  <div class="keys">Espace lecture · ← → morceau · V visualiseur · C couleurs · Échap quitter</div>
+
+  <script src="engine.js"></script>
+  <script src="common.js"></script>
+  <script src="fullscreen.js"></script>
+</body>
+</html>
