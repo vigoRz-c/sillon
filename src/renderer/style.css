@@ -165,6 +165,16 @@ body.settings button { cursor: pointer; -webkit-app-region: no-drag; }
 body.settings button:hover { background: rgba(255,255,255,.14); }
 body.settings .buttons { justify-content: flex-start; }
 body.settings .icon { width: 30px; height: 30px; padding: 0; border-radius: 50%; }
+body.settings .help { font-size: 12px; line-height: 1.45; opacity: .75; margin-bottom: 6px; }
+body.settings .help a { color: var(--accent); }
+body.settings code { font-family: Consolas, monospace; font-size: 12px; background: rgba(255,255,255,.07); padding: 5px 8px; border-radius: 6px; user-select: all; }
+body.settings input[type=text] {
+  font: inherit; color: inherit; width: 100%; background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.12); border-radius: 8px; padding: 6px 10px; font-family: Consolas, monospace;
+}
+body.settings .state { font-size: 12px; opacity: .8; padding-top: 4px; }
+body.settings .state.ok { color: #86efac; opacity: 1; }
+body.settings .state.error { color: #fca5a5; opacity: 1; }
 
 /* ================= Scène (disque, paroles, panneau) ================= */
 
@@ -231,6 +241,18 @@ body.scene .panel.hidden, body.scene.no-lyrics .lyrics { display: none; }
 .p-artist { font-size: 12px; opacity: .75; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .p-text .progress { width: 200px; }
 .p-text .progress > div { width: 0; }
+
+/* File d'attente sous le panneau */
+.panel { overflow: visible; }
+.p-text { align-self: flex-start; margin-top: calc(var(--p-r) * .45); }
+.p-queue { margin-top: 14px; }
+.p-queue .p-label { margin-bottom: 6px; opacity: .85; }
+.q-row { display: flex; align-items: center; gap: 9px; margin: 6px 0; max-width: 260px; }
+.q-cover { width: 30px; height: 30px; border-radius: 6px; object-fit: cover; flex: none; box-shadow: 0 2px 8px rgba(0,0,0,.4); }
+.q-cover.empty { background: rgba(255,255,255,.12); }
+.q-meta { min-width: 0; }
+.q-title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.q-artist { font-size: 11px; opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ================= Boutons du panneau (fenêtre à part) ================= */
 

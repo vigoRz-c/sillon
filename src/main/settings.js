@@ -11,7 +11,8 @@ const DEFAULTS = {
   showPanel: true,
   veilleDelay: 5,         // minutes d'inactivité avant l'écran de veille (0 = jamais)
   veilleOnlyPlaying: true, // seulement quand de la musique joue
-  veilleLock: true,       // verrouiller la session (comme Windows + L) en sortant
+  veilleLock: true,
+  spotifyClientId: '',    // app Spotify de l'utilisateur, pour la file d'attente (facultatif)       // verrouiller la session (comme Windows + L) en sortant
   bounds: null,           // { x, y, width, height } en DIP, null = placement par défaut
   showNowPlaying: true,
   opacity: 1,

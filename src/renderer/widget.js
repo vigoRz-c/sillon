@@ -73,7 +73,18 @@
     // Panneau : grande pochette à moitié hors de l'écran, en bas à gauche.
     const R = Math.round(Math.min(H * 0.13, 120));
     document.documentElement.style.setProperty('--p-r', `${R}px`);
-    $('panel').style.top = `${Math.round(H * 0.8 - R)}px`;
+    geo.R = R;
+    placePanel();
+  }
+
+  // Le texte du panneau (avec la file d'attente) peut dépasser la pochette :
+  // on remonte le panneau pour qu'il reste au-dessus du bas de l'écran.
+  function placePanel() {
+    const H = window.innerHeight, R = geo.R || 100;
+    const text = document.querySelector('.p-text');
+    const textBottom = R * 0.45 + (text ? text.offsetHeight : 0);
+    const top = Math.min(H * 0.74 - R, H - 16 - Math.max(2 * R, textBottom));
+    $('panel').style.top = `${Math.round(Math.max(H * 0.3, top))}px`;
   }
 
   function updateDisc() {
@@ -87,6 +98,32 @@
       palette: st.albumPalette || null,
     };
   }
+
+  // File d'attente (si le compte Spotify est connecté dans les paramètres).
+  function renderQueue(q) {
+    const items = (q && q.items) || [];
+    const list = $('pQueueList');
+    list.textContent = '';
+    for (const it of items) {
+      const row = document.createElement('div');
+      row.className = 'q-row';
+      const img = document.createElement('img');
+      img.className = 'q-cover';
+      img.alt = '';
+      if (it.image) img.src = it.image; else img.classList.add('empty');
+      const meta = document.createElement('div');
+      meta.className = 'q-meta';
+      const t = document.createElement('div'); t.className = 'q-title'; t.textContent = it.title;
+      const a = document.createElement('div'); a.className = 'q-artist'; a.textContent = it.artist;
+      meta.append(t, a);
+      row.append(img, meta);
+      list.appendChild(row);
+    }
+    $('pQueue').classList.toggle('hidden', !items.length);
+    placePanel();
+    requestAnimationFrame(reportControls);
+  }
+  if (bridge && bridge.onQueue) bridge.onQueue(renderQueue);
 
   // Les boutons du panneau sont une petite fenêtre à part (la scène ne reçoit
   // pas les clics) : on lui indique où se placer.

@@ -1,12 +1,13 @@
 const {
   app, BrowserWindow, Tray, Menu, ipcMain, screen, globalShortcut,
-  session, desktopCapturer, nativeImage, powerMonitor,
+  session, desktopCapturer, nativeImage, powerMonitor, shell,
 } = require('electron');
 const path = require('path');
 const { Settings } = require('./settings');
 const { WindowsMediaSource } = require('./media');
 const { lookupCover } = require('./cover-lookup');
 const { lookupLyrics } = require('./lyrics');
+const { SpotifyApi } = require('./spotify-api');
 const { WallpaperAttacher, sendToBottom, lockWorkstation } = require('./wallpaper');
 
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -27,6 +28,8 @@ let controlsRect = null;
 let editing = false;
 let lastMedia = { active: false };
 let lastLyrics = null;
+let spotify = null;
+let lastQueue = { items: [], connected: false };
 
 const STYLES = [
   ['bars', 'Barres'], ['mirror', 'Miroir'], ['ring', 'Anneau'],
@@ -123,6 +126,7 @@ function createWidget() {
     widget.webContents.send('settings', settings.get());
     widget.webContents.send('media', lastMedia);
     if (lastLyrics) widget.webContents.send('lyrics', lastLyrics);
+    widget.webContents.send('queue', lastQueue);
     if (wallpaperSample) widget.webContents.send('wallpaper', wallpaperSample);
   });
 }
@@ -373,6 +377,63 @@ function watchIdle() {
   powerMonitor.on('suspend', quiet);
 }
 
+// ---------- File d'attente (API Spotify, facultative) ----------
+// Windows ne donne que le morceau en cours : les suivants viennent de l'API
+// Spotify, une fois le compte connecté dans les paramètres. Interrogée au
+// changement de morceau et toutes les 20 s pendant la lecture.
+
+const imageCache = new Map(); // URL Spotify -> data URL (la page n'accepte que data:)
+async function imageData(url) {
+  if (!url) return null;
+  if (imageCache.has(url)) return imageCache.get(url);
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    if (!res.ok) return null;
+    const data = `data:${res.headers.get('content-type') || 'image/jpeg'};base64,${Buffer.from(await res.arrayBuffer()).toString('base64')}`;
+    if (imageCache.size > 100) imageCache.delete(imageCache.keys().next().value);
+    imageCache.set(url, data);
+    return data;
+  } catch { return null; }
+}
+
+function sendQueue(q) {
+  lastQueue = q;
+  for (const w of [widget]) {
+    if (w && !w.isDestroyed()) w.webContents.send('queue', q);
+  }
+}
+
+let queueBusy = false;
+let queuePauseUntil = 0;
+async function refreshQueue() {
+  if (!spotify || queueBusy || Date.now() < queuePauseUntil) return;
+  if (!spotify.status().connected) {
+    if (lastQueue.connected || lastQueue.items.length) sendQueue({ items: [], connected: false });
+    return;
+  }
+  queueBusy = true;
+  try {
+    const items = await spotify.queue(4);
+    const withImages = await Promise.all(items.map(async (it) => ({ ...it, image: await imageData(it.image) })));
+    sendQueue({ items: withImages, connected: true });
+    if (spotify.status().error) spotify.setError('');
+  } catch (e) {
+    if (e.retryAfter) queuePauseUntil = Date.now() + e.retryAfter * 1000;
+    spotify.setError(e.message);
+  } finally {
+    queueBusy = false;
+  }
+}
+
+function startSpotify() {
+  spotify = new SpotifyApi(() => settings.get('spotifyClientId'));
+  const pushStatus = (st) => { if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send('spotify-status', st); };
+  spotify.on('status', pushStatus);
+  spotify.on('connected', () => { pushStatus(spotify.status()); refreshQueue(); });
+  setInterval(() => { if (lastMedia.active && lastMedia.status === 'Playing') refreshQueue(); }, 20000);
+  refreshQueue();
+}
+
 // ---------- Fenêtre de paramètres ----------
 
 function openSettings() {
@@ -430,6 +491,8 @@ function startMedia() {
     if (key !== trackKey) {
       trackKey = key;
       officialCover = null;
+      // File d'attente : Spotify met un instant à la décaler après un changement.
+      if (key) setTimeout(refreshQueue, 1500);
       // Paroles : vides tant qu'on cherche, puis celles de LRCLIB si elles existent.
       sendLyrics({ title: m.title || '', artist: m.artist || '', lines: [], pending: !!key });
       if (key) {
@@ -571,6 +634,11 @@ ipcMain.on('scene:controls-rect', (e, rect) => {
   updateControls();
 });
 ipcMain.on('veille:exit', stopVeille);
+ipcMain.handle('spotify:status', () => (spotify ? spotify.status() : { connected: false }));
+ipcMain.on('spotify:login', () => spotify && spotify.login());
+ipcMain.on('spotify:logout', () => { if (spotify) { spotify.logout(); refreshQueue(); } });
+// Seule page externe que les paramètres peuvent ouvrir : le tableau de bord Spotify.
+ipcMain.on('spotify:dashboard', () => shell.openExternal('https://developer.spotify.com/dashboard'));
 ipcMain.on('veille:start', () => setTimeout(startVeille, 300));
 ipcMain.on('fullscreen:close', () => fullscreen && !fullscreen.isDestroyed() && fullscreen.close());
 
@@ -582,6 +650,7 @@ app.whenReady().then(() => {
   setupLoopback();
   createWidget();
   startMedia();
+  startSpotify();
   buildTray();
   globalShortcut.register('CommandOrControl+Alt+F', toggleFullscreen);
   if (!globalShortcut.register('CommandOrControl+Alt+L', startVeille)) {

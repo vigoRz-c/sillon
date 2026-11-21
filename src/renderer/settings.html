@@ -81,6 +81,28 @@
     </section>
 
     <section>
+      <h2>Compte Spotify (file d'attente)</h2>
+      <p class="help">
+        Facultatif : affiche les morceaux suivants sous le panneau. Il faut une app
+        gratuite sur le <a href="#" id="dashboard">tableau de bord Spotify</a>
+        (ton compte doit être Premium). Dans l'app, coche « Web API » et ajoute
+        cette adresse de retour (Redirect URI) :
+      </p>
+      <div class="row copy-row">
+        <code id="redirectUri">http://127.0.0.1:43821/callback</code>
+        <button id="copyRedirect">Copier</button>
+      </div>
+      <label class="row">Client ID
+        <input id="spotifyClientId" type="text" spellcheck="false" autocomplete="off" placeholder="32 caractères">
+      </label>
+      <div class="row buttons">
+        <button id="spotifyLogin">Se connecter à Spotify</button>
+        <button id="spotifyLogout" class="hidden">Se déconnecter</button>
+      </div>
+      <div id="spotifyState" class="state"></div>
+    </section>
+
+    <section>
       <h2>Écran de veille</h2>
       <label class="row">Après une inactivité de
         <select id="veilleDelay">
