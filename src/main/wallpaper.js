@@ -29,6 +29,7 @@ function win32() {
     SetWindowPos: user32.func('bool __stdcall SetWindowPos(intptr_t hwnd, intptr_t after, int x, int y, int cx, int cy, uint32_t flags)'),
     ScreenToClient: user32.func('bool __stdcall ScreenToClient(intptr_t hwnd, _Inout_ POINT *pt)'),
     ShowWindow: user32.func('bool __stdcall ShowWindow(intptr_t hwnd, int cmd)'),
+    LockWorkStation: user32.func('bool __stdcall LockWorkStation()'),
     GetWindowLongPtrW: user32.func('intptr_t __stdcall GetWindowLongPtrW(intptr_t hwnd, int index)'),
     SetWindowLongPtrW: user32.func('intptr_t __stdcall SetWindowLongPtrW(intptr_t hwnd, int index, intptr_t value)'),
     SetLayeredWindowAttributes: user32.func('bool __stdcall SetLayeredWindowAttributes(intptr_t hwnd, uint32_t key, uint8_t alpha, uint32_t flags)'),
@@ -162,4 +163,10 @@ function sendToBottom(win) {
   } catch (e) { console.error('Fenêtre au fond :', e.message); }
 }
 
-module.exports = { WallpaperAttacher, sendToBottom };
+// Équivaut à Windows + L.
+function lockWorkstation() {
+  if (process.platform !== 'win32') return false;
+  try { return win32().LockWorkStation(); } catch (e) { console.error('Verrouillage :', e.message); return false; }
+}
+
+module.exports = { WallpaperAttacher, sendToBottom, lockWorkstation };

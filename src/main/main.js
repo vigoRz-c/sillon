@@ -1,13 +1,13 @@
 const {
   app, BrowserWindow, Tray, Menu, ipcMain, screen, globalShortcut,
-  session, desktopCapturer, nativeImage,
+  session, desktopCapturer, nativeImage, powerMonitor,
 } = require('electron');
 const path = require('path');
 const { Settings } = require('./settings');
 const { WindowsMediaSource } = require('./media');
 const { lookupCover } = require('./cover-lookup');
 const { lookupLyrics } = require('./lyrics');
-const { WallpaperAttacher, sendToBottom } = require('./wallpaper');
+const { WallpaperAttacher, sendToBottom, lockWorkstation } = require('./wallpaper');
 
 if (!app.requestSingleInstanceLock()) app.quit();
 
@@ -22,6 +22,7 @@ let attacher;
 let fullscreen = null;
 let settingsWin = null;
 let controlsWin = null;
+let veilleWins = [];
 let controlsRect = null;
 let editing = false;
 let lastMedia = { active: false };
@@ -305,6 +306,73 @@ function toggleFullscreen() {
   fullscreen.on('closed', () => { fullscreen = null; });
 }
 
+// ---------- Écran de veille ----------
+// Windows + L ouvre un bureau sécurisé où aucune application ne peut dessiner.
+// À la place : après un temps d'inactivité (ou avec Ctrl+Alt+L), la scène
+// s'affiche en plein écran par-dessus tout ; au premier mouvement ou à la
+// première touche, elle se ferme et la session est verrouillée.
+
+const veilleActive = () => veilleWins.some((w) => !w.isDestroyed());
+
+function startVeille() {
+  if (veilleActive()) return;
+  if (fullscreen && !fullscreen.isDestroyed()) fullscreen.close();
+  if (settingsWin && !settingsWin.isDestroyed()) settingsWin.close();
+  const primary = screen.getPrimaryDisplay();
+  for (const d of screen.getAllDisplays()) {
+    const main = d.id === primary.id;
+    const win = new BrowserWindow({
+      ...d.bounds, frame: false, fullscreen: true, backgroundColor: '#000000',
+      alwaysOnTop: true, skipTaskbar: true, show: false, title: 'Spoti-View · veille',
+      webPreferences: { preload: path.join(__dirname, 'preload.js'), backgroundThrottling: false },
+    });
+    win.setAlwaysOnTop(true, 'screen-saver');
+    if (main) {
+      win.loadFile(path.join(RENDERER, 'fullscreen.html'), { query: { veille: '1' } });
+      win.webContents.on('did-finish-load', () => {
+        win.webContents.send('settings', settings.get());
+        win.webContents.send('media', lastMedia);
+        if (lastLyrics) win.webContents.send('lyrics', lastLyrics);
+        startAudio(win);
+      });
+      fullscreen = win; // reçoit les mises à jour du morceau, des paroles et des réglages
+    } else {
+      // Les autres écrans : noirs, et ils réveillent aussi.
+      win.loadURL('data:text/html,' + encodeURIComponent('<body style="margin:0;background:#000;cursor:none"><script>setTimeout(()=>{for(const e of ["mousedown","keydown","wheel"])addEventListener(e,()=>bridge.veilleExit())},1500)</script></body>'));
+    }
+    win.once('ready-to-show', () => { if (main) { win.show(); win.focus(); } else win.showInactive(); });
+    win.on('closed', () => { veilleWins = veilleWins.filter((w) => w !== win); });
+    veilleWins.push(win);
+  }
+}
+
+function stopVeille() {
+  if (!veilleActive()) return;
+  const wins = veilleWins;
+  veilleWins = [];
+  for (const w of wins) if (!w.isDestroyed()) w.destroy();
+  fullscreen = null;
+  if (settings.get('veilleLock') !== false) lockWorkstation();
+}
+
+function watchIdle() {
+  setInterval(() => {
+    const delay = Number(settings.get('veilleDelay')) || 0;
+    if (!delay || veilleActive() || editing) return;
+    if (fullscreen && !fullscreen.isDestroyed()) return; // déjà en plein écran Spoti-View
+    if (settings.get('veilleOnlyPlaying') !== false && !(lastMedia.active && lastMedia.status === 'Playing')) return;
+    if (powerMonitor.getSystemIdleTime() >= delay * 60) startVeille();
+  }, 5000);
+  // Session verrouillée ou mise en veille par ailleurs : on range la scène sans reverrouiller.
+  const quiet = () => {
+    for (const w of veilleWins) if (!w.isDestroyed()) w.destroy();
+    veilleWins = [];
+    fullscreen = null;
+  };
+  powerMonitor.on('lock-screen', quiet);
+  powerMonitor.on('suspend', quiet);
+}
+
 // ---------- Fenêtre de paramètres ----------
 
 function openSettings() {
@@ -452,6 +520,16 @@ function buildTray() {
           { label: 'Le lecteur actif (YouTube, VLC…)', type: 'radio', checked: !s.preferApp,
             click: () => updateSettings({ preferApp: '' }) },
         ] },
+        { label: 'Écran de veille', submenu: [
+          ...[0, 1, 2, 5, 10, 15, 30].map((v) => ({
+            label: v ? `Après ${v} min d'inactivité` : 'Jamais', type: 'radio',
+            checked: Number(s.veilleDelay) === v, click: () => updateSettings({ veilleDelay: v }) })),
+          { type: 'separator' },
+          { label: 'Seulement pendant la lecture', type: 'checkbox', checked: s.veilleOnlyPlaying !== false,
+            click: (i) => updateSettings({ veilleOnlyPlaying: i.checked }) },
+          { label: 'Verrouiller la session en sortant', type: 'checkbox', checked: s.veilleLock !== false,
+            click: (i) => updateSettings({ veilleLock: i.checked }) },
+        ] },
         { label: 'Lancer au démarrage de Windows', type: 'checkbox', checked: s.launchAtLogin,
           click: (i) => updateSettings({ launchAtLogin: i.checked }) },
         { label: 'Remettre la position par défaut', click: () => { settings.set({ bounds: null }); applyMode(); } },
@@ -462,6 +540,7 @@ function buildTray() {
     { label: editing ? '✔ Terminer le placement' : 'Déplacer / redimensionner…', click: () => setEditing(!editing),
       enabled: editing || !isScene() },
     { label: 'Plein écran   Ctrl+Alt+F', click: toggleFullscreen },
+    { label: 'Écran de veille   Ctrl+Alt+L', click: startVeille },
     { type: 'separator' },
     { label: 'Quitter', click: () => app.quit() },
   ]));
@@ -491,6 +570,8 @@ ipcMain.on('scene:controls-rect', (e, rect) => {
   controlsRect = rect && rect.width > 0 ? rect : null;
   updateControls();
 });
+ipcMain.on('veille:exit', stopVeille);
+ipcMain.on('veille:start', () => setTimeout(startVeille, 300));
 ipcMain.on('fullscreen:close', () => fullscreen && !fullscreen.isDestroyed() && fullscreen.close());
 
 // ---------- Démarrage ----------
@@ -503,6 +584,10 @@ app.whenReady().then(() => {
   startMedia();
   buildTray();
   globalShortcut.register('CommandOrControl+Alt+F', toggleFullscreen);
+  if (!globalShortcut.register('CommandOrControl+Alt+L', startVeille)) {
+    console.error('Raccourci Ctrl+Alt+L déjà pris par une autre application.');
+  }
+  watchIdle();
 
   // Écrans branchés/débranchés ou changement de résolution : on se replace.
   // Changer d'écran principal dans les paramètres Windows déplace les écrans :

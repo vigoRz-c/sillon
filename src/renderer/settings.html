@@ -81,6 +81,30 @@
     </section>
 
     <section>
+      <h2>Écran de veille</h2>
+      <label class="row">Après une inactivité de
+        <select id="veilleDelay">
+          <option value="0">Jamais</option>
+          <option value="1">1 minute</option>
+          <option value="2">2 minutes</option>
+          <option value="5">5 minutes</option>
+          <option value="10">10 minutes</option>
+          <option value="15">15 minutes</option>
+          <option value="30">30 minutes</option>
+        </select>
+      </label>
+      <label class="row">Seulement pendant la lecture
+        <input id="veilleOnlyPlaying" type="checkbox">
+      </label>
+      <label class="row">Verrouiller la session en sortant
+        <input id="veilleLock" type="checkbox">
+      </label>
+      <div class="row buttons">
+        <button id="veilleNow">Lancer maintenant (Ctrl+Alt+L)</button>
+      </div>
+    </section>
+
+    <section>
       <h2>Général</h2>
       <label class="row">Suivre en priorité
         <select id="preferApp">

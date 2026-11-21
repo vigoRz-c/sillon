@@ -9,6 +9,9 @@ const DEFAULTS = {
   layout: 'scene',        // scene (disque, paroles, panneau) | strip (bandeau)
   showLyrics: true,
   showPanel: true,
+  veilleDelay: 5,         // minutes d'inactivité avant l'écran de veille (0 = jamais)
+  veilleOnlyPlaying: true, // seulement quand de la musique joue
+  veilleLock: true,       // verrouiller la session (comme Windows + L) en sortant
   bounds: null,           // { x, y, width, height } en DIP, null = placement par défaut
   showNowPlaying: true,
   opacity: 1,

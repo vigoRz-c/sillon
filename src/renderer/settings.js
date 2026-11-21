@@ -4,8 +4,8 @@
   const $ = (id) => document.getElementById(id);
   const bridge = window.bridge;
 
-  const selects = ['layout', 'style', 'theme', 'mode', 'preferApp', 'fps'];
-  const checks = ['showNowPlaying', 'showLyrics', 'showPanel', 'launchAtLogin'];
+  const selects = ['layout', 'style', 'theme', 'mode', 'preferApp', 'fps', 'veilleDelay'];
+  const checks = ['showNowPlaying', 'showLyrics', 'showPanel', 'launchAtLogin', 'veilleOnlyPlaying', 'veilleLock'];
   const ranges = { sensitivity: (v) => `× ${v.toFixed(1)}`, opacity: (v) => `${Math.round(v * 100)} %` };
 
   function fill(s) {
@@ -14,6 +14,8 @@
     $('showLyrics').checked = s.showLyrics !== false;
     $('showPanel').checked = s.showPanel !== false;
     $('launchAtLogin').checked = !!s.launchAtLogin;
+    $('veilleOnlyPlaying').checked = s.veilleOnlyPlaying !== false;
+    $('veilleLock').checked = s.veilleLock !== false;
     // La scène occupe tout le bureau : rien à déplacer.
     $('editRow').classList.toggle('hidden', (s.layout || 'scene') !== 'strip' && s.mode === 'wallpaper');
     for (const [k, f] of Object.entries(ranges)) {
@@ -25,7 +27,7 @@
   for (const k of selects) {
     $(k).addEventListener('change', () => {
       const v = $(k).value;
-      bridge.setSettings({ [k]: k === 'fps' ? Number(v) : v });
+      bridge.setSettings({ [k]: k === 'fps' || k === 'veilleDelay' ? Number(v) : v });
     });
   }
   for (const k of checks) $(k).addEventListener('change', () => bridge.setSettings({ [k]: $(k).checked }));
@@ -39,6 +41,7 @@
 
   $('edit').onclick = () => bridge.startEditing();
   $('resetBounds').onclick = () => bridge.resetBounds();
+  $('veilleNow').onclick = () => bridge.startVeille();
   $('close').onclick = () => window.close();
   window.addEventListener('keydown', (e) => { if (e.key === 'Escape') window.close(); });
 

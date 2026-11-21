@@ -244,6 +244,12 @@ body.ctrl-win button {
 body.ctrl-win button:hover { background: rgba(255,255,255,.22); transform: scale(1.08); }
 body.ctrl-win button:active { transform: scale(.95); }
 
+/* Écran de veille : pas de commandes, pas de curseur, disque dessiné au centre */
+body.veille, body.veille * { cursor: none !important; }
+body.veille .controls, body.veille .keys, body.veille .settings-btn,
+body.veille .toast, body.veille .big-cover { display: none !important; }
+body.veille #viz { top: 0 !important; height: 100% !important; opacity: 1 !important; }
+
 /* Paroles en plein écran : à gauche de la pochette */
 body.fullscreen .lyrics { display: block; z-index: 2; }
 body.fullscreen .lyrics.hidden { display: none; }

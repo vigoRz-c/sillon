@@ -15,5 +15,7 @@ contextBridge.exposeInMainWorld('bridge', {
   openSettings: () => ipcRenderer.send('settings:open'),
   startEditing: () => ipcRenderer.send('edit:start'),
   resetBounds: () => ipcRenderer.send('bounds:reset'),
+  startVeille: () => ipcRenderer.send('veille:start'),
+  veilleExit: () => ipcRenderer.send('veille:exit'),
   closeFullscreen: () => ipcRenderer.send('fullscreen:close'),
 });

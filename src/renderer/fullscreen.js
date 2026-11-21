@@ -3,6 +3,11 @@
   const { currentPosition, fmt, STYLE_ORDER, THEME_ORDER } = window.SV;
   const $ = (id) => document.getElementById(id);
   const bridge = window.bridge;
+  // Écran de veille : même page, sans commandes, avec le disque au centre.
+  // Toute action (souris, clavier, perte du focus) la ferme.
+  const VEILLE = new URLSearchParams(location.search).has('veille');
+  if (VEILLE) document.body.classList.add('veille');
+  let coverImg = null;
 
   const STYLE_NAMES = { bars: 'Barres', mirror: 'Miroir', ring: 'Anneau', wave: 'Onde', aurora: 'Aurore' };
   const THEME_NAMES = { wallpaper: "Couleurs du fond d'écran", album: 'Couleurs de la pochette', spotify: 'Spotify', neon: 'Néon', sunset: 'Coucher de soleil', ocean: 'Océan', mono: 'Blanc' };
@@ -21,6 +26,7 @@
       $('artist').textContent = m.active ? [m.artist, m.album].filter(Boolean).join(' · ') : '';
       $('play').innerHTML = m.status === 'Playing' ? '&#10074;&#10074;' : '&#9654;';
       if (coverChanged) {
+        if (m.cover) { coverImg = new Image(); coverImg.src = m.cover; } else coverImg = null;
         $('cover').src = m.cover || '';
         $('roomImg').src = m.cover || '';
         $('cover').classList.toggle('hidden', !m.cover);
@@ -31,6 +37,7 @@
       if (lastRaw && s.style !== lastRaw.style) localStyle = null;
       if (lastRaw && s.theme !== lastRaw.theme) localTheme = null;
       lastRaw = s;
+      if (VEILLE) return { ...s, style: 'disc' };
       return { ...s, style: localStyle || s.style, theme: localTheme || s.theme };
     },
     onSettings: () => layout(),
@@ -49,6 +56,16 @@
     const r = app.renderer;
     const w = window.innerWidth, h = window.innerHeight;
     const size = Math.min(w, h) * 0.34;
+    if (VEILLE) {
+      const radius = Math.min(w, h) * 0.17;
+      const ly = $('lyrics').style;
+      ly.left = `${w * 0.04}px`;
+      ly.width = `${Math.max(200, w / 2 - radius * 2.3 - w * 0.04)}px`;
+      ly.top = `${h * 0.5}px`;
+      document.documentElement.style.setProperty('--lyr-size', `${Math.round(Math.min(h * 0.075, w * 0.045))}px`);
+      veilleOpts(radius);
+      return;
+    }
     const coverEl = $('cover');
     coverEl.style.width = coverEl.style.height = `${size}px`;
     // Paroles à gauche de la pochette.
@@ -64,6 +81,18 @@
       : { glow: true, reflection: false };
   }
   window.addEventListener('resize', layout);
+
+  function veilleOpts(radius) {
+    const w = window.innerWidth, h = window.innerHeight;
+    const st = app.state;
+    app.renderer.opts = {
+      glow: true, cx: w / 2, cy: h / 2, radius: radius || Math.min(w, h) * 0.17,
+      image: coverImg,
+      spin: st.media.status === 'Playing',
+      halo: (st.albumPalette && st.albumPalette[0]) || app.renderer.palette[0],
+      palette: st.albumPalette || null,
+    };
+  }
 
   // ----- Ondes au rythme des basses -----
   const rc = $('ripples');
@@ -99,6 +128,7 @@
 
     const m = app.state.media;
     const pos = currentPosition(m);
+    if (VEILLE) veilleOpts();
     $('bar').style.width = m.duration ? `${(pos / m.duration) * 100}%` : '0%';
     $('time').textContent = m.duration ? `${fmt(pos)} / ${fmt(m.duration)}` : '';
     const showLyrics = app.state.settings.showLyrics !== false;
@@ -120,7 +150,29 @@
   $('play').onclick = () => cmd('playpause');
   $('settingsBtn').onclick = () => bridge && bridge.openSettings();
 
+  // ----- Sortie de veille -----
+  if (VEILLE && bridge) {
+    const started = performance.now();
+    let origin = null;
+    let gone = false;
+    // Délai de grâce : les touches du raccourci sont encore relâchées au lancement.
+    const leave = () => {
+      if (gone || performance.now() - started < 1500) return;
+      gone = true;
+      bridge.veilleExit();
+    };
+    window.addEventListener('mousemove', (e) => {
+      if (!origin) { origin = { x: e.screenX, y: e.screenY }; return; }
+      if (Math.hypot(e.screenX - origin.x, e.screenY - origin.y) > 12) leave();
+    });
+    for (const ev of ['mousedown', 'wheel', 'keydown', 'touchstart']) {
+      window.addEventListener(ev, (e) => { e.preventDefault(); leave(); }, { capture: true, passive: false });
+    }
+    window.addEventListener('blur', leave);
+  }
+
   window.addEventListener('keydown', (e) => {
+    if (VEILLE) return;
     const s = app.state.settings;
     if (e.code === 'Space') { e.preventDefault(); cmd('playpause'); }
     else if (e.key === 'ArrowRight') cmd('next');
