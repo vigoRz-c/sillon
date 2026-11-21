@@ -43,9 +43,25 @@ run(`npm version ${bump} -m "Version %s"`);
 const version = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
 run('git push origin main --follow-tags');
 
-// ---------- Construction et publication ----------
-console.log(`\nConstruction et publication de Sillon ${version}…`);
-run('npx electron-builder --win --publish always', { env: { ...process.env, GH_TOKEN: token } });
+// ---------- Construction ----------
+// On construit sans publier : electron-builder publie chaque cible en
+// parallèle et peut créer deux Releases pour le même tag (vu en 0.1.1).
+console.log(`\nConstruction de Sillon ${version}…`);
+fs.rmSync(path.join(root, 'dist'), { recursive: true, force: true });
+run('npx electron-builder --win --publish never');
+
+// ---------- Publication : une seule Release, tous les fichiers ----------
+const dist = path.join(root, 'dist');
+const assets = [
+  'latest.yml',                              // lu par les Sillon installés
+  `Sillon-Setup-${version}.exe`,
+  `Sillon-Setup-${version}.exe.blockmap`,    // mises à jour partielles
+  `Sillon-${version}-portable.exe`,
+].map((f) => path.join(dist, f));
+for (const f of assets) if (!fs.existsSync(f)) fail(`Fichier attendu introuvable : ${f}`);
+console.log(`\nPublication de Sillon ${version} sur GitHub…`);
+run(`gh release create v${version} ${assets.map((f) => `"${f}"`).join(' ')} -R ${owner}/${repo} --title "Sillon ${version}" --generate-notes --latest`,
+  { env: { ...process.env, GH_TOKEN: token } });
 
 console.log(`\n✓ Sillon ${version} publié : https://github.com/${owner}/${repo}/releases/tag/v${version}`);
 console.log('  Les versions installées le trouveront dans les 4 heures (ou via « Rechercher les mises à jour »).');
