@@ -5,7 +5,11 @@
   "description": "Visualiseur musical posé sur le fond d'écran Windows, synchronisé avec Spotify (et tout lecteur qui expose ses contrôles média).",
   "main": "src/main/main.js",
   "author": "Loïc Restout",
-  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vigoRz-c/spoti-view.git"
+  },
+  "license": "GPL-3.0-only",
   "private": true,
   "scripts": {
     "start": "electron .",

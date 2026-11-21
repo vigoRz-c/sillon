@@ -117,6 +117,24 @@ demo/                  aperçu navigateur avec faux pont + son de synthèse
 
 La même connexion pourrait servir plus tard au like ou à l'ajout à une playlist.
 
+## Données et vie privée
+
+Spoti-View n'a pas de serveur et ne collecte rien. Ce qui sort de ton PC :
+
+| Vers | Quoi | Pourquoi |
+|---|---|---|
+| [Deezer](https://developers.deezer.com/api) (API publique) | artiste, album, titre | trouver la pochette de l'album |
+| [LRCLIB](https://lrclib.net) | artiste, titre, album, durée | trouver les paroles synchronisées |
+| [Spotify](https://developer.spotify.com/documentation/web-api) (seulement si tu connectes ton compte) | jeton d'accès | lire la file d'attente |
+
+Le son du PC est analysé en direct et jamais enregistré ni envoyé. Les réglages, le cache et les jetons Spotify (chiffrés par Windows) restent dans `%APPDATA%/Spoti-View`.
+
 ## État du projet
 
 Version 0.1, testée sur Windows 11 24H2 avec Electron 45 : accroche au fond d'écran (y compris avec Wallpaper Engine), deux écrans, capture du son, contrôles média, paroles, file d'attente, écran de veille et version empaquetée. Si l'accroche au fond d'écran ne marche pas sur ta version de Windows, le mode « Toujours au premier plan » ou « Fenêtre normale » reste utilisable.
+
+## Licence
+
+[GPL-3.0](LICENSE) : tu peux utiliser, étudier, modifier et redistribuer Spoti-View ; toute version modifiée que tu diffuses doit rester sous GPL-3.0, avec son code source.
+
+Projet indépendant, sans lien avec Spotify, Deezer ou LRCLIB. Spotify est une marque de Spotify AB. Les pochettes et les paroles affichées appartiennent à leurs ayants droit.
