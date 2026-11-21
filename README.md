@@ -2,6 +2,8 @@
 
 Visualiseur musical qui vit **sur le fond d'écran Windows**, derrière toutes les fenêtres, et réagit à ce que tu écoutes sur Spotify.
 
+> **Projet en bêta.** Sillon évolue encore : des bugs sont possibles. Si tu en trouves un, ou si tu as une idée pour l'améliorer, contacte-moi sur Discord : **`_vigorz_`**.
+
 - Scène sur tout le bureau : pochette en disque avec rayons en soleil et halo (intensité, position et taille réglables), paroles synchronisées en karaoké avec la ligne précédente en fantôme, panneau « en lecture » avec boutons (aléatoire, répéter, masquer…) et file d'attente « À suivre »
 - Écran de veille (**Ctrl + Alt + L** ou après inactivité) qui verrouille la session en sortant
 - Discret : s'arrête pendant un jeu ou une vidéo en plein écran, s'atténue en pause, se masque sans musique
@@ -153,7 +155,9 @@ Le son du PC est analysé en direct et jamais enregistré ni envoyé. Les régla
 
 ## État du projet
 
-Version 0.1, testée sur Windows 11 24H2 avec Electron 45 : accroche au fond d'écran (y compris avec Wallpaper Engine), deux écrans, capture du son, contrôles média, paroles, file d'attente, écran de veille et version empaquetée. Si l'accroche au fond d'écran ne marche pas sur ta version de Windows, le mode « Toujours au premier plan » ou « Fenêtre normale » reste utilisable.
+**Bêta** (version 0.1). Bugs, idées, retours : écris-moi sur Discord, **`_vigorz_`**. Pour un bug, joins si possible le diagnostic (Paramètres → Diagnostic → « Copier le diagnostic ») : il ne contient ni mot de passe ni jeton.
+
+Testée sur Windows 11 24H2 avec Electron 45 : accroche au fond d'écran (y compris avec Wallpaper Engine), deux écrans, capture du son, contrôles média, paroles, file d'attente, écran de veille et version empaquetée. Si l'accroche au fond d'écran ne marche pas sur ta version de Windows, le mode « Toujours au premier plan » ou « Fenêtre normale » reste utilisable.
 
 ## Licence
 
