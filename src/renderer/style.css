@@ -249,8 +249,8 @@ body.scene .lyrics { height: calc(var(--lyr-size) * 3.2); }
 
 /* Horloge */
 .clock { text-align: right; white-space: nowrap; color: #fff; text-shadow: 0 2px 12px rgba(0,0,0,.45); }
-.c-time { font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif; font-weight: 300; font-size: calc(var(--lyr-size) * 1.1); line-height: 1; letter-spacing: .02em; opacity: .9; }
-.c-date { margin-top: 4px; font-size: calc(var(--lyr-size) * .28); font-weight: 600; letter-spacing: .14em; text-transform: uppercase; opacity: .6; }
+.c-time { font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif; font-weight: 300; font-size: calc(var(--scene-text, 48px) * 1.1); line-height: 1; letter-spacing: .02em; opacity: .9; }
+.c-date { margin-top: 4px; font-size: calc(var(--scene-text, 48px) * .28); font-weight: 600; letter-spacing: .14em; text-transform: uppercase; opacity: .6; }
 
 /* Panneau « en lecture » : pochette, infos, boutons et file d'attente, placés
    chacun où l'on veut. */

@@ -20,20 +20,39 @@
   let current = {};
   const fake = new FakeAudio();
   for (const b of gallery) b.onclick = () => bridge.setSettings({ style: b.dataset.style });
+  // Légèreté : on ne dessine que les aperçus visibles, à 30 i/s, et rien
+  // pendant le défilement (sinon la fenêtre saccade). Les tailles sont lues
+  // une fois par l'observateur, pas à chaque image.
+  const previews = gallery.map((b) => ({ b, c: b.querySelector('canvas'), w: 0, h: 0, visible: false }));
+  const dpr = window.devicePixelRatio || 1;
+  const sizes = new ResizeObserver((entries) => {
+    for (const e of entries) {
+      const p = previews.find((x) => x.c === e.target);
+      p.w = e.contentRect.width; p.h = e.contentRect.height;
+      p.c.width = Math.round(p.w * dpr); p.c.height = Math.round(p.h * dpr);
+    }
+  });
+  const seen = new IntersectionObserver((entries) => {
+    for (const e of entries) previews.find((x) => x.c === e.target).visible = e.isIntersecting;
+  });
+  for (const p of previews) { sizes.observe(p.c); seen.observe(p.c); }
+  let scrolling = 0, lastDraw = 0;
+  document.querySelector('main').addEventListener('scroll', () => {
+    clearTimeout(scrolling);
+    scrolling = setTimeout(() => { scrolling = 0; }, 180);
+  }, { passive: true });
   function drawGallery(now) {
     requestAnimationFrame(drawGallery);
+    if (scrolling || now - lastDraw < 1000 / 30 - 2) return;
+    lastDraw = now;
     const a = fake.frame(now);
     const pal = THEMES[current.theme] || THEMES.violet;
-    for (const b of gallery) {
-      const c = b.querySelector('canvas');
-      const dpr = window.devicePixelRatio || 1;
-      const w = c.clientWidth, h = c.clientHeight;
-      if (!w) continue;
-      if (c.width !== Math.round(w * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
-      const ctx = c.getContext('2d');
+    for (const p of previews) {
+      if (!p.visible || !p.w) continue;
+      const ctx = p.c.getContext('2d');
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, w, h);
-      VISUALIZERS[b.dataset.style](ctx, w, h, a, pal, { glow: true, t: now, reflection: false, sensitivity: 1 });
+      ctx.clearRect(0, 0, p.w, p.h);
+      VISUALIZERS[p.b.dataset.style](ctx, p.w, p.h, a, pal, { glow: true, t: now, reflection: false, sensitivity: 1 });
     }
   }
   requestAnimationFrame(drawGallery);

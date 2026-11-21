@@ -90,7 +90,11 @@
     const W = window.innerWidth, H = window.innerHeight;
     const L = layout();
     const base = Math.min(W, H);
-    document.documentElement.style.setProperty('--lyr-size', `${Math.round(Math.min(H * 0.075, W * 0.045) * L.lyrics.scale)}px`);
+    // Taille de base du texte de la scène (l'horloge s'en sert), et taille des
+    // paroles, posée sur les paroles seules : agrandir l'une ne touche pas l'autre.
+    const textBase = Math.round(Math.min(H * 0.075, W * 0.045));
+    document.documentElement.style.setProperty('--scene-text', `${textBase}px`);
+    $('lyrics').style.setProperty('--lyr-size', `${Math.round(textBase * L.lyrics.scale)}px`);
     document.documentElement.style.setProperty('--title-size', `${Math.round(Math.min(W * 0.075, H * 0.14) * L.title.scale)}px`);
 
     // Disque (dessiné dans le canevas) : rayon et zone de saisie.
