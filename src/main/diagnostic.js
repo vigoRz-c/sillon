@@ -75,6 +75,10 @@ function collect() {
   L.push(`session : ${m.active ? `${m.app} · ${m.status} · titre ${yes(m.title)}` : 'aucune'}`);
   L.push(`app suivie en priorité : ${s.preferApp || 'la session active'}`);
 
+  L.push('', '— Son analysé');
+  const au = S.actions.audioStatus ? S.actions.audioStatus() : {};
+  L.push(`réglage : ${s.audioSource === 'system' ? 'tout le PC' : 'seulement le lecteur'} · en cours : ${au.mode === 'app' ? `lecteur (${au.exe}${au.running ? '' : ', en attente'})` : 'tout le PC'}${au.reason ? ` · ${au.reason}` : ''}`);
+
   L.push('', '— Spotify');
   const st = S.spotify ? S.spotify.status() : {};
   L.push(`connecté ${yes(st.connected)} · app ${st.builtIn ? 'intégrée' : 'personnelle'}${st.error ? ` · erreur : ${st.error}` : ''}`);

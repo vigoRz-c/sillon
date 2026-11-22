@@ -4,7 +4,7 @@
   const $ = (id) => document.getElementById(id);
   const bridge = window.bridge;
 
-  const selects = ['layout', 'theme', 'discRays', 'discColors', 'mode', 'preferApp', 'fps', 'veilleDelay', 'sceneScreen', 'sleepAfter'];
+  const selects = ['layout', 'theme', 'discRays', 'discColors', 'mode', 'preferApp', 'fps', 'veilleDelay', 'sceneScreen', 'sleepAfter', 'audioSource'];
   const checks = ['showNowPlaying', 'showLyrics', 'launchAtLogin', 'veilleOnlyPlaying', 'veilleLock', 'gameMode', 'dimOnPause', 'autoUpdate'];
   const numeric = new Set(['fps', 'veilleDelay', 'sleepAfter']);
   const pct = (v) => `${Math.round(v * 100)} %`;
@@ -58,7 +58,7 @@
   requestAnimationFrame(drawGallery);
 
   function fill(s) {
-    const defaults = { layout: 'scene', sceneScreen: 'primary', sleepAfter: 5, discRays: 'fine', discColors: 'album' };
+    const defaults = { layout: 'scene', sceneScreen: 'primary', sleepAfter: 5, discRays: 'fine', discColors: 'album', audioSource: 'app' };
     for (const k of selects) if (document.activeElement !== $(k)) $(k).value = String(s[k] ?? defaults[k] ?? '');
     $('showNowPlaying').checked = s.showNowPlaying !== false;
     $('showLyrics').checked = s.showLyrics !== false;

@@ -30,6 +30,7 @@ const { buildTray } = require('./tray');
 const updater = require('./updater');
 const diagnostic = require('./diagnostic');
 const layoutEditor = require('./layout-editor');
+const appAudio = require('./app-audio');
 
 if (!app.requestSingleInstanceLock()) app.quit();
 
@@ -47,6 +48,7 @@ function updateSettings(patch) {
     S.spotify.setError('');
     queue.refreshQueue();
   }
+  if ('audioSource' in patch || 'preferApp' in patch) appAudio.onSettingChanged();
   if ('preferApp' in patch && S.media) S.media.setPreferredApp(patch.preferApp);
   if ('launchAtLogin' in patch) app.setLoginItemSettings({ openAtLogin: !!patch.launchAtLogin });
   if (patch.autoUpdate === true) updater.check();
@@ -59,7 +61,8 @@ Object.assign(S.actions, {
   isScene: widgetWindow.isScene, sceneDisplay: widgetWindow.sceneDisplay, openLayoutEditor: layoutEditor.openLayoutEditor,
   widgetBounds: widgetWindow.widgetBounds,
   applyMode: widgetWindow.applyMode, setEditing: widgetWindow.setEditing,
-  startAudio: capture.startAudio, sampleWallpaper: capture.sampleWallpaper,
+  startAudio: appAudio.startAudio, audioOnMedia: appAudio.onMedia, audioStatus: appAudio.status,
+  sampleWallpaper: capture.sampleWallpaper,
   startWallpaperSampling: capture.startWallpaperSampling,
   toggleFullscreen: windows.toggleFullscreen, openSettings: windows.openSettings,
   startVeille: veille.startVeille,

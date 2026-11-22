@@ -4,6 +4,14 @@ Toutes les évolutions notables de Sillon. Format inspiré de [Keep a Changelog]
 
 ## [Non publié]
 
+## [0.1.8] - 2026-11-22
+
+### Ajouté
+- Réglage « Son analysé » : par défaut, Sillon n'écoute plus que le lecteur suivi (Spotify, navigateur…). Le chat vocal (Discord, TeamSpeak), les notifications et les jeux ne font plus bouger le visualiseur. Repli sur tout le son du PC si Windows ne le permet pas.
+
+### Modifié
+- Dépendances : koffi 3, ESLint 10.
+
 ## [0.1.7] - 2026-11-22
 
 ### Ajouté
@@ -58,7 +66,8 @@ Toutes les évolutions notables de Sillon. Format inspiré de [Keep a Changelog]
 
 Première version publique : visualiseur sur le fond d'écran Windows, scène (disque, paroles synchronisées, panneau « en lecture », file d'attente), écran de veille, plein écran, connexion Spotify.
 
-[Non publié]: https://github.com/vigoRz-c/sillon/compare/v0.1.7...HEAD
+[Non publié]: https://github.com/vigoRz-c/sillon/compare/v0.1.8...HEAD
+[0.1.8]: https://github.com/vigoRz-c/sillon/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/vigoRz-c/sillon/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/vigoRz-c/sillon/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/vigoRz-c/sillon/compare/v0.1.4...v0.1.5

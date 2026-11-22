@@ -63,6 +63,7 @@
     // Appelé par le process principal avec un "geste utilisateur" simulé.
     window.sillon = {
       startAudio: () => engine.startSystem(),
+      startAppAudio: () => engine.startApp(window.bridge),
       engine, renderer, state, applySettings, applyMedia,
     };
     return { engine, renderer, state, applySettings, applyMedia, applyPalette };

@@ -34,6 +34,7 @@ const DEFAULTS = {
   showNowPlaying: true,
   opacity: 1,
   sensitivity: 1,
+  audioSource: 'app',     // son analysé : app (seulement le lecteur suivi) | system (tout le PC)
   fps: 30,               // images par seconde (30 : bien plus léger, 60 : plus fluide)
   preferApp: 'spotify',   // session média préférée ('' = celle que Windows met en avant)
   launchAtLogin: false,

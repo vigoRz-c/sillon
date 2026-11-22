@@ -44,6 +44,10 @@
       {
         "from": "src/main/media-helper.ps1",
         "to": "media-helper.ps1"
+      },
+      {
+        "from": "src/main/app-audio.ps1",
+        "to": "app-audio.ps1"
       }
     ],
     "win": {

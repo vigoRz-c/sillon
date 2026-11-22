@@ -15,11 +15,7 @@ function setupLoopback() {
   });
 }
 
-function startAudio(win) {
-  // Le "true" simule un geste utilisateur, exigé par getDisplayMedia.
-  win.webContents.executeJavaScript('window.sillon && window.sillon.startAudio()', true)
-    .catch((e) => console.error('Audio :', e.message));
-}
+// Le démarrage dans les fenêtres et le choix de la source : voir app-audio.js.
 
 // ---------- Couleurs du fond d'écran ----------
 // Petite capture de l'écran qui porte le widget, recadrée sur sa zone, pour
@@ -63,4 +59,4 @@ function startWallpaperSampling() {
   timer = setInterval(sampleWallpaper, 60000);
 }
 
-module.exports = { setupLoopback, startAudio, sampleWallpaper, startWallpaperSampling };
+module.exports = { setupLoopback, sampleWallpaper, startWallpaperSampling };

@@ -20,7 +20,9 @@
     // Son du système via getDisplayMedia (loopback géré côté main). Jamais le micro.
     async startSystem() {
       try {
+        this.stop();
         const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+        this.stream = stream;
         stream.getVideoTracks().forEach((t) => t.stop());
         const tracks = stream.getAudioTracks();
         if (!tracks.length) { this.status = 'no-audio'; return false; }
@@ -33,6 +35,47 @@
         this.status = 'error';
         return false;
       }
+    }
+
+    // Son du seul lecteur suivi (Spotify, navigateur…), envoyé brut par le
+    // processus principal : le chat vocal et les autres applis sont ignorés.
+    async startApp(bridge) {
+      try {
+        this.stop();
+        const ctx = new AudioContext({ sampleRate: 48000 });
+        await ctx.audioWorklet.addModule('pcm-worklet.js');
+        const node = new AudioWorkletNode(ctx, 'sillon-pcm', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [1] });
+        this.pcmNode = node;
+        if (!this.pcmHooked) {
+          this.pcmHooked = true;
+          bridge.onAudioPcm((chunk) => {
+            if (!this.pcmNode) return;
+            // Copie alignée (le morceau reçu peut commencer à un octet impair).
+            const bytes = chunk.byteLength & ~1;
+            const ab = chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + bytes);
+            this.pcmNode.port.postMessage(ab, [ab]);
+          });
+        }
+        this.useNode(node);
+        // Le graphe doit aboutir à la sortie pour tourner : gain nul, rien d'audible.
+        const mute = ctx.createGain();
+        mute.gain.value = 0;
+        this.analyser.connect(mute).connect(ctx.destination);
+        await ctx.resume();
+        return true;
+      } catch (e) {
+        console.error('Capture du lecteur impossible :', e);
+        this.status = 'error';
+        return false;
+      }
+    }
+
+    // Arrête la source en cours (avant d'en démarrer une autre).
+    stop() {
+      if (this.stream) { this.stream.getTracks().forEach((t) => t.stop()); this.stream = null; }
+      if (this.ctx) { this.ctx.close().catch(() => {}); this.ctx = null; }
+      this.analyser = null;
+      this.pcmNode = null;
     }
 
     // Brancher n'importe quel nœud audio (sert aussi aux tests / à la démo).

@@ -49,6 +49,7 @@ function startMedia() {
       } : { shuffleAllowed: true, repeatAllowed: true }),
     };
     S.send([S.widget, S.fullscreen, S.controlsWin, S.editorWin], 'media', S.lastMedia);
+    S.actions.audioOnMedia(S.lastMedia);
   };
   S.actions.rebroadcast = () => { broadcast(S.lastMedia); S.actions.buildTray(); };
   const sendLyrics = (l) => {
