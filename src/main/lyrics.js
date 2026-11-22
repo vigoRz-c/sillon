@@ -105,7 +105,7 @@ async function lookupLyrics(media) {
   if (cache.has(key)) return cache.get(key);
   const stored = disk.get('lyrics', key);
   if (stored !== undefined) { cache.set(key, stored); return stored; }
-  let result = null;
+  let result;
   try {
     result = await findLyrics(media);
   } catch (e) {
