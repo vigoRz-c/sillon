@@ -77,6 +77,9 @@ class WindowsMediaSource extends EventEmitter {
       if (msg.type === 'ready') {
         this.restarts = 0;
         this.command(`prefer:${this.prefer || ''}`);
+        if (this.volumeExe) this.command(`volume-target:${this.volumeExe}`);
+      } else if (msg.type === 'volume') {
+        this.emit('volume', { exe: msg.exe, volume: msg.volume });
       } else if (msg.type === 'media') {
         // La pochette n'est envoyée qu'au changement de morceau : on la garde.
         // (ou quand elle arrive en retard, coverUpdate).
@@ -103,6 +106,17 @@ class WindowsMediaSource extends EventEmitter {
 
   command(cmd) {
     if (this.proc && this.proc.stdin.writable) this.proc.stdin.write(cmd + '\n');
+  }
+
+  // Volume du lecteur seul (mélangeur de Windows), 0-100.
+  setVolumeTarget(exe) {
+    if (exe === this.volumeExe) return;
+    this.volumeExe = exe;
+    this.command(`volume-target:${exe || ''}`);
+  }
+
+  setVolume(percent) {
+    if (this.volumeExe) this.command(`volume:${Math.round(Math.max(0, Math.min(100, percent)))}`);
   }
 
   setPreferredApp(name) {

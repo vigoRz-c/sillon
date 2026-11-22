@@ -78,6 +78,7 @@ function collect() {
   L.push('', '— Son analysé');
   const au = S.actions.audioStatus ? S.actions.audioStatus() : {};
   L.push(`réglage : ${s.audioSource === 'system' ? 'tout le PC' : 'seulement le lecteur'} · en cours : ${au.mode === 'app' ? `lecteur (${au.exe}${au.running ? '' : ', en attente'})` : 'tout le PC'}${au.reason ? ` · ${au.reason}` : ''}`);
+  L.push(`volume du lecteur : ${S.appVolume == null ? 'inconnu (pas de son ouvert dans Windows)' : `${S.appVolume} %`}`);
 
   L.push('', '— Spotify');
   const st = S.spotify ? S.spotify.status() : {};

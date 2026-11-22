@@ -344,7 +344,7 @@
     document.body.classList.add('layout-edit');
     for (const id of SL.ORDER) $(NODES[id]).dataset.label = SL.ELEMENTS[id].label;
     // Boutons factices : les vrais sont une fenêtre à part.
-    $('pControls').innerHTML = '<i></i>'.repeat(7);
+    $('pControls').innerHTML = '<i></i>'.repeat(6) + '<b></b>' + '<i></i>'.repeat(2);
     $('bigTitleText').textContent = $('bigTitleText').textContent || 'Grand titre';
     $('bigTitle').classList.add('show');
     renderQueue(lastQueue);

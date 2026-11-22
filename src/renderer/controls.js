@@ -18,7 +18,9 @@
   const PLAY = icon('M7 4v16l13-8z');
   const PAUSE = icon('M6 4h4v16H6zM14 4h4v16h-4z');
   $('play').innerHTML = PLAY;
+  const volume = window.SillonVolume($('volume'));
   bridge.onMedia((m) => {
+    volume.update(m);
     $('play').innerHTML = m && m.status === 'Playing' ? PAUSE : PLAY;
     $('shuffle').classList.toggle('on', !!(m && m.shuffle));
     $('repeat').classList.toggle('on', !!(m && m.repeat && m.repeat !== 'None'));

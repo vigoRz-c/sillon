@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('bridge', {
   onWallpaper: (cb) => ipcRenderer.on('wallpaper', (_e, url) => cb(url)),
   onEditing: (cb) => ipcRenderer.on('editing', (_e, on) => cb(on)),
   command: (cmd) => ipcRenderer.send('media:command', cmd),
+  setVolume: (percent) => ipcRenderer.send('media:volume', percent),
   editDone: () => ipcRenderer.send('edit:done'),
   resizeTo: (width, height) => ipcRenderer.send('widget:resize', { width, height }),
   openSettings: () => ipcRenderer.send('settings:open'),

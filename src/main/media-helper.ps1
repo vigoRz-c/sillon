@@ -35,6 +35,163 @@ $RepeatType = [Windows.Media.MediaPlaybackAutoRepeatMode, Windows.Media, Content
 $AsStreamForRead = [System.IO.WindowsRuntimeStreamExtensions].GetMethod('AsStreamForRead', [Type[]]@([Windows.Storage.Streams.IInputStream]))
 $ContentTypeProp = [Windows.Storage.Streams.IContentTypeProvider].GetProperty('ContentType')
 
+# Volume du lecteur seul (mélangeur de volume de Windows, par application) :
+# ne touche ni au volume général de Windows ni aux autres applications.
+$volumeCode = @'
+using System;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+
+public static class SillonAppVolume
+{
+    [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] class MMDeviceEnumerator { }
+
+    [ComImport, Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IMMDeviceEnumerator
+    {
+        void EnumAudioEndpoints(int dataFlow, int stateMask, out IMMDeviceCollection devices);
+    }
+
+    [ComImport, Guid("0BD7A1BE-7A1A-44DB-8397-CC5392387B5E"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IMMDeviceCollection
+    {
+        void GetCount(out uint count);
+        void Item(uint index, out IMMDevice device);
+    }
+
+    [ComImport, Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IMMDevice
+    {
+        void Activate([MarshalAs(UnmanagedType.LPStruct)] Guid iid, int clsCtx, IntPtr p, [MarshalAs(UnmanagedType.IUnknown)] out object iface);
+    }
+
+    [ComImport, Guid("77AA99A0-1BD6-484F-8BC7-2C654C9A9B6F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IAudioSessionManager2
+    {
+        void GetAudioSessionControl(IntPtr guid, int flags, out IntPtr control);
+        void GetSimpleAudioVolume(IntPtr guid, int flags, out IntPtr volume);
+        void GetSessionEnumerator(out IAudioSessionEnumerator sessions);
+    }
+
+    [ComImport, Guid("E2F5BB11-0570-40CA-ACDD-3AA01277DEE8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IAudioSessionEnumerator
+    {
+        void GetCount(out int count);
+        void GetSession(int index, out IAudioSessionControl2 session);
+    }
+
+    [ComImport, Guid("bfb7ff88-7239-4fc9-8fa2-07c950be9c6d"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IAudioSessionControl2
+    {
+        void GetState(out int state);
+        void GetDisplayName(out IntPtr name);
+        void SetDisplayName(IntPtr name, IntPtr ctx);
+        void GetIconPath(out IntPtr path);
+        void SetIconPath(IntPtr path, IntPtr ctx);
+        void GetGroupingParam(out Guid g);
+        void SetGroupingParam(IntPtr g, IntPtr ctx);
+        void RegisterAudioSessionNotification(IntPtr n);
+        void UnregisterAudioSessionNotification(IntPtr n);
+        void GetSessionIdentifier(out IntPtr id);
+        void GetSessionInstanceIdentifier(out IntPtr id);
+        void GetProcessId(out uint pid);
+    }
+
+    [ComImport, Guid("87CE5498-68D6-44E5-9215-6DA47EF883D8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface ISimpleAudioVolume
+    {
+        void SetMasterVolume(float level, IntPtr ctx);
+        void GetMasterVolume(out float level);
+        void SetMute(bool mute, IntPtr ctx);
+        void GetMute(out bool mute);
+    }
+
+    static System.Collections.Generic.List<ISimpleAudioVolume> Find(string exe)
+    {
+        var found = new System.Collections.Generic.List<ISimpleAudioVolume>();
+        string name = exe.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? exe.Substring(0, exe.Length - 4) : exe;
+        var en = (IMMDeviceEnumerator)new MMDeviceEnumerator();
+        IMMDeviceCollection devices;
+        en.EnumAudioEndpoints(0, 1, out devices); // sorties actives
+        uint n; devices.GetCount(out n);
+        for (uint d = 0; d < n; d++)
+        {
+            try
+            {
+                IMMDevice dev; devices.Item(d, out dev);
+                object o; dev.Activate(typeof(IAudioSessionManager2).GUID, 23, IntPtr.Zero, out o);
+                IAudioSessionEnumerator sessions; ((IAudioSessionManager2)o).GetSessionEnumerator(out sessions);
+                int count; sessions.GetCount(out count);
+                for (int i = 0; i < count; i++)
+                {
+                    try
+                    {
+                        IAudioSessionControl2 s; sessions.GetSession(i, out s);
+                        uint pid; s.GetProcessId(out pid);
+                        if (pid == 0) continue;
+                        string pn;
+                        try { pn = Process.GetProcessById((int)pid).ProcessName; } catch { continue; }
+                        if (string.Equals(pn, name, StringComparison.OrdinalIgnoreCase)) found.Add((ISimpleAudioVolume)s);
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+        }
+        return found;
+    }
+
+    // Les objets audio de Windows ne se laissent pas interroger depuis le thread
+    // de PowerShell (STA) : chaque appel passe par un thread MTA.
+    static T Mta<T>(Func<T> f)
+    {
+        T result = default(T); Exception err = null;
+        var t = new System.Threading.Thread(() => { try { result = f(); } catch (Exception e) { err = e; } });
+        t.SetApartmentState(System.Threading.ApartmentState.MTA);
+        t.Start(); t.Join();
+        if (err != null) throw err;
+        return result;
+    }
+
+    // Volume 0-100, -1 si l'application n'a pas de son ouvert.
+    public static int Get(string exe)
+    {
+        return Mta(() =>
+        {
+            foreach (var v in Find(exe))
+            {
+                float level; v.GetMasterVolume(out level);
+                bool mute; v.GetMute(out mute);
+                return mute ? 0 : (int)Math.Round(level * 100);
+            }
+            return -1;
+        });
+    }
+
+    public static bool Set(string exe, int percent)
+    {
+        float level = Math.Max(0, Math.Min(100, percent)) / 100f;
+        return Mta(() =>
+        {
+            bool any = false;
+            foreach (var v in Find(exe))
+            {
+                v.SetMasterVolume(level, IntPtr.Zero);
+                if (level > 0) v.SetMute(false, IntPtr.Zero);
+                any = true;
+            }
+            return any;
+        });
+    }
+}
+'@
+$volumeOk = $true
+try { Add-Type -TypeDefinition $volumeCode -Language CSharp } catch { $volumeOk = $false }
+$volumeExe = ''
+$volumeWanted = $null
+$lastVolume = $null
+$lastVolumeRead = [datetime]::MinValue
+
 function Emit($obj) {
     [Console]::Out.WriteLine(($obj | ConvertTo-Json -Compress -Depth 4))
     [Console]::Out.Flush()
@@ -81,6 +238,9 @@ function Read-Cover($props) {
 
 function Invoke-MediaCommand($cmd) {
     if ($cmd -like 'prefer:*') { $script:prefer = $cmd.Substring(7).Trim().ToLower(); $script:lastKey = ''; return }
+    # Volume : on ne garde que la dernière valeur demandée (glissement continu).
+    if ($cmd -like 'volume-target:*') { $script:volumeExe = $cmd.Substring(14).Trim(); $script:lastVolume = $null; $script:lastVolumeRead = [datetime]::MinValue; return }
+    if ($cmd -like 'volume:*') { $script:volumeWanted = [int]$cmd.Substring(7); return }
     $s = Get-Session
     if (-not $s) { Emit @{ type = 'cmd'; cmd = $cmd; ok = $false; reason = 'aucune session média' }; return }
     # Réponse de Windows (pour le diagnostic) : true = acceptée par le lecteur.
@@ -109,6 +269,7 @@ function Invoke-MediaCommand($cmd) {
 # Un StreamReader sur le flux brut lit vraiment en arrière-plan.
 $stdin = New-Object System.IO.StreamReader([Console]::OpenStandardInput(), [System.Text.Encoding]::UTF8)
 $readTask = $stdin.ReadLineAsync()
+$lastPoll = [datetime]::MinValue
 Emit @{ type = 'ready' }
 
 while ($true) {
@@ -119,6 +280,27 @@ while ($true) {
         try { Invoke-MediaCommand $line.Trim() } catch {}
         $readTask = $stdin.ReadLineAsync()
     }
+
+    # Volume du lecteur : appliqué tout de suite, relu chaque seconde.
+    if ($volumeOk -and $volumeExe) {
+        try {
+            if ($null -ne $volumeWanted) {
+                $ok = [SillonAppVolume]::Set($volumeExe, $volumeWanted)
+                $lastVolume = if ($ok) { $volumeWanted } else { -1 }
+                $volumeWanted = $null
+                $lastVolumeRead = Get-Date
+                Emit @{ type = 'volume'; exe = $volumeExe; volume = $lastVolume }
+            } elseif (((Get-Date) - $lastVolumeRead).TotalMilliseconds -ge 1000) {
+                $lastVolumeRead = Get-Date
+                $v = [SillonAppVolume]::Get($volumeExe)
+                if ($v -ne $lastVolume) { $lastVolume = $v; Emit @{ type = 'volume'; exe = $volumeExe; volume = $v } }
+            }
+        } catch {}
+    }
+
+    # Lecture du morceau toutes les 400 ms (pas à chaque commande reçue).
+    if (((Get-Date) - $lastPoll).TotalMilliseconds -lt 400) { [void]$readTask.Wait(50); continue }
+    $lastPoll = Get-Date
 
     try {
         $s = Get-Session
@@ -176,5 +358,6 @@ while ($true) {
     } catch {
         # Une session qui disparaît en plein milieu : on réessaie au tour suivant.
     }
-    Start-Sleep -Milliseconds 400
+    # Attente : une commande reçue (volume…) réveille la boucle tout de suite.
+    [void]$readTask.Wait(400)
 }

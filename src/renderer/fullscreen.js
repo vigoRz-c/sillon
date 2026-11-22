@@ -19,9 +19,11 @@
 
   const lyrics = new window.LyricsView($('lyrics'), { maxChars: 16 });
 
+  const volume = window.SillonVolume($('volume'));
   const app = window.SVApp.createApp($('viz'), {
     onLyrics: (l) => lyrics.set(l),
     onMedia(m, coverChanged) {
+      volume.update(m);
       $('title').textContent = m.active ? (m.title || '') : 'Rien en lecture';
       $('artist').textContent = m.active ? [m.artist, m.album].filter(Boolean).join(' · ') : '';
       $('play').innerHTML = m.status === 'Playing' ? '&#10074;&#10074;' : '&#9654;';

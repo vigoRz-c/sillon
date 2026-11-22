@@ -26,6 +26,7 @@ const S = {
   lastLyrics: null,
   lastQueue: { items: [], connected: false },
   playerState: null,       // aléatoire / répétition lus dans l'API Spotify
+  appVolume: null,        // volume du lecteur dans le mélangeur de Windows (0-100)
   wallpaperSample: null,
 
   actions: {},             // fonctions partagées entre modules (voir main.js)

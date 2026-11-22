@@ -129,6 +129,9 @@ function watchDisplays() {
 ipcMain.handle('settings:get', () => S.settings.get());
 ipcMain.on('settings:set', (_e, patch) => updateSettings(patch));
 ipcMain.on('settings:open', windows.openSettings);
+ipcMain.on('media:volume', (_e, percent) => {
+  if (Number.isFinite(percent) && S.actions.setVolume) S.actions.setVolume(percent);
+});
 ipcMain.on('media:command', (e, cmd) => {
   const from = S.controlsWin && e.sender === S.controlsWin.webContents ? 'boutons de la scène'
     : S.fullscreen && e.sender === S.fullscreen.webContents ? 'plein écran' : 'autre fenêtre';

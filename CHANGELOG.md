@@ -4,6 +4,11 @@ Toutes les évolutions notables de Sillon. Format inspiré de [Keep a Changelog]
 
 ## [Non publié]
 
+## [0.1.9] - 2026-11-22
+
+### Ajouté
+- Barre de volume du lecteur dans les boutons de la scène et en plein écran : règle le son de Spotify (ou du lecteur suivi) dans le mélangeur de Windows, sans toucher au volume général ni aux autres applications. Clic sur le haut-parleur pour couper le son, molette pour régler.
+
 ## [0.1.8] - 2026-11-22
 
 ### Ajouté
@@ -66,7 +71,8 @@ Toutes les évolutions notables de Sillon. Format inspiré de [Keep a Changelog]
 
 Première version publique : visualiseur sur le fond d'écran Windows, scène (disque, paroles synchronisées, panneau « en lecture », file d'attente), écran de veille, plein écran, connexion Spotify.
 
-[Non publié]: https://github.com/vigoRz-c/sillon/compare/v0.1.8...HEAD
+[Non publié]: https://github.com/vigoRz-c/sillon/compare/v0.1.9...HEAD
+[0.1.9]: https://github.com/vigoRz-c/sillon/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/vigoRz-c/sillon/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/vigoRz-c/sillon/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/vigoRz-c/sillon/compare/v0.1.5...v0.1.6

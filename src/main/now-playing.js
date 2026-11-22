@@ -6,6 +6,7 @@ const { WindowsMediaSource } = require('./media');
 const { lookupCover } = require('./cover-lookup');
 const { lookupLyrics } = require('./lyrics');
 const diagnostic = require('./diagnostic');
+const { exeForApp } = require('./app-audio');
 
 // ---------- Décalage des paroles (par morceau) ----------
 // Pour les titres où LRCLIB a les paroles d'une autre version. Positif : les
@@ -41,8 +42,9 @@ function startMedia() {
   const broadcast = (m) => {
     const ps = S.playerState;
     const canShuffle = !!(S.spotify && S.spotify.canControl());
+    // volume : celui du lecteur dans le mélangeur de Windows (null = inconnu).
     S.lastMedia = {
-      ...m, canShuffle,
+      ...m, canShuffle, volume: S.appVolume,
       ...(canShuffle && ps ? {
         shuffle: ps.shuffle, repeat: ps.repeat,
         shuffleAllowed: ps.shuffleAllowed, repeatAllowed: ps.repeatAllowed,
@@ -84,9 +86,22 @@ function startMedia() {
         });
       }
     }
+    const exe = m.active ? exeForApp(m.app) : null;
+    if (exe !== media.volumeExe) { S.appVolume = null; media.setVolumeTarget(exe); }
     broadcast(officialCover ? { ...m, cover: officialCover } : m);
     S.actions.buildTray();
   });
+  // Volume du lecteur : on suit l'application qui joue.
+  media.on('volume', (v) => {
+    const vol = v.volume >= 0 ? v.volume : null;
+    if (vol === S.appVolume) return;
+    S.appVolume = vol;
+    broadcast(S.lastMedia);
+  });
+  S.actions.setVolume = (percent) => {
+    media.setVolume(percent);
+    S.appVolume = Math.round(percent);
+  };
   media.on('error', (e) => { console.error('Média :', e.message); diagnostic.note('média', e.message); });
   media.on('log', (t) => diagnostic.note('powershell', t));
   media.on('command-result', (r) => diagnostic.note('windows',
