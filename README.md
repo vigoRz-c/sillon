@@ -19,7 +19,7 @@ Windows 10 et 11.
 
 ## Lancer le projet
 
-Il faut [Node.js](https://nodejs.org) 20 ou plus.
+Il faut [Node.js](https://nodejs.org) 20 ou plus et [Rust](https://rustup.rs) (pour l'assistant natif, compilé automatiquement au lancement).
 
 ```bash
 npm install
@@ -80,7 +80,7 @@ En plein écran : **Espace** lecture/pause · **← →** morceau précédent/su
 
 | Besoin | Solution |
 |---|---|
-| Savoir ce qui joue | Les contrôles média de Windows (SMTC), lus par `src/main/media-helper.ps1`. C'est la même source que le panneau média du volume Windows : pas de connexion à Spotify. |
+| Savoir ce qui joue | Les contrôles média de Windows (SMTC), lus par l'assistant natif `native/sillon-helper` (Rust). C'est la même source que le panneau média du volume Windows : pas de connexion à Spotify. |
 | Afficher la bonne pochette | Spotify transmet parfois à Windows une image du clip au lieu de la pochette. `src/main/cover-lookup.js` cherche sur la recherche publique de Deezer (sans compte) la pochette de l'album studio où figure le morceau, à défaut celle de l'EP ou du single : seuls l'artiste, l'album et le titre sont envoyés. Rien de fiable trouvé : on garde l'image de Windows. |
 | Paroles synchronisées | `src/main/lyrics.js` les demande à [LRCLIB](https://lrclib.net) (gratuit, sans compte), mot par mot quand c'est disponible : seuls l'artiste, le titre, l'album et la durée sont envoyés. Pas de paroles synchronisées : le titre s'affiche à la place. |
 | File d'attente | `src/main/spotify-api.js` : API Web Spotify (facultative), connexion PKCE sans secret, jetons chiffrés par Windows. Le propriétaire de l'app développeur Spotify doit être Premium (règle de Spotify depuis février 2026). |
@@ -106,7 +106,8 @@ src/
     tray.js            menu de l'icône
     wallpaper.js       accroche au fond d'écran et appels Win32
     media.js           source "morceau en cours" + position de lecture
-    media-helper.ps1   lecture des contrôles média Windows
+    helper.js          lance l'assistant natif (sillon-helper.exe)
+    app-audio.js       son analysé : seulement le lecteur, ou tout le PC
     cover-lookup.js    pochette officielle (Deezer)
     lyrics.js          paroles synchronisées (LRCLIB)
     spotify-api.js     connexion à l'API Spotify (PKCE)
@@ -121,6 +122,9 @@ src/
     controls.*         boutons du panneau
     fullscreen.*       plein écran et écran de veille
     settings.*         fenêtre de paramètres
+native/
+  sillon-helper/       assistant natif en Rust : morceau en cours (SMTC),
+                       volume du lecteur, capture du son du seul lecteur
 test/                  tests (node --test)
 demo/                  aperçu navigateur avec faux pont + son de synthèse
 ```

@@ -103,7 +103,7 @@ function startMedia() {
     S.appVolume = Math.round(percent);
   };
   media.on('error', (e) => { console.error('Média :', e.message); diagnostic.note('média', e.message); });
-  media.on('log', (t) => diagnostic.note('powershell', t));
+  media.on('log', (t) => diagnostic.note('assistant', t));
   media.on('command-result', (r) => diagnostic.note('windows',
     `${r.cmd} → ${r.ok ? 'accepté' : 'refusé'}${r.app ? ` par ${r.app}` : ''}${r.reason ? ` (${r.reason})` : ''}`));
   media.start();

@@ -2,22 +2,15 @@
 //
 // Par défaut, Sillon n'écoute que l'application qui joue la musique (Spotify,
 // le navigateur pour YouTube…) grâce à la capture d'un seul processus de
-// Windows (voir app-audio.ps1). Le chat vocal (Discord, TeamSpeak), les
+// Windows (assistant natif, voir helper.js et native/sillon-helper). Le chat vocal (Discord, TeamSpeak), les
 // notifications et les jeux ne font donc plus bouger le visualiseur.
 // Si Windows ne le permet pas, ou si l'application est inconnue, on revient à
 // la capture de tout le son du PC (getDisplayMedia + loopback).
 
 const { spawn } = require('child_process');
-const path = require('path');
-const fs = require('fs');
 const S = require('./state');
 const diagnostic = require('./diagnostic');
-
-function helperPath() {
-  const packaged = process.resourcesPath && path.join(process.resourcesPath, 'app-audio.ps1');
-  if (packaged && fs.existsSync(packaged)) return packaged;
-  return path.join(__dirname, 'app-audio.ps1');
-}
+const { helperExe } = require('./helper');
 
 // Session média de Windows (AppUserModelId) -> programme à écouter.
 const KNOWN = [
@@ -63,10 +56,17 @@ function stopHelper() {
 function startHelper(exe) {
   stopHelper();
   state.exe = exe;
-  const p = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
-    '-File', helperPath(), '-Name', exe], { windowsHide: true });
+  const p = spawn(helperExe(), ['capture', exe], { windowsHide: true });
   proc = p;
   let err = '';
+  // Assistant absent ou bloqué (antivirus…) : on écoute tout le PC.
+  p.on('error', (e) => {
+    if (proc !== p) return;
+    proc = null;
+    state.unsupported = true;
+    diagnostic.note('son', `assistant introuvable (${e.message}) : tout le son du PC`);
+    useSystem(`assistant introuvable : ${e.message}`);
+  });
   p.stdout.on('data', send);
   p.stderr.on('data', (d) => { err += d.toString(); });
   p.on('exit', (code) => {

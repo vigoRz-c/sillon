@@ -1,7 +1,8 @@
 // Sources "morceau en cours".
 //
 // Aujourd'hui : WindowsMediaSource, qui lit les contrôles média de Windows (SMTC)
-// via un petit script PowerShell. Aucun compte, marche avec Spotify et le reste.
+// via l'assistant natif (sillon-helper.exe, voir helper.js). Aucun compte,
+// marche avec Spotify et le reste.
 //
 // Plus tard : une SpotifyApiSource pourra implémenter la même interface
 // (start / stop / command / on('media')) et ajouter like, playlists, etc.
@@ -9,16 +10,8 @@
 
 const { spawn } = require('child_process');
 const { EventEmitter } = require('events');
-const path = require('path');
-const fs = require('fs');
 const readline = require('readline');
-
-function helperPath() {
-  // En build, le script est copié dans resources/ (voir extraResources).
-  const packaged = process.resourcesPath && path.join(process.resourcesPath, 'media-helper.ps1');
-  if (packaged && fs.existsSync(packaged)) return packaged;
-  return path.join(__dirname, 'media-helper.ps1');
-}
+const { helperExe } = require('./helper');
 
 // Position de lecture fiable pour synchroniser les paroles.
 //
@@ -67,9 +60,8 @@ class WindowsMediaSource extends EventEmitter {
       return;
     }
     this.stopped = false;
-    this.proc = spawn('powershell.exe', [
-      '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', helperPath()
-    ], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+    this.proc = spawn(helperExe(), ['media'], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+    this.proc.on('error', (e) => this.emit('error', new Error(`assistant introuvable : ${e.message}`)));
 
     readline.createInterface({ input: this.proc.stdout }).on('line', (line) => {
       let msg;
@@ -98,7 +90,7 @@ class WindowsMediaSource extends EventEmitter {
     this.proc.on('exit', () => {
       this.proc = null;
       if (this.stopped) return;
-      // Redémarrage avec un délai croissant si PowerShell plante.
+      // Redémarrage avec un délai croissant si l'assistant plante.
       const delay = Math.min(30000, 1000 * 2 ** this.restarts++);
       setTimeout(() => !this.stopped && this.start(), delay);
     });

@@ -13,12 +13,15 @@
   "private": true,
   "scripts": {
     "start": "electron .",
+    "prestart": "node scripts/build-helper.js",
     "dev": "electron . --dev",
+    "predev": "node scripts/build-helper.js",
+    "build:helper": "node scripts/build-helper.js",
     "check": "node scripts/check.js",
     "lint": "eslint .",
     "test": "node --test",
     "verify": "npm run check && npm run lint && npm test",
-    "dist": "electron-builder --win",
+    "dist": "node scripts/build-helper.js --strict && electron-builder --win",
     "release": "node scripts/release.js"
   },
   "dependencies": {
@@ -42,12 +45,8 @@
     ],
     "extraResources": [
       {
-        "from": "src/main/media-helper.ps1",
-        "to": "media-helper.ps1"
-      },
-      {
-        "from": "src/main/app-audio.ps1",
-        "to": "app-audio.ps1"
+        "from": "native/sillon-helper/target/release/sillon-helper.exe",
+        "to": "sillon-helper.exe"
       }
     ],
     "win": {

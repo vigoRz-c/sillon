@@ -32,6 +32,11 @@ const diagnostic = require('./diagnostic');
 const layoutEditor = require('./layout-editor');
 const appAudio = require('./app-audio');
 
+// Mémoire graphique : par défaut, Chromium garde un gros cache sur la carte
+// graphique (~300 Mo pour la scène). Plafonné, il reste vers 180 Mo sans
+// différence à l'écran (mesuré sur une scène plein écran à 30 i/s).
+app.commandLine.appendSwitch('force-gpu-mem-available-mb', '96');
+
 if (!app.requestSingleInstanceLock()) app.quit();
 
 // ---------- Réglages ----------

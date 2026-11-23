@@ -36,3 +36,8 @@ jobs:
         run: npm run lint
       - name: Tests
         run: npm test
+      - name: Assistant natif (Rust)
+        run: |
+          cargo fmt --check --manifest-path native/sillon-helper/Cargo.toml
+          cargo clippy --release --manifest-path native/sillon-helper/Cargo.toml -- -D warnings
+          cargo build --release --manifest-path native/sillon-helper/Cargo.toml

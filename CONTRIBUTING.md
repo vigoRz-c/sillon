@@ -14,7 +14,7 @@ Une faille de sécurité ne se signale pas dans une issue publique : voir [SECUR
 ## Proposer une modification du code
 
 1. Forke le dépôt et crée une branche depuis `main`.
-2. Installe et lance :
+2. Installe [Node.js](https://nodejs.org) 20+ et [Rust](https://rustup.rs), puis lance :
    ```bash
    npm install
    npm start

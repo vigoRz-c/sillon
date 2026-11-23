@@ -4,6 +4,12 @@ Toutes les évolutions notables de Sillon. Format inspiré de [Keep a Changelog]
 
 ## [Non publié]
 
+## [0.2.0] - 2026-11-23
+
+### Modifié
+- Mémoire : environ 700 Mo → 430 Mo. Les deux scripts PowerShell (morceau en cours, volume, son du lecteur) sont remplacés par un petit assistant natif écrit en Rust (environ 8 Mo au lieu de 155 Mo, démarrage immédiat), et le cache graphique de Chromium est plafonné (environ 120 Mo de moins, sans différence à l'écran).
+- Développement : Rust est nécessaire pour compiler l'assistant (`native/sillon-helper`), compilé automatiquement par `npm start`.
+
 ## [0.1.9] - 2026-11-22
 
 ### Ajouté
@@ -71,7 +77,8 @@ Toutes les évolutions notables de Sillon. Format inspiré de [Keep a Changelog]
 
 Première version publique : visualiseur sur le fond d'écran Windows, scène (disque, paroles synchronisées, panneau « en lecture », file d'attente), écran de veille, plein écran, connexion Spotify.
 
-[Non publié]: https://github.com/vigoRz-c/sillon/compare/v0.1.9...HEAD
+[Non publié]: https://github.com/vigoRz-c/sillon/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/vigoRz-c/sillon/compare/v0.1.9...v0.2.0
 [0.1.9]: https://github.com/vigoRz-c/sillon/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/vigoRz-c/sillon/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/vigoRz-c/sillon/compare/v0.1.6...v0.1.7
