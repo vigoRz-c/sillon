@@ -5,9 +5,52 @@
   'use strict';
 
   const SMALL = new Set([
-    'a', 'an', 'the', 'and', 'or', 'of', 'to', 'in', 'on', 'at', 'for', 'it', 'is', 'are', 'am',
-    'be', 'my', 'me', 'i', "i'm", "i've", "i'll", "i'd", 'you', "you're", 'we', 'so', 'but', 'with',
-    'de', 'la', 'le', 'les', 'un', 'une', 'des', 'et', 'je', 'tu', 'il', 'on', 'au', 'du', 'en', 'que', 'qui',
+    'a',
+    'an',
+    'the',
+    'and',
+    'or',
+    'of',
+    'to',
+    'in',
+    'on',
+    'at',
+    'for',
+    'it',
+    'is',
+    'are',
+    'am',
+    'be',
+    'my',
+    'me',
+    'i',
+    "i'm",
+    "i've",
+    "i'll",
+    "i'd",
+    'you',
+    "you're",
+    'we',
+    'so',
+    'but',
+    'with',
+    'de',
+    'la',
+    'le',
+    'les',
+    'un',
+    'une',
+    'des',
+    'et',
+    'je',
+    'tu',
+    'il',
+    'on',
+    'au',
+    'du',
+    'en',
+    'que',
+    'qui',
   ]);
   const isSmall = (w, last) => !last && (SMALL.has(w.toLowerCase().replace(/[^a-z'à-ÿ]/g, '')) || w.length <= 2);
 
@@ -29,10 +72,15 @@
 
     lineAt(pos) {
       const lines = (this.data && this.data.lines) || [];
-      let lo = 0, hi = lines.length - 1, found = -1;
+      let lo = 0,
+        hi = lines.length - 1,
+        found = -1;
       while (lo <= hi) {
         const mid = (lo + hi) >> 1;
-        if (lines[mid].t <= pos) { found = mid; lo = mid + 1; } else hi = mid - 1;
+        if (lines[mid].t <= pos) {
+          found = mid;
+          lo = mid + 1;
+        } else hi = mid - 1;
       }
       // Après la fin d'une ligne (avec marge), on efface si la suivante tarde.
       if (found >= 0) {
@@ -102,7 +150,10 @@
         return;
       }
       // Fantôme : la ligne qu'on vient de chanter remonte, réduite et pâle.
-      old.querySelectorAll('.lyr-word').forEach((s) => { s.classList.add('on'); s.style.setProperty('--p', '100%'); });
+      old.querySelectorAll('.lyr-word').forEach((s) => {
+        s.classList.add('on');
+        s.style.setProperty('--p', '100%');
+      });
       const gap = parseFloat(getComputedStyle(node).fontSize) * 0.25;
       const shift = node.offsetHeight / 2 + (old.offsetHeight * 0.6) / 2 + gap;
       old.style.setProperty('--gy', `${-shift}px`);
@@ -119,13 +170,22 @@
         if (key !== this.fallbackKey) {
           this.fallbackKey = key;
           this.index = -2;
-          if (!key) { this.swap(null); return; }
-          const node = this.render(media.title.split(/\s+/).map((text) => ({ text, t: 0 })), 'fallback');
+          if (!key) {
+            this.swap(null);
+            return;
+          }
+          const node = this.render(
+            media.title.split(/\s+/).map((text) => ({ text, t: 0 })),
+            'fallback',
+          );
           const by = document.createElement('div');
           by.className = 'lyr-artist';
           by.textContent = media.artist || '';
           node.appendChild(by);
-          node.querySelectorAll('.lyr-word').forEach((s) => { s.classList.add('on', 'full'); s.style.setProperty('--p', '100%'); });
+          node.querySelectorAll('.lyr-word').forEach((s) => {
+            s.classList.add('on', 'full');
+            s.style.setProperty('--p', '100%');
+          });
           this.swap(node);
         }
         return;

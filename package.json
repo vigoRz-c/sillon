@@ -19,8 +19,10 @@
     "build:helper": "node scripts/build-helper.js",
     "check": "node scripts/check.js",
     "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "node --test",
-    "verify": "npm run check && npm run lint && npm test",
+    "verify": "npm run check && npm run lint && npm run format:check && npm test",
     "dist": "node scripts/build-helper.js --strict && electron-builder --win",
     "release": "node scripts/release.js"
   },
@@ -33,7 +35,8 @@
     "electron": "^45.4.1",
     "electron-builder": "^26.18.0",
     "eslint": "^10.15.0",
-    "globals": "^17.14.0"
+    "globals": "^17.14.0",
+    "prettier": "^3.10.1"
   },
   "build": {
     "appId": "com.loicrestout.sillon",

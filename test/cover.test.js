@@ -20,7 +20,11 @@ const ALBUMS = {
   2: { id: 2, title: 'New Old Songs', record_type: 'album', cover_big: 'remix.jpg' },
   3: { id: 3, title: 'Break Stuff', record_type: 'single', cover_big: 'single.jpg' },
 };
-const track = (title, albumId) => ({ title, artist: { name: 'Limp Bizkit' }, album: { id: albumId, title: ALBUMS[albumId].title } });
+const track = (title, albumId) => ({
+  title,
+  artist: { name: 'Limp Bizkit' },
+  album: { id: albumId, title: ALBUMS[albumId].title },
+});
 
 function mockDeezer() {
   return async (url) => {
@@ -28,7 +32,9 @@ function mockDeezer() {
     let body;
     if (u.pathname.startsWith('/album/')) body = ALBUMS[u.pathname.split('/')[2]];
     else if (u.pathname === '/search') {
-      body = { data: [track('Break Stuff', 1), track('Break Stuff (Lethal - Explicit Version)', 2), track('Nookie', 3)] };
+      body = {
+        data: [track('Break Stuff', 1), track('Break Stuff (Lethal - Explicit Version)', 2), track('Nookie', 3)],
+      };
     } else body = { data: [] };
     return { ok: true, json: async () => body };
   };
@@ -40,15 +46,19 @@ test('pochette : album studio avec le titre exact, pas le single ni le remix', a
   try {
     const url = await findCoverUrl({ title: 'Break Stuff', artist: 'Limp Bizkit', album: 'Break Stuff' });
     assert.equal(url, 'studio.jpg');
-  } finally { global.fetch = real; }
+  } finally {
+    global.fetch = real;
+  }
 });
 
-test('pochette : artiste différent -> rien (on garde l\'image de Windows)', async () => {
+test("pochette : artiste différent -> rien (on garde l'image de Windows)", async () => {
   const real = global.fetch;
   global.fetch = mockDeezer();
   try {
     assert.equal(await findCoverUrl({ title: 'Break Stuff', artist: 'Un Autre', album: '' }), null);
-  } finally { global.fetch = real; }
+  } finally {
+    global.fetch = real;
+  }
 });
 
 test('cache disque : valeur relue, "rien trouvé" gardé aussi', () => {
@@ -60,5 +70,7 @@ test('cache disque : valeur relue, "rien trouvé" gardé aussi', () => {
     disk.set('covers', 'b', null);
     assert.equal(disk.get('covers', 'a'), 'data:image/png;base64,xx');
     assert.equal(disk.get('covers', 'b'), null);
-  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });

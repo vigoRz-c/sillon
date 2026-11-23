@@ -20,8 +20,14 @@ function startVeille() {
   for (const d of screen.getAllDisplays()) {
     const main = d.id === primary.id;
     const win = new BrowserWindow({
-      ...d.bounds, frame: false, fullscreen: true, backgroundColor: '#000000',
-      alwaysOnTop: true, skipTaskbar: true, show: false, title: 'Sillon · veille',
+      ...d.bounds,
+      frame: false,
+      fullscreen: true,
+      backgroundColor: '#000000',
+      alwaysOnTop: true,
+      skipTaskbar: true,
+      show: false,
+      title: 'Sillon · veille',
       webPreferences: { preload: S.PRELOAD, backgroundThrottling: false },
     });
     win.setAlwaysOnTop(true, 'screen-saver');
@@ -36,10 +42,22 @@ function startVeille() {
       S.fullscreen = win; // reçoit les mises à jour du morceau, des paroles et des réglages
     } else {
       // Les autres écrans : noirs, et ils réveillent aussi.
-      win.loadURL('data:text/html,' + encodeURIComponent('<body style="margin:0;background:#000;cursor:none"><script>setTimeout(()=>{for(const e of ["mousedown","keydown","wheel"])addEventListener(e,()=>bridge.veilleExit())},1500)</script></body>'));
+      win.loadURL(
+        'data:text/html,' +
+          encodeURIComponent(
+            '<body style="margin:0;background:#000;cursor:none"><script>setTimeout(()=>{for(const e of ["mousedown","keydown","wheel"])addEventListener(e,()=>bridge.veilleExit())},1500)</script></body>',
+          ),
+      );
     }
-    win.once('ready-to-show', () => { if (main) { win.show(); win.focus(); } else win.showInactive(); });
-    win.on('closed', () => { S.veilleWins = S.veilleWins.filter((w) => w !== win); });
+    win.once('ready-to-show', () => {
+      if (main) {
+        win.show();
+        win.focus();
+      } else win.showInactive();
+    });
+    win.on('closed', () => {
+      S.veilleWins = S.veilleWins.filter((w) => w !== win);
+    });
     S.veilleWins.push(win);
   }
 }
@@ -67,7 +85,9 @@ function watchIdle() {
     if (powerMonitor.getSystemIdleTime() >= delay * 60) startVeille();
   }, 5000);
   // Session verrouillée ou mise en veille par ailleurs : on range sans reverrouiller.
-  const quiet = () => { if (S.veilleWins.length) closeAll(false); };
+  const quiet = () => {
+    if (S.veilleWins.length) closeAll(false);
+  };
   powerMonitor.on('lock-screen', quiet);
   powerMonitor.on('suspend', quiet);
 }

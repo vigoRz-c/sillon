@@ -34,11 +34,15 @@ function controlsHitTest() {
   if (!hit) return 'test impossible';
   if (hit.root === hwndOf(win)) return 'OK (le clic arrive sur les boutons)';
   // Le bureau lui-même passe devant : vrai problème d'ordre des fenêtres.
-  if (/^(Progman|WorkerW|SHELLDLL_DefView|SysListView32)$/.test(hit.rootCls) || /^(SHELLDLL_DefView|SysListView32)$/.test(hit.cls)) {
+  if (
+    /^(Progman|WorkerW|SHELLDLL_DefView|SysListView32)$/.test(hit.rootCls) ||
+    /^(SHELLDLL_DefView|SysListView32)$/.test(hit.cls)
+  ) {
     return `BLOQUÉ PAR LE BUREAU : « ${hit.cls} » (racine « ${hit.rootCls} ») est au-dessus des boutons`;
   }
   if (S.alive(S.widget) && hit.root === hwndOf(S.widget)) return 'BLOQUÉ PAR LA SCÈNE de Sillon';
-  if (S.alive(S.settingsWin) && hit.root === hwndOf(S.settingsWin)) return 'la fenêtre des paramètres est devant : déplace-la et recopie';
+  if (S.alive(S.settingsWin) && hit.root === hwndOf(S.settingsWin))
+    return 'la fenêtre des paramètres est devant : déplace-la et recopie';
   return `une autre fenêtre est devant (« ${hit.rootCls} ») : réduis tes applis et recopie le diagnostic`;
 }
 
@@ -52,13 +56,17 @@ function collect() {
   L.push('', '— Écrans');
   const primary = screen.getPrimaryDisplay().id;
   for (const d of screen.getAllDisplays()) {
-    L.push(`${d.id === primary ? '* principal' : '  autre    '} ${rect(d.bounds)} zone ${rect(d.workArea)} échelle ${d.scaleFactor}`);
+    L.push(
+      `${d.id === primary ? '* principal' : '  autre    '} ${rect(d.bounds)} zone ${rect(d.workArea)} échelle ${d.scaleFactor}`,
+    );
   }
 
   L.push('', '— Scène');
   L.push(`disposition ${s.layout} · mode ${s.mode} · écran ${s.sceneScreen} · masquée ${yes(s.sceneHidden)}`);
   const lay = SceneLayout.fromSettings(s);
-  L.push(`éléments : ${SceneLayout.ORDER.map((id) => `${id} ${lay[id].visible ? 'oui' : 'non'}`).join(' · ')}${s.sceneLayout ? '' : " (disposition d'origine)"}`);
+  L.push(
+    `éléments : ${SceneLayout.ORDER.map((id) => `${id} ${lay[id].visible ? 'oui' : 'non'}`).join(' · ')}${s.sceneLayout ? '' : " (disposition d'origine)"}`,
+  );
   const w = S.widget;
   L.push(`fenêtre : ${S.alive(w) ? `${rect(w.getBounds())} visible ${yes(w.isVisible())}` : 'absente'}`);
   const host = S.attacher && S.attacher.host;
@@ -77,12 +85,18 @@ function collect() {
 
   L.push('', '— Son analysé');
   const au = S.actions.audioStatus ? S.actions.audioStatus() : {};
-  L.push(`réglage : ${s.audioSource === 'system' ? 'tout le PC' : 'seulement le lecteur'} · en cours : ${au.mode === 'app' ? `lecteur (${au.exe}${au.running ? '' : ', en attente'})` : 'tout le PC'}${au.reason ? ` · ${au.reason}` : ''}`);
-  L.push(`volume du lecteur : ${S.appVolume == null ? 'inconnu (pas de son ouvert dans Windows)' : `${S.appVolume} %`}`);
+  L.push(
+    `réglage : ${s.audioSource === 'system' ? 'tout le PC' : 'seulement le lecteur'} · en cours : ${au.mode === 'app' ? `lecteur (${au.exe}${au.running ? '' : ', en attente'})` : 'tout le PC'}${au.reason ? ` · ${au.reason}` : ''}`,
+  );
+  L.push(
+    `volume du lecteur : ${S.appVolume == null ? 'inconnu (pas de son ouvert dans Windows)' : `${S.appVolume} %`}`,
+  );
 
   L.push('', '— Spotify');
   const st = S.spotify ? S.spotify.status() : {};
-  L.push(`connecté ${yes(st.connected)} · app ${st.builtIn ? 'intégrée' : 'personnelle'}${st.error ? ` · erreur : ${st.error}` : ''}`);
+  L.push(
+    `connecté ${yes(st.connected)} · app ${st.builtIn ? 'intégrée' : 'personnelle'}${st.error ? ` · erreur : ${st.error}` : ''}`,
+  );
   const q = S.lastQueue || {};
   L.push(`file d'attente : ${(q.items || []).length} morceau(x) reçu(s)`);
 

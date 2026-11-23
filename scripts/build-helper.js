@@ -22,10 +22,14 @@ const strict = process.argv.includes('--strict');
 const cargoHome = process.env.CARGO_HOME || path.join(os.homedir(), '.cargo');
 const env = { ...process.env, PATH: `${path.join(cargoHome, 'bin')}${path.delimiter}${process.env.PATH}` };
 
-const r = spawnSync('cargo', ['build', '--release', '--quiet', '--manifest-path', manifest], { stdio: 'inherit', env, shell: false });
+const r = spawnSync('cargo', ['build', '--release', '--quiet', '--manifest-path', manifest], {
+  stdio: 'inherit',
+  env,
+  shell: false,
+});
 if (r.status === 0) process.exit(0);
 
-const why = r.error && r.error.code === 'ENOENT' ? 'Rust (cargo) n\'est pas installé' : 'la compilation a échoué';
+const why = r.error && r.error.code === 'ENOENT' ? "Rust (cargo) n'est pas installé" : 'la compilation a échoué';
 if (strict) {
   console.error(`\n✗ Assistant natif : ${why}.`);
   process.exit(1);

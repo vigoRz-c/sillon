@@ -13,26 +13,34 @@ const { screen } = require('electron');
 let api = null;
 function win32() {
   if (api) return api;
-  if (process.platform !== 'win32') throw new Error('Mode fond d\'écran : Windows uniquement.');
+  if (process.platform !== 'win32') throw new Error("Mode fond d'écran : Windows uniquement.");
   const koffi = require('koffi');
   const user32 = koffi.load('user32.dll');
   koffi.struct('POINT', { x: 'long', y: 'long' });
   koffi.proto('bool __stdcall EnumWindowsProc(intptr_t hwnd, intptr_t lParam)');
   api = {
     FindWindowW: user32.func('intptr_t __stdcall FindWindowW(const char16_t *cls, const char16_t *name)'),
-    FindWindowExW: user32.func('intptr_t __stdcall FindWindowExW(intptr_t parent, intptr_t after, const char16_t *cls, const char16_t *name)'),
-    SendMessageTimeoutW: user32.func('intptr_t __stdcall SendMessageTimeoutW(intptr_t hWnd, uint32_t msg, uintptr_t wParam, intptr_t lParam, uint32_t flags, uint32_t timeout, _Out_ uintptr_t *result)'),
+    FindWindowExW: user32.func(
+      'intptr_t __stdcall FindWindowExW(intptr_t parent, intptr_t after, const char16_t *cls, const char16_t *name)',
+    ),
+    SendMessageTimeoutW: user32.func(
+      'intptr_t __stdcall SendMessageTimeoutW(intptr_t hWnd, uint32_t msg, uintptr_t wParam, intptr_t lParam, uint32_t flags, uint32_t timeout, _Out_ uintptr_t *result)',
+    ),
     EnumWindows: user32.func('bool __stdcall EnumWindows(EnumWindowsProc *cb, intptr_t lParam)'),
     SetParent: user32.func('intptr_t __stdcall SetParent(intptr_t child, intptr_t parent)'),
     GetAncestor: user32.func('intptr_t __stdcall GetAncestor(intptr_t hwnd, uint32_t flags)'),
     IsWindow: user32.func('bool __stdcall IsWindow(intptr_t hwnd)'),
-    SetWindowPos: user32.func('bool __stdcall SetWindowPos(intptr_t hwnd, intptr_t after, int x, int y, int cx, int cy, uint32_t flags)'),
+    SetWindowPos: user32.func(
+      'bool __stdcall SetWindowPos(intptr_t hwnd, intptr_t after, int x, int y, int cx, int cy, uint32_t flags)',
+    ),
     ScreenToClient: user32.func('bool __stdcall ScreenToClient(intptr_t hwnd, _Inout_ POINT *pt)'),
     ShowWindow: user32.func('bool __stdcall ShowWindow(intptr_t hwnd, int cmd)'),
     LockWorkStation: user32.func('bool __stdcall LockWorkStation()'),
     GetWindowLongPtrW: user32.func('intptr_t __stdcall GetWindowLongPtrW(intptr_t hwnd, int index)'),
     SetWindowLongPtrW: user32.func('intptr_t __stdcall SetWindowLongPtrW(intptr_t hwnd, int index, intptr_t value)'),
-    SetLayeredWindowAttributes: user32.func('bool __stdcall SetLayeredWindowAttributes(intptr_t hwnd, uint32_t key, uint8_t alpha, uint32_t flags)'),
+    SetLayeredWindowAttributes: user32.func(
+      'bool __stdcall SetLayeredWindowAttributes(intptr_t hwnd, uint32_t key, uint8_t alpha, uint32_t flags)',
+    ),
     WindowFromPoint: user32.func('intptr_t __stdcall WindowFromPoint(POINT pt)'),
     GetWindow: user32.func('intptr_t __stdcall GetWindow(intptr_t hwnd, uint32_t cmd)'),
     GetClassNameW: user32.func('int __stdcall GetClassNameW(intptr_t hwnd, _Out_ char16_t *buf, int max)'),
@@ -61,8 +69,8 @@ function findWallpaperHost() {
 
   // Demande à Explorer de créer le WorkerW (sans effet s'il existe déjà).
   const out = [0];
-  w.SendMessageTimeoutW(progman, 0x052C, 0xD, 0x1, SMTO_NORMAL, 1000, out);
-  w.SendMessageTimeoutW(progman, 0x052C, 0, 0, SMTO_NORMAL, 1000, out);
+  w.SendMessageTimeoutW(progman, 0x052c, 0xd, 0x1, SMTO_NORMAL, 1000, out);
+  w.SendMessageTimeoutW(progman, 0x052c, 0, 0, SMTO_NORMAL, 1000, out);
 
   // Disposition 24H2 : WorkerW enfant de Progman.
   const childWorker = w.FindWindowExW(progman, 0, 'WorkerW', null);
@@ -120,7 +128,11 @@ class WallpaperAttacher {
       if (this.win.isDestroyed()) return clearInterval(this.watch);
       const parent = w.GetAncestor(hwnd, GA_PARENT);
       if (!w.IsWindow(this.host.parent) || parent !== this.host.parent) {
-        try { this.attach(this.lastBounds); } catch { /* on réessaiera */ }
+        try {
+          this.attach(this.lastBounds);
+        } catch {
+          /* on réessaiera */
+        }
       }
     }, 5000);
     return host.layout;
@@ -139,9 +151,13 @@ class WallpaperAttacher {
     const pt = { x: px.x, y: px.y };
     w.ScreenToClient(this.host.parent, pt);
     w.SetWindowPos(
-      hwndOf(this.win), this.host.insertAfter,
-      pt.x, pt.y, px.width, px.height,
-      SWP_NOACTIVATE | SWP_SHOWWINDOW
+      hwndOf(this.win),
+      this.host.insertAfter,
+      pt.x,
+      pt.y,
+      px.width,
+      px.height,
+      SWP_NOACTIVATE | SWP_SHOWWINDOW,
     );
   }
 
@@ -163,7 +179,9 @@ function sendToBottom(win) {
   if (process.platform !== 'win32' || !win || win.isDestroyed()) return;
   try {
     win32().SetWindowPos(hwndOf(win), HWND_BOTTOM, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
-  } catch (e) { console.error('Fenêtre au fond :', e.message); }
+  } catch (e) {
+    console.error('Fenêtre au fond :', e.message);
+  }
 }
 
 // Une application occupe-t-elle l'écran (jeu Direct3D, vidéo ou présentation
@@ -181,7 +199,9 @@ function fullscreenAppRunning() {
     const out = [0];
     if (shell32.query(out) !== 0) return false;
     return out[0] === 2 || out[0] === 3 || out[0] === 4;
-  } catch { return false; }
+  } catch {
+    return false;
+  }
 }
 
 // Rectangle (pixels physiques) de la fenêtre au premier plan, ou null.
@@ -203,7 +223,9 @@ function foregroundRect() {
     const r = {};
     if (!rectApi.rect(h, r)) return null;
     return { x: r.left, y: r.top, width: r.right - r.left, height: r.bottom - r.top };
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 // Place une fenêtre juste au-dessus du bureau (Progman), sous toutes les
@@ -219,7 +241,9 @@ function placeAboveDesktop(win) {
     if (above === me) return; // déjà à la bonne place
     // « Insérer après X » = juste sous X, donc juste au-dessus de Progman.
     w.SetWindowPos(me, above || HWND_BOTTOM, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
-  } catch (e) { console.error('Fenêtre au-dessus du bureau :', e.message); }
+  } catch (e) {
+    console.error('Fenêtre au-dessus du bureau :', e.message);
+  }
 }
 
 // Fenêtre sous un point de l'écran (pixels physiques), pour le diagnostic.
@@ -227,18 +251,38 @@ function windowAt(pt) {
   if (process.platform !== 'win32') return null;
   try {
     const w = win32();
-    const cls = (h) => { const b = Buffer.alloc(512); const n = w.GetClassNameW(h, b, 256); return b.toString('utf16le', 0, n * 2); };
+    const cls = (h) => {
+      const b = Buffer.alloc(512);
+      const n = w.GetClassNameW(h, b, 256);
+      return b.toString('utf16le', 0, n * 2);
+    };
     const hwnd = w.WindowFromPoint({ x: Math.round(pt.x), y: Math.round(pt.y) });
     if (!hwnd) return null;
     const root = w.GetAncestor(hwnd, 2); // GA_ROOT
     return { hwnd, root, cls: cls(hwnd), rootCls: cls(root) };
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 // Équivaut à Windows + L.
 function lockWorkstation() {
   if (process.platform !== 'win32') return false;
-  try { return win32().LockWorkStation(); } catch (e) { console.error('Verrouillage :', e.message); return false; }
+  try {
+    return win32().LockWorkStation();
+  } catch (e) {
+    console.error('Verrouillage :', e.message);
+    return false;
+  }
 }
 
-module.exports = { WallpaperAttacher, sendToBottom, lockWorkstation, fullscreenAppRunning, foregroundRect, windowAt, hwndOf, placeAboveDesktop };
+module.exports = {
+  WallpaperAttacher,
+  sendToBottom,
+  lockWorkstation,
+  fullscreenAppRunning,
+  foregroundRect,
+  windowAt,
+  hwndOf,
+  placeAboveDesktop,
+};

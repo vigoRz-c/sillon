@@ -14,7 +14,8 @@
   $('hide').onclick = () => bridge.setSettings({ sceneHidden: true });
 
   // Icônes vectorielles : les symboles texte ⏮ ⏭ s'affichent en emoji sous Windows.
-  const icon = (d) => `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="${d}"/></svg>`;
+  const icon = (d) =>
+    `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="${d}"/></svg>`;
   const PLAY = icon('M7 4v16l13-8z');
   const PAUSE = icon('M6 4h4v16H6zM14 4h4v16h-4z');
   $('play').innerHTML = PLAY;
@@ -32,7 +33,8 @@
     // Grisés quand Spotify les interdit pour le moment (ça change en cours de lecture).
     $('shuffle').classList.toggle('blocked', !!(m && m.shuffleAllowed === false));
     $('repeat').classList.toggle('blocked', !!(m && m.repeatAllowed === false));
-    $('shuffle').title = m && m.shuffleAllowed === false ? 'Lecture aléatoire (indisponible pour le moment)' : 'Lecture aléatoire';
+    $('shuffle').title =
+      m && m.shuffleAllowed === false ? 'Lecture aléatoire (indisponible pour le moment)' : 'Lecture aléatoire';
     $('repeat').title = m && m.repeatAllowed === false ? 'Répéter (indisponible pour le moment)' : 'Répéter';
   });
 })();

@@ -40,7 +40,10 @@ test('mesure "en lecture" vieille de plus de 6 s : position brute', () => {
 
 test('petits écarts (arrondi de Spotify) : ancrage conservé, pas de sautillement', () => {
   let state = {};
-  const step = (msg, now) => { state = { ...msg, ...anchor(state, msg, now) }; return state; };
+  const step = (msg, now) => {
+    state = { ...msg, ...anchor(state, msg, now) };
+    return state;
+  };
   step({ ...base, newTrack: true, status: 'Playing', position: 10, updated: T }, T);
   const first = state.anchorAt;
   step({ ...base, status: 'Playing', position: 14.5, updated: T + 4300 }, T + 4300); // écart 0,2 s

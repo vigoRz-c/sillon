@@ -1,88 +1,100 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
-<!-- Copie de démo de src/renderer/pages/settings.html, avec le faux pont. -->
-<head>
-  <meta charset="UTF-8">
+  <!-- Copie de démo de src/renderer/pages/settings.html, avec le faux pont. -->
+  <head>
+    <meta charset="UTF-8" />
     <title>Paramètres · Sillon</title>
-  <link rel="stylesheet" href="../src/renderer/style.css">
-</head>
-<body class="settings">
-  <header>
-    <h1>Paramètres</h1>
-    <button id="close" class="icon" title="Fermer (Échap)">&#10005;</button>
-  </header>
+    <link rel="stylesheet" href="../src/renderer/style.css" />
+  </head>
+  <body class="settings">
+    <header>
+      <h1>Paramètres</h1>
+      <button id="close" class="icon" title="Fermer (Échap)">&#10005;</button>
+    </header>
 
-  <main>
-    <section>
-      <h2>Affichage</h2>
-      <label class="row">Visualiseur
-        <select id="style">
-          <option value="bars">Barres</option>
-          <option value="mirror">Miroir</option>
-          <option value="ring">Anneau</option>
-          <option value="wave">Onde</option>
-          <option value="aurora">Aurore</option>
-        </select>
-      </label>
-      <label class="row">Couleurs
-        <select id="theme">
-          <option value="wallpaper">Couleurs du fond d'écran</option>
-          <option value="album">Couleurs de la pochette</option>
-          <option value="spotify">Spotify</option>
-          <option value="neon">Néon</option>
-          <option value="sunset">Coucher de soleil</option>
-          <option value="ocean">Océan</option>
-          <option value="mono">Blanc</option>
-        </select>
-      </label>
-      <label class="row">Afficher le morceau en cours
-        <input id="showNowPlaying" type="checkbox">
-      </label>
-    </section>
+    <main>
+      <section>
+        <h2>Affichage</h2>
+        <label class="row"
+          >Visualiseur
+          <select id="style">
+            <option value="bars">Barres</option>
+            <option value="mirror">Miroir</option>
+            <option value="ring">Anneau</option>
+            <option value="wave">Onde</option>
+            <option value="aurora">Aurore</option>
+          </select>
+        </label>
+        <label class="row"
+          >Couleurs
+          <select id="theme">
+            <option value="wallpaper">Couleurs du fond d'écran</option>
+            <option value="album">Couleurs de la pochette</option>
+            <option value="spotify">Spotify</option>
+            <option value="neon">Néon</option>
+            <option value="sunset">Coucher de soleil</option>
+            <option value="ocean">Océan</option>
+            <option value="mono">Blanc</option>
+          </select>
+        </label>
+        <label class="row"
+          >Afficher le morceau en cours
+          <input id="showNowPlaying" type="checkbox" />
+        </label>
+      </section>
 
-    <section>
-      <h2>Réglages fins</h2>
-      <label class="row">Sensibilité <output id="sensitivityOut"></output>
-        <input id="sensitivity" type="range" min="0.4" max="2.5" step="0.1">
-      </label>
-      <label class="row">Opacité <output id="opacityOut"></output>
-        <input id="opacity" type="range" min="0.2" max="1" step="0.05">
-      </label>
-      <label class="row">Images par seconde
-        <select id="fps"><option value="30">30</option><option value="60">60</option></select>
-      </label>
-    </section>
+      <section>
+        <h2>Réglages fins</h2>
+        <label class="row"
+          >Sensibilité <output id="sensitivityOut"></output>
+          <input id="sensitivity" type="range" min="0.4" max="2.5" step="0.1" />
+        </label>
+        <label class="row"
+          >Opacité <output id="opacityOut"></output>
+          <input id="opacity" type="range" min="0.2" max="1" step="0.05" />
+        </label>
+        <label class="row"
+          >Images par seconde
+          <select id="fps">
+            <option value="30">30</option>
+            <option value="60">60</option>
+          </select>
+        </label>
+      </section>
 
-    <section>
-      <h2>Widget du bureau</h2>
-      <label class="row">Position
-        <select id="mode">
-          <option value="wallpaper">Sur le fond d'écran</option>
-          <option value="top">Toujours au premier plan</option>
-          <option value="normal">Fenêtre normale</option>
-        </select>
-      </label>
-      <div class="row buttons">
-        <button id="edit">Déplacer / redimensionner…</button>
-        <button id="resetBounds">Position par défaut</button>
-      </div>
-    </section>
+      <section>
+        <h2>Widget du bureau</h2>
+        <label class="row"
+          >Position
+          <select id="mode">
+            <option value="wallpaper">Sur le fond d'écran</option>
+            <option value="top">Toujours au premier plan</option>
+            <option value="normal">Fenêtre normale</option>
+          </select>
+        </label>
+        <div class="row buttons">
+          <button id="edit">Déplacer / redimensionner…</button>
+          <button id="resetBounds">Position par défaut</button>
+        </div>
+      </section>
 
-    <section>
-      <h2>Général</h2>
-      <label class="row">Suivre en priorité
-        <select id="preferApp">
-          <option value="spotify">Spotify</option>
-          <option value="">Le lecteur actif (YouTube, VLC…)</option>
-        </select>
-      </label>
-      <label class="row">Lancer au démarrage de Windows
-        <input id="launchAtLogin" type="checkbox">
-      </label>
-    </section>
-  </main>
+      <section>
+        <h2>Général</h2>
+        <label class="row"
+          >Suivre en priorité
+          <select id="preferApp">
+            <option value="spotify">Spotify</option>
+            <option value="">Le lecteur actif (YouTube, VLC…)</option>
+          </select>
+        </label>
+        <label class="row"
+          >Lancer au démarrage de Windows
+          <input id="launchAtLogin" type="checkbox" />
+        </label>
+      </section>
+    </main>
 
-  <script src="fake-bridge.js"></script>
-  <script src="../src/renderer/pages/settings.js"></script>
-</body>
+    <script src="fake-bridge.js"></script>
+    <script src="../src/renderer/pages/settings.js"></script>
+  </body>
 </html>

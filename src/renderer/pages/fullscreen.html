@@ -1,44 +1,47 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'">
-  <title>Sillon</title>
-  <link rel="stylesheet" href="../style.css">
-</head>
-<body class="fullscreen">
-  <div id="room"><img id="roomImg" alt=""></div>
-  <div id="shade"></div>
-  <canvas id="ripples"></canvas>
-  <canvas id="viz"></canvas>
-  <img id="cover" class="big-cover hidden" alt="">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'"
+    />
+    <title>Sillon</title>
+    <link rel="stylesheet" href="../style.css" />
+  </head>
+  <body class="fullscreen">
+    <div id="room"><img id="roomImg" alt="" /></div>
+    <div id="shade"></div>
+    <canvas id="ripples"></canvas>
+    <canvas id="viz"></canvas>
+    <img id="cover" class="big-cover hidden" alt="" />
 
-  <div id="lyrics" class="lyrics fs-lyrics"></div>
+    <div id="lyrics" class="lyrics fs-lyrics"></div>
 
-  <div class="fs-meta">
-    <div id="title" class="title"></div>
-    <div id="artist" class="artist"></div>
-  </div>
+    <div class="fs-meta">
+      <div id="title" class="title"></div>
+      <div id="artist" class="artist"></div>
+    </div>
 
-  <button id="settingsBtn" class="settings-btn" title="Paramètres">&#9881;</button>
+    <button id="settingsBtn" class="settings-btn" title="Paramètres">&#9881;</button>
 
-  <div id="toast" class="toast"></div>
+    <div id="toast" class="toast"></div>
 
-  <div id="controls" class="controls">
-    <button id="prev" title="Précédent (←)">&#9198;</button>
-    <button id="play" title="Lecture / pause (Espace)">&#9199;</button>
-    <button id="next" title="Suivant (→)">&#9197;</button>
-    <div class="progress wide"><div id="bar"></div></div>
-    <div id="time" class="time"></div>
-    <div id="volume"></div>
-  </div>
+    <div id="controls" class="controls">
+      <button id="prev" title="Précédent (←)">&#9198;</button>
+      <button id="play" title="Lecture / pause (Espace)">&#9199;</button>
+      <button id="next" title="Suivant (→)">&#9197;</button>
+      <div class="progress wide"><div id="bar"></div></div>
+      <div id="time" class="time"></div>
+      <div id="volume"></div>
+    </div>
 
-  <div class="keys">Espace lecture · ← → morceau · V visualiseur · C couleurs · [ ] paroles · Échap quitter</div>
+    <div class="keys">Espace lecture · ← → morceau · V visualiseur · C couleurs · [ ] paroles · Échap quitter</div>
 
-  <script src="../shared/engine.js"></script>
-  <script src="../shared/common.js"></script>
-  <script src="../shared/lyrics-view.js"></script>
-  <script src="../shared/volume-control.js"></script>
-  <script src="fullscreen.js"></script>
-</body>
+    <script src="../shared/engine.js"></script>
+    <script src="../shared/common.js"></script>
+    <script src="../shared/lyrics-view.js"></script>
+    <script src="../shared/volume-control.js"></script>
+    <script src="fullscreen.js"></script>
+  </body>
 </html>

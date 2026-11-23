@@ -62,20 +62,33 @@ function updateSettings(patch) {
 
 // Fonctions partagées entre modules (voir state.js).
 Object.assign(S.actions, {
-  updateSettings, buildTray, updateControls,
-  isScene: widgetWindow.isScene, sceneDisplay: widgetWindow.sceneDisplay, openLayoutEditor: layoutEditor.openLayoutEditor,
+  updateSettings,
+  buildTray,
+  updateControls,
+  isScene: widgetWindow.isScene,
+  sceneDisplay: widgetWindow.sceneDisplay,
+  openLayoutEditor: layoutEditor.openLayoutEditor,
   widgetBounds: widgetWindow.widgetBounds,
-  applyMode: widgetWindow.applyMode, setEditing: widgetWindow.setEditing,
-  startAudio: appAudio.startAudio, audioOnMedia: appAudio.onMedia, audioStatus: appAudio.status,
+  applyMode: widgetWindow.applyMode,
+  setEditing: widgetWindow.setEditing,
+  startAudio: appAudio.startAudio,
+  audioOnMedia: appAudio.onMedia,
+  audioStatus: appAudio.status,
   sampleWallpaper: capture.sampleWallpaper,
   startWallpaperSampling: capture.startWallpaperSampling,
-  toggleFullscreen: windows.toggleFullscreen, openSettings: windows.openSettings,
+  toggleFullscreen: windows.toggleFullscreen,
+  openSettings: windows.openSettings,
   startVeille: veille.startVeille,
-  refreshQueue: queue.refreshQueue, mediaCommand: queue.mediaCommand, refreshPlayer: queue.refreshPlayer,
+  refreshQueue: queue.refreshQueue,
+  mediaCommand: queue.mediaCommand,
+  refreshPlayer: queue.refreshPlayer,
   rebroadcast: () => {}, // remplacé par now-playing.js
-  lyricsOffsetFor: nowPlaying.lyricsOffsetFor, nudgeLyrics: nowPlaying.nudgeLyrics,
+  lyricsOffsetFor: nowPlaying.lyricsOffsetFor,
+  nudgeLyrics: nowPlaying.nudgeLyrics,
   copyDiagnostic: () => copyDiagnostic(),
-  updateStatus: updater.status, checkUpdates: updater.check, installUpdate: updater.installNow,
+  updateStatus: updater.status,
+  checkUpdates: updater.check,
+  installUpdate: updater.installNow,
 });
 
 // ---------- Mode jeu ----------
@@ -90,8 +103,9 @@ function coversSceneScreen() {
   if (!r || !S.alive(S.widget)) return false;
   const fg = screen.screenToDipRect(null, r);
   const d = screen.getDisplayMatching(widgetWindow.widgetBounds()).bounds;
-  return fg.x <= d.x + 2 && fg.y <= d.y + 2
-    && fg.x + fg.width >= d.x + d.width - 2 && fg.y + fg.height >= d.y + d.height - 2;
+  return (
+    fg.x <= d.x + 2 && fg.y <= d.y + 2 && fg.x + fg.width >= d.x + d.width - 2 && fg.y + fg.height >= d.y + d.height - 2
+  );
 }
 
 let gamePaused = false;
@@ -126,7 +140,9 @@ function watchDisplays() {
   screen.on('display-added', replace);
   screen.on('display-removed', replace);
   screen.on('display-metrics-changed', replace);
-  setInterval(() => { if (primaryKey() !== last) replace(); }, 3000);
+  setInterval(() => {
+    if (primaryKey() !== last) replace();
+  }, 3000);
 }
 
 // ---------- IPC ----------
@@ -138,8 +154,12 @@ ipcMain.on('media:volume', (_e, percent) => {
   if (Number.isFinite(percent) && S.actions.setVolume) S.actions.setVolume(percent);
 });
 ipcMain.on('media:command', (e, cmd) => {
-  const from = S.controlsWin && e.sender === S.controlsWin.webContents ? 'boutons de la scène'
-    : S.fullscreen && e.sender === S.fullscreen.webContents ? 'plein écran' : 'autre fenêtre';
+  const from =
+    S.controlsWin && e.sender === S.controlsWin.webContents
+      ? 'boutons de la scène'
+      : S.fullscreen && e.sender === S.fullscreen.webContents
+        ? 'plein écran'
+        : 'autre fenêtre';
   diagnostic.note('clic', `${cmd} depuis ${from}`);
   queue.mediaCommand(cmd);
 });
@@ -157,7 +177,10 @@ ipcMain.on('edit:start', () => {
   if (S.alive(S.settingsWin)) S.settingsWin.close();
   widgetWindow.setEditing(true);
 });
-ipcMain.on('bounds:reset', () => { S.settings.set({ bounds: null }); widgetWindow.applyMode(); });
+ipcMain.on('bounds:reset', () => {
+  S.settings.set({ bounds: null });
+  widgetWindow.applyMode();
+});
 ipcMain.on('widget:resize', (_e, { width, height }) => {
   if (!S.editing || !S.alive(S.widget)) return;
   const b = S.widget.getBounds();
@@ -179,7 +202,12 @@ ipcMain.on('fullscreen:close', () => S.alive(S.fullscreen) && S.fullscreen.close
 
 ipcMain.handle('spotify:status', () => (S.spotify ? S.spotify.status() : { connected: false }));
 ipcMain.on('spotify:login', () => S.spotify && S.spotify.login());
-ipcMain.on('spotify:logout', () => { if (S.spotify) { S.spotify.logout(); queue.refreshQueue(); } });
+ipcMain.on('spotify:logout', () => {
+  if (S.spotify) {
+    S.spotify.logout();
+    queue.refreshQueue();
+  }
+});
 // Seule page externe que les paramètres peuvent ouvrir : le tableau de bord Spotify.
 ipcMain.on('spotify:dashboard', () => shell.openExternal('https://developer.spotify.com/dashboard'));
 

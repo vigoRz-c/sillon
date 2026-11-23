@@ -1,0 +1,9 @@
+# Fins de ligne LF partout (dépôt et copie de travail), quel que soit le
+# réglage core.autocrlf de Git sur la machine.
+* text=auto eol=lf
+
+# Fichiers binaires : jamais modifiés.
+*.ico binary
+*.png binary
+*.jpg binary
+*.exe binary

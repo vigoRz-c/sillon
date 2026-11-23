@@ -10,7 +10,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const MISS_TTL = 7 * 24 * 3600 * 1000; // 7 jours pour un "rien trouvé"
-const MAX_FILES = 600;                 // par espace
+const MAX_FILES = 600; // par espace
 
 let root = null;
 
@@ -28,7 +28,9 @@ function get(ns, key) {
     const entry = JSON.parse(fs.readFileSync(fileFor(ns, key), 'utf8'));
     if (entry.value == null && Date.now() - entry.at > MISS_TTL) return undefined;
     return entry.value;
-  } catch { return undefined; }
+  } catch {
+    return undefined;
+  }
 }
 
 function set(ns, key, value) {
@@ -37,7 +39,9 @@ function set(ns, key, value) {
     const f = fileFor(ns, key);
     fs.mkdirSync(path.dirname(f), { recursive: true });
     fs.writeFileSync(f, JSON.stringify({ at: Date.now(), key, value: value ?? null }));
-  } catch (e) { console.error('Cache :', e.message); }
+  } catch (e) {
+    console.error('Cache :', e.message);
+  }
 }
 
 // Garde les MAX_FILES entrées les plus récentes.
@@ -46,8 +50,13 @@ function prune(ns) {
     const dir = path.join(root, ns);
     const files = fs.readdirSync(dir).map((f) => ({ f, t: fs.statSync(path.join(dir, f)).mtimeMs }));
     if (files.length <= MAX_FILES) return;
-    files.sort((a, b) => b.t - a.t).slice(MAX_FILES).forEach(({ f }) => fs.unlinkSync(path.join(dir, f)));
-  } catch { /* dossier absent : rien à faire */ }
+    files
+      .sort((a, b) => b.t - a.t)
+      .slice(MAX_FILES)
+      .forEach(({ f }) => fs.unlinkSync(path.join(dir, f)));
+  } catch {
+    /* dossier absent : rien à faire */
+  }
 }
 
 module.exports = { init, get, set };

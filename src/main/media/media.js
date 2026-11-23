@@ -65,7 +65,11 @@ class WindowsMediaSource extends EventEmitter {
 
     readline.createInterface({ input: this.proc.stdout }).on('line', (line) => {
       let msg;
-      try { msg = JSON.parse(line); } catch { return; }
+      try {
+        msg = JSON.parse(line);
+      } catch {
+        return;
+      }
       if (msg.type === 'ready') {
         this.restarts = 0;
         this.command(`prefer:${this.prefer || ''}`);

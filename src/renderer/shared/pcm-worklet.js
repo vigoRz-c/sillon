@@ -22,9 +22,13 @@ class PcmPlayer extends AudioWorkletProcessor {
   // que le visualiseur réagisse pareil quel que soit le volume. Le silence
   // n'est pas amplifié.
   push(samples) {
-    const buf = this.buf, cap = buf.length;
+    const buf = this.buf,
+      cap = buf.length;
     let sum = 0;
-    for (let i = 0; i < samples.length; i++) { const v = samples[i] / 32768; sum += v * v; }
+    for (let i = 0; i < samples.length; i++) {
+      const v = samples[i] / 32768;
+      sum += v * v;
+    }
     const rms = Math.sqrt(sum / Math.max(1, samples.length));
     if (rms > 0.001) this.env = this.env ? this.env * 0.99 + rms * 0.01 : rms; // ~1 s de mémoire
     const target = this.env ? Math.min(12, Math.max(1, 0.08 / this.env)) : 1;
@@ -48,7 +52,8 @@ class PcmPlayer extends AudioWorkletProcessor {
 
   process(_inputs, outputs) {
     const out = outputs[0][0];
-    const buf = this.buf, cap = buf.length;
+    const buf = this.buf,
+      cap = buf.length;
     for (let i = 0; i < out.length; i++) {
       if (this.size > 0) {
         out[i] = buf[this.read];

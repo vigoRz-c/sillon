@@ -16,8 +16,12 @@ const files = [];
 
 let failed = 0;
 for (const f of files) {
-  try { execFileSync(process.execPath, ['--check', f], { stdio: 'pipe' }); }
-  catch (e) { failed++; console.error(`✗ ${path.relative(root, f)}\n${e.stderr}`); }
+  try {
+    execFileSync(process.execPath, ['--check', f], { stdio: 'pipe' });
+  } catch (e) {
+    failed++;
+    console.error(`✗ ${path.relative(root, f)}\n${e.stderr}`);
+  }
 }
 console.log(failed ? `${failed} fichier(s) en erreur` : `✓ ${files.length} fichiers JS OK`);
 process.exit(failed ? 1 : 0);

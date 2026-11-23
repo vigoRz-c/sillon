@@ -7,29 +7,29 @@
 const path = require('path');
 
 const S = {
-  settings: null,          // Settings (réglages sauvegardés)
-  media: null,             // WindowsMediaSource
-  spotify: null,           // SpotifyApi (file d'attente, facultatif)
+  settings: null, // Settings (réglages sauvegardés)
+  media: null, // WindowsMediaSource
+  spotify: null, // SpotifyApi (file d'attente, facultatif)
   tray: null,
 
-  widget: null,            // scène ou bandeau, sur le fond d'écran
-  attacher: null,          // WallpaperAttacher du widget
-  fullscreen: null,        // plein écran ou écran de veille principal
+  widget: null, // scène ou bandeau, sur le fond d'écran
+  attacher: null, // WallpaperAttacher du widget
+  fullscreen: null, // plein écran ou écran de veille principal
   settingsWin: null,
-  controlsWin: null,       // boutons du panneau de la scène
-  controlsRect: null,      // où les poser (rapporté par la page du widget)
-  editorWin: null,         // éditeur de disposition de la scène
+  controlsWin: null, // boutons du panneau de la scène
+  controlsRect: null, // où les poser (rapporté par la page du widget)
+  editorWin: null, // éditeur de disposition de la scène
   veilleWins: [],
-  editing: false,          // mode placement du bandeau
+  editing: false, // mode placement du bandeau
 
   lastMedia: { active: false },
   lastLyrics: null,
   lastQueue: { items: [], connected: false },
-  playerState: null,       // aléatoire / répétition lus dans l'API Spotify
-  appVolume: null,        // volume du lecteur dans le mélangeur de Windows (0-100)
+  playerState: null, // aléatoire / répétition lus dans l'API Spotify
+  appVolume: null, // volume du lecteur dans le mélangeur de Windows (0-100)
   wallpaperSample: null,
 
-  actions: {},             // fonctions partagées entre modules (voir main.js)
+  actions: {}, // fonctions partagées entre modules (voir main.js)
 };
 
 S.RENDERER = path.join(__dirname, '..', '..', 'renderer', 'pages');

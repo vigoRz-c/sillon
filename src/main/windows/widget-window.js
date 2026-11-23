@@ -12,7 +12,8 @@ function defaultBounds() {
   return {
     x: Math.round(workArea.x + (workArea.width - width) / 2),
     y: Math.round(workArea.y + workArea.height - height - 40),
-    width, height,
+    width,
+    height,
   };
 }
 
@@ -46,7 +47,8 @@ function widgetBounds() {
   return {
     x: Math.round(wa.x + Math.max(0, Math.min(b.rx, wa.width - width))),
     y: Math.round(wa.y + Math.max(0, Math.min(b.ry, wa.height - height))),
-    width, height,
+    width,
+    height,
   };
 }
 
@@ -111,7 +113,7 @@ function applyMode() {
     widget.setBounds(bounds);
     try {
       const layout = S.attacher.attach(bounds);
-      console.log('Accroché au fond d\'écran, disposition :', layout);
+      console.log("Accroché au fond d'écran, disposition :", layout);
     } catch (e) {
       // Pas d'accroche possible : on reste une fenêtre au fond de la pile.
       console.error(e.message);

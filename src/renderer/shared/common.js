@@ -6,7 +6,13 @@
   function createApp(canvas, { onMedia, onPalette, onSettings, onLyrics, transformSettings } = {}) {
     const engine = new AudioEngine();
     const renderer = new Renderer(canvas, engine);
-    const state = { settings: {}, media: { active: false }, albumPalette: null, wallpaperPalette: null, theme: 'wallpaper' };
+    const state = {
+      settings: {},
+      media: { active: false },
+      albumPalette: null,
+      wallpaperPalette: null,
+      theme: 'wallpaper',
+    };
 
     function applyPalette() {
       const t = state.theme;
@@ -36,7 +42,10 @@
       if (coverChanged) {
         if (m.cover) {
           const img = new Image();
-          img.onload = () => { state.albumPalette = paletteFromImage(img); applyPalette(); };
+          img.onload = () => {
+            state.albumPalette = paletteFromImage(img);
+            applyPalette();
+          };
           img.src = m.cover;
         } else {
           state.albumPalette = null;
@@ -52,11 +61,15 @@
       bridge.onSettings(applySettings);
       bridge.onMedia(applyMedia);
       if (bridge.onLyrics && onLyrics) bridge.onLyrics(onLyrics);
-      if (bridge.onWallpaper) bridge.onWallpaper((url) => {
-        const img = new Image();
-        img.onload = () => { state.wallpaperPalette = paletteFromImage(img, { soft: true }); applyPalette(); };
-        img.src = url;
-      });
+      if (bridge.onWallpaper)
+        bridge.onWallpaper((url) => {
+          const img = new Image();
+          img.onload = () => {
+            state.wallpaperPalette = paletteFromImage(img, { soft: true });
+            applyPalette();
+          };
+          img.src = url;
+        });
       bridge.getSettings().then(applySettings);
     }
 
@@ -64,7 +77,11 @@
     window.sillon = {
       startAudio: () => engine.startSystem(),
       startAppAudio: () => engine.startApp(window.bridge),
-      engine, renderer, state, applySettings, applyMedia,
+      engine,
+      renderer,
+      state,
+      applySettings,
+      applyMedia,
     };
     return { engine, renderer, state, applySettings, applyMedia, applyPalette };
   }

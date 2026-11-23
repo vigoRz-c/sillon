@@ -19,16 +19,24 @@ async function imageData(url) {
     if (imageCache.size > 100) imageCache.delete(imageCache.keys().next().value);
     imageCache.set(url, data);
     return data;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 // État aléatoire / répétition lu dans l'API (celui de Windows n'est pas fiable).
 async function refreshPlayer() {
   const spotify = S.spotify;
-  if (!spotify || !spotify.canControl()) { S.playerState = null; S.actions.rebroadcast(); return; }
+  if (!spotify || !spotify.canControl()) {
+    S.playerState = null;
+    S.actions.rebroadcast();
+    return;
+  }
   try {
     S.playerState = await spotify.player();
-  } catch { S.playerState = null; }
+  } catch {
+    S.playerState = null;
+  }
   S.actions.rebroadcast();
 }
 
@@ -37,8 +45,14 @@ async function refreshPlayer() {
 // car l'app Spotify ignore ces deux commandes venant de Windows.
 async function mediaCommand(cmd) {
   const spotify = S.spotify;
-  if (cmd !== 'shuffle' && cmd !== 'repeat') { if (S.media) S.media.command(cmd); return; }
-  if (!spotify || !spotify.canControl()) { diagnostic.note('spotify', `${cmd} ignoré : compte Spotify non connecté`); return; }
+  if (cmd !== 'shuffle' && cmd !== 'repeat') {
+    if (S.media) S.media.command(cmd);
+    return;
+  }
+  if (!spotify || !spotify.canControl()) {
+    diagnostic.note('spotify', `${cmd} ignoré : compte Spotify non connecté`);
+    return;
+  }
   try {
     const cur = S.playerState || (await spotify.player()) || { shuffle: false, repeat: 'None' };
     if (cmd === 'shuffle' ? cur.shuffleAllowed === false : cur.repeatAllowed === false) {
@@ -54,7 +68,10 @@ async function mediaCommand(cmd) {
       await spotify.setRepeat(next);
       S.playerState = { ...cur, repeat: next };
     }
-    diagnostic.note('spotify', `${cmd} → accepté (aléatoire ${S.playerState.shuffle ? 'oui' : 'non'}, répétition ${S.playerState.repeat})`);
+    diagnostic.note(
+      'spotify',
+      `${cmd} → accepté (aléatoire ${S.playerState.shuffle ? 'oui' : 'non'}, répétition ${S.playerState.repeat})`,
+    );
     S.actions.rebroadcast();
     setTimeout(refreshPlayer, 1500);
   } catch (e) {
@@ -107,9 +124,17 @@ function startSpotify() {
     S.actions.rebroadcast(); // boutons aléatoire / répétition affichés ou non
   };
   spotify.on('status', pushStatus);
-  spotify.on('connected', () => { pushStatus(spotify.status()); refreshQueue(); });
-  setInterval(() => { if (S.lastMedia.active && S.lastMedia.status === 'Playing') refreshQueue(); }, 20000);
-  spotify.ready.then(() => { pushStatus(spotify.status()); refreshQueue(); });
+  spotify.on('connected', () => {
+    pushStatus(spotify.status());
+    refreshQueue();
+  });
+  setInterval(() => {
+    if (S.lastMedia.active && S.lastMedia.status === 'Playing') refreshQueue();
+  }, 20000);
+  spotify.ready.then(() => {
+    pushStatus(spotify.status());
+    refreshQueue();
+  });
 }
 
 module.exports = { refreshQueue, refreshPlayer, startSpotify, mediaCommand };

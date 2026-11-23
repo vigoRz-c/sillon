@@ -1,58 +1,64 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'">
-  <title>Sillon</title>
-  <link rel="stylesheet" href="../style.css">
-</head>
-<body class="widget">
-  <div id="glow"></div>
-  <canvas id="viz"></canvas>
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'"
+    />
+    <title>Sillon</title>
+    <link rel="stylesheet" href="../style.css" />
+  </head>
+  <body class="widget">
+    <div id="glow"></div>
+    <canvas id="viz"></canvas>
 
-  <!-- Bandeau -->
-  <div id="now" class="now hidden">
-    <img id="cover" alt="">
-    <div class="meta">
-      <div id="title" class="title"></div>
-      <div id="artist" class="artist"></div>
-      <div class="progress"><div id="bar"></div></div>
+    <!-- Bandeau -->
+    <div id="now" class="now hidden">
+      <img id="cover" alt="" />
+      <div class="meta">
+        <div id="title" class="title"></div>
+        <div id="artist" class="artist"></div>
+        <div class="progress"><div id="bar"></div></div>
+      </div>
     </div>
-  </div>
 
-  <!-- Scène : chaque élément est placé selon la disposition (scene-layout.js).
+    <!-- Scène : chaque élément est placé selon la disposition (scene-layout.js).
        Le disque et les barres sont dessinés dans le canevas ; discEl et barsEl
        ne servent qu'à les saisir dans l'éditeur. -->
-  <div id="discEl" class="el el-ghost" data-el="disc"></div>
-  <div id="barsEl" class="el el-ghost" data-el="bars"></div>
-  <div id="bigTitle" class="el big-title" data-el="title"><span id="bigTitleText"></span></div>
-  <div id="lyrics" class="el lyrics" data-el="lyrics"></div>
-  <img id="pCover" class="el p-cover" data-el="cover" alt="">
-  <div id="pInfo" class="el p-info" data-el="info">
-    <div class="p-label">En lecture</div>
-    <div id="pTitle" class="p-title"></div>
-    <div id="pArtist" class="p-artist"></div>
-    <div class="progress"><div id="pBar"></div></div>
-  </div>
-  <div id="pControls" class="el p-controls" data-el="buttons"></div>
-  <div id="pQueue" class="el p-queue" data-el="queue">
-    <div class="p-label">À suivre</div>
-    <div id="pQueueList"></div>
-  </div>
-  <div id="clock" class="el clock" data-el="clock"><div id="clockTime" class="c-time"></div><div id="clockDate" class="c-date"></div></div>
+    <div id="discEl" class="el el-ghost" data-el="disc"></div>
+    <div id="barsEl" class="el el-ghost" data-el="bars"></div>
+    <div id="bigTitle" class="el big-title" data-el="title"><span id="bigTitleText"></span></div>
+    <div id="lyrics" class="el lyrics" data-el="lyrics"></div>
+    <img id="pCover" class="el p-cover" data-el="cover" alt="" />
+    <div id="pInfo" class="el p-info" data-el="info">
+      <div class="p-label">En lecture</div>
+      <div id="pTitle" class="p-title"></div>
+      <div id="pArtist" class="p-artist"></div>
+      <div class="progress"><div id="pBar"></div></div>
+    </div>
+    <div id="pControls" class="el p-controls" data-el="buttons"></div>
+    <div id="pQueue" class="el p-queue" data-el="queue">
+      <div class="p-label">À suivre</div>
+      <div id="pQueueList"></div>
+    </div>
+    <div id="clock" class="el clock" data-el="clock">
+      <div id="clockTime" class="c-time"></div>
+      <div id="clockDate" class="c-date"></div>
+    </div>
 
-  <div id="status" class="status hidden"></div>
+    <div id="status" class="status hidden"></div>
 
-  <div id="edit" class="edit hidden">
-    <div class="edit-hint">Glisse pour déplacer · tire le coin pour redimensionner</div>
-    <button id="done">Terminé</button>
-    <div id="grip" class="grip" title="Redimensionner"></div>
-  </div>
+    <div id="edit" class="edit hidden">
+      <div class="edit-hint">Glisse pour déplacer · tire le coin pour redimensionner</div>
+      <button id="done">Terminé</button>
+      <div id="grip" class="grip" title="Redimensionner"></div>
+    </div>
 
-  <script src="../shared/engine.js"></script>
-  <script src="../shared/scene-layout.js"></script>
-  <script src="../shared/common.js"></script>
-  <script src="../shared/lyrics-view.js"></script>
-  <script src="widget.js"></script>
-</body>
+    <script src="../shared/engine.js"></script>
+    <script src="../shared/scene-layout.js"></script>
+    <script src="../shared/common.js"></script>
+    <script src="../shared/lyrics-view.js"></script>
+    <script src="widget.js"></script>
+  </body>
 </html>

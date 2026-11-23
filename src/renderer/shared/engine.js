@@ -25,10 +25,15 @@
         this.stream = stream;
         stream.getVideoTracks().forEach((t) => t.stop());
         const tracks = stream.getAudioTracks();
-        if (!tracks.length) { this.status = 'no-audio'; return false; }
+        if (!tracks.length) {
+          this.status = 'no-audio';
+          return false;
+        }
         this.ctx = new AudioContext();
         this.useNode(this.ctx.createMediaStreamSource(new MediaStream(tracks)));
-        tracks[0].addEventListener('ended', () => { this.status = 'no-audio'; });
+        tracks[0].addEventListener('ended', () => {
+          this.status = 'no-audio';
+        });
         return true;
       } catch (e) {
         console.error('Capture audio impossible :', e);
@@ -44,7 +49,11 @@
         this.stop();
         const ctx = new AudioContext({ sampleRate: 48000 });
         await ctx.audioWorklet.addModule('../shared/pcm-worklet.js');
-        const node = new AudioWorkletNode(ctx, 'sillon-pcm', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [1] });
+        const node = new AudioWorkletNode(ctx, 'sillon-pcm', {
+          numberOfInputs: 0,
+          numberOfOutputs: 1,
+          outputChannelCount: [1],
+        });
         this.pcmNode = node;
         if (!this.pcmHooked) {
           this.pcmHooked = true;
@@ -72,8 +81,14 @@
 
     // Arrête la source en cours (avant d'en démarrer une autre).
     stop() {
-      if (this.stream) { this.stream.getTracks().forEach((t) => t.stop()); this.stream = null; }
-      if (this.ctx) { this.ctx.close().catch(() => {}); this.ctx = null; }
+      if (this.stream) {
+        this.stream.getTracks().forEach((t) => t.stop());
+        this.stream = null;
+      }
+      if (this.ctx) {
+        this.ctx.close().catch(() => {});
+        this.ctx = null;
+      }
       this.analyser = null;
       this.pcmNode = null;
     }
@@ -131,11 +146,16 @@
     // montée rapide / descente lente pour un rendu fluide.
     bands(n) {
       let arr = this.bandsCache.get(n);
-      if (!arr) { arr = new Float32Array(n); this.bandsCache.set(n, arr); arr.stamp = -1; }
+      if (!arr) {
+        arr = new Float32Array(n);
+        this.bandsCache.set(n, arr);
+        arr.stamp = -1;
+      }
       if (!this.analyser || !this.bandsDirty || arr.stamp === this.frameStamp) return arr;
       arr.stamp = this.frameStamp;
       const hz = this.ctx.sampleRate / 2 / this.freq.length;
-      const lo = Math.log(35), hi = Math.log(16000);
+      const lo = Math.log(35),
+        hi = Math.log(16000);
       for (let i = 0; i < n; i++) {
         const f0 = Math.exp(lo + (hi - lo) * (i / n));
         const f1 = Math.exp(lo + (hi - lo) * ((i + 1) / n));
@@ -151,7 +171,9 @@
       return arr;
     }
 
-    tick() { this.frameStamp = (this.frameStamp || 0) + 1; }
+    tick() {
+      this.frameStamp = (this.frameStamp || 0) + 1;
+    }
   }
 
   // ================= Couleurs =================
@@ -170,9 +192,14 @@
     return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
   }
   function rgbToHsl(r, g, b) {
-    r /= 255; g /= 255; b /= 255;
-    const max = Math.max(r, g, b), min = Math.min(r, g, b);
-    let h = 0, s = 0; const l = (max + min) / 2;
+    r /= 255;
+    g /= 255;
+    b /= 255;
+    const max = Math.max(r, g, b),
+      min = Math.min(r, g, b);
+    let h = 0,
+      s = 0;
+    const l = (max + min) / 2;
     if (max !== min) {
       const d = max - min;
       s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
@@ -198,10 +225,15 @@
       const key = Math.round(h / 24);
       const w = s * (1 - Math.abs(l - 0.5));
       const b = buckets.get(key) || { w: 0, h: 0, s: 0, l: 0, n: 0 };
-      b.w += w; b.h += h * w; b.s += s * w; b.l += l * w; b.n++;
+      b.w += w;
+      b.h += h * w;
+      b.s += s * w;
+      b.l += l * w;
+      b.n++;
       buckets.set(key, b);
     }
-    const ranked = [...buckets.values()].filter((b) => b.w > 0)
+    const ranked = [...buckets.values()]
+      .filter((b) => b.w > 0)
       .map((b) => ({ h: b.h / b.w, s: b.s / b.w, l: b.l / b.w, w: b.w }))
       .sort((a, b) => b.w - a.w);
     const totalW = ranked.reduce((a, b) => a + b.w, 0);
@@ -214,7 +246,11 @@
     if (soft) {
       // Tons doux et clairs, pris dans le fond d'écran : ils s'y fondent au lieu de trancher.
       const ss = Math.min(0.75, Math.max(0.35, main.s));
-      return [hsl(main.h, ss, 0.72), hsl(second.h, Math.min(0.75, Math.max(0.35, second.s || ss)), 0.78), hsl(main.h + 15, ss * 0.8, 0.9)];
+      return [
+        hsl(main.h, ss, 0.72),
+        hsl(second.h, Math.min(0.75, Math.max(0.35, second.s || ss)), 0.78),
+        hsl(main.h + 15, ss * 0.8, 0.9),
+      ];
     }
     const s = Math.max(0.6, main.s);
     return [hsl(main.h, s, 0.55), hsl(second.h, Math.max(0.6, second.s || s), 0.6), hsl(main.h + 20, s, 0.75)];
@@ -230,7 +266,9 @@
 
   function hGradient(ctx, w, pal) {
     const g = ctx.createLinearGradient(0, 0, w, 0);
-    g.addColorStop(0, pal[0]); g.addColorStop(0.5, pal[1]); g.addColorStop(1, pal[2]);
+    g.addColorStop(0, pal[0]);
+    g.addColorStop(0.5, pal[1]);
+    g.addColorStop(1, pal[2]);
     return g;
   }
 
@@ -251,18 +289,25 @@
   // elle est recalculée à chaque appel de stroke()/fill().
   const ALPHA_STEPS = 4;
   class StrokeBatch {
-    constructor() { this.paths = new Map(); }
+    constructor() {
+      this.paths = new Map();
+    }
     // alpha arrondi à ALPHA_STEPS paliers entre lo et 1.
     add(color, alpha, lo, x0, y0, x1, y1) {
       const step = Math.round(((alpha - lo) / (1 - lo)) * (ALPHA_STEPS - 1));
       const key = color + '|' + step;
       let p = this.paths.get(key);
-      if (!p) { p = { path: new Path2D(), color, alpha: lo + ((1 - lo) * step) / (ALPHA_STEPS - 1) }; this.paths.set(key, p); }
-      p.path.moveTo(x0, y0); p.path.lineTo(x1, y1);
+      if (!p) {
+        p = { path: new Path2D(), color, alpha: lo + ((1 - lo) * step) / (ALPHA_STEPS - 1) };
+        this.paths.set(key, p);
+      }
+      p.path.moveTo(x0, y0);
+      p.path.lineTo(x1, y1);
     }
     stroke(ctx, glow) {
       for (const { path, color, alpha } of this.paths.values()) {
-        ctx.strokeStyle = color; ctx.globalAlpha = alpha;
+        ctx.strokeStyle = color;
+        ctx.globalAlpha = alpha;
         if (glow) ctx.shadowColor = color;
         ctx.stroke(path);
       }
@@ -276,7 +321,8 @@
     bars(ctx, w, h, a, pal, opts) {
       const n = Math.max(16, Math.min(96, Math.floor(w / 14)));
       const bands = a.bands(n);
-      const slot = w / n, bw = slot * 0.62;
+      const slot = w / n,
+        bw = slot * 0.62;
       const base = opts.reflection === false ? h : h * 0.8;
       const fill = hGradient(ctx, w, pal);
       ctx.fillStyle = fill;
@@ -305,7 +351,9 @@
     mirror(ctx, w, h, a, pal, opts) {
       const n = Math.max(24, Math.min(128, Math.floor(w / 20) * 2));
       const bands = a.bands(n / 2);
-      const slot = w / n, bw = slot * 0.55, mid = h / 2;
+      const slot = w / n,
+        bw = slot * 0.55,
+        mid = h / 2;
       ctx.fillStyle = hGradient(ctx, w, [pal[2], pal[0], pal[2]]);
       ctx.shadowColor = pal[0];
       ctx.shadowBlur = opts.glow ? 14 : 0;
@@ -323,12 +371,13 @@
     ring(ctx, w, h, a, pal, opts) {
       const n = 120;
       const bands = a.bands(60);
-      const cx = opts.cx ?? w / 2, cy = opts.cy ?? h / 2;
+      const cx = opts.cx ?? w / 2,
+        cy = opts.cy ?? h / 2;
       const m = Math.min(w, h);
       const r0 = opts.radius ?? m * 0.2 * (1 + a.bass * 0.08);
       const len = opts.radius ? m * 0.16 : m * 0.2;
       ctx.lineCap = 'round';
-      ctx.lineWidth = Math.max(2, (2 * Math.PI * r0) / n * 0.45);
+      ctx.lineWidth = Math.max(2, ((2 * Math.PI * r0) / n) * 0.45);
       ctx.shadowBlur = opts.glow ? 16 : 0;
       const rot = (opts.t || 0) * 0.00005;
       for (let i = 0; i < n; i++) {
@@ -336,8 +385,15 @@
         const v = bands[k];
         const ang = (i / n) * Math.PI * 2 - Math.PI / 2 + rot;
         const c = pal[i % 3 === 0 ? 0 : i % 3 === 1 ? 1 : 2];
-        batch.add(c, 1, 0, cx + Math.cos(ang) * r0, cy + Math.sin(ang) * r0,
-          cx + Math.cos(ang) * (r0 + 3 + v * len), cy + Math.sin(ang) * (r0 + 3 + v * len));
+        batch.add(
+          c,
+          1,
+          0,
+          cx + Math.cos(ang) * r0,
+          cy + Math.sin(ang) * r0,
+          cx + Math.cos(ang) * (r0 + 3 + v * len),
+          cy + Math.sin(ang) * (r0 + 3 + v * len),
+        );
       }
       batch.stroke(ctx, opts.glow);
       ctx.shadowBlur = 0;
@@ -345,7 +401,9 @@
         ctx.strokeStyle = pal[2];
         ctx.globalAlpha = 0.35 + a.bass * 0.4;
         ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(cx, cy, r0 - 6, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx, cy, r0 - 6, 0, Math.PI * 2);
+        ctx.stroke();
         ctx.globalAlpha = 1;
       }
     },
@@ -353,10 +411,16 @@
     wave(ctx, w, h, a, pal, opts) {
       const data = a.wave;
       const mid = h / 2;
-      const layers = [[pal[0], 1, 3], [pal[1], 0.7, 2], [pal[2], 0.45, 1.5]];
+      const layers = [
+        [pal[0], 1, 3],
+        [pal[1], 0.7, 2],
+        [pal[2], 0.45, 1.5],
+      ];
       ctx.shadowBlur = opts.glow ? 14 : 0;
       layers.forEach(([color, amp, lw], li) => {
-        ctx.strokeStyle = color; ctx.shadowColor = color; ctx.lineWidth = lw;
+        ctx.strokeStyle = color;
+        ctx.shadowColor = color;
+        ctx.lineWidth = lw;
         ctx.beginPath();
         const step = Math.max(1, Math.floor(data.length / w / 1.5));
         const offset = li * 37;
@@ -364,7 +428,8 @@
           const s = data[(i + offset) % data.length] || 0;
           const edge = Math.sin((x / w) * Math.PI); // fondu aux bords
           const y = mid + s * h * 1.6 * amp * edge * (opts.sensitivity || 1);
-          if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
         }
         ctx.stroke();
       });
@@ -389,8 +454,9 @@
         for (let i = 0; i <= pts; i++) {
           const x = (i / pts) * w;
           const e = bands[Math.floor((i / pts) * 23)];
-          const wobble = Math.sin(i * 0.35 + t * (0.6 + layer * 0.25) + layer * 2) * 0.12
-            + Math.sin(i * 0.11 - t * 0.4 + layer) * 0.1;
+          const wobble =
+            Math.sin(i * 0.35 + t * (0.6 + layer * 0.25) + layer * 2) * 0.12 +
+            Math.sin(i * 0.11 - t * 0.4 + layer) * 0.1;
           const y = h * (0.75 - layer * 0.08 - e * 0.55 - wobble);
           ctx.lineTo(x, y);
         }
@@ -408,7 +474,10 @@
       const n = Math.max(12, Math.min(48, Math.floor(w / 26)));
       const rows = Math.max(8, Math.min(24, Math.floor(h / 16)));
       const bands = a.bands(n);
-      const slot = w / n, bw = slot * 0.72, bh = (h / rows) * 0.7, gap = h / rows;
+      const slot = w / n,
+        bw = slot * 0.72,
+        bh = (h / rows) * 0.7,
+        gap = h / rows;
       if (!blocksState.peaks || blocksState.peaks.length !== n) blocksState.peaks = new Float32Array(n);
       const peaks = blocksState.peaks;
       for (let i = 0; i < n; i++) {
@@ -419,12 +488,16 @@
           const y = h - (r + 1) * gap + (gap - bh) / 2;
           const on = r < lit;
           const top = Math.round(peaks[i]) === r + 1 && r >= lit - 1;
-          if (!on && !top) { ctx.globalAlpha = 0.07; ctx.fillStyle = pal[0]; }
-          else {
+          if (!on && !top) {
+            ctx.globalAlpha = 0.07;
+            ctx.fillStyle = pal[0];
+          } else {
             ctx.globalAlpha = top && !on ? 0.9 : 0.55 + 0.45 * (r / rows);
             ctx.fillStyle = r / rows > 0.75 ? pal[2] : r / rows > 0.4 ? pal[1] : pal[0];
           }
-          ctx.beginPath(); ctx.roundRect(x, y, bw, bh, Math.min(3, bh / 3)); ctx.fill();
+          ctx.beginPath();
+          ctx.roundRect(x, y, bw, bh, Math.min(3, bh / 3));
+          ctx.fill();
         }
       }
       ctx.globalAlpha = 1;
@@ -432,15 +505,21 @@
 
     // Anneau dense de traits fins autour d'un cœur lumineux qui respire.
     halo(ctx, w, h, a, pal, opts) {
-      const cx = w / 2, cy = h / 2, m = Math.min(w, h);
+      const cx = w / 2,
+        cy = h / 2,
+        m = Math.min(w, h);
       const r = m * 0.17 * (1 + a.bass * 0.06);
       const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 2.6);
       core.addColorStop(0, withAlpha('#ffffff', 0.35 + a.level * 0.5));
       core.addColorStop(0.3, withAlpha(pal[0], 0.35 + a.bass * 0.4));
       core.addColorStop(1, withAlpha(pal[0], 0));
       ctx.fillStyle = core;
-      ctx.beginPath(); ctx.arc(cx, cy, r * 2.6, 0, Math.PI * 2); ctx.fill();
-      const n = 180, bands = a.bands(64), len = m * 0.22;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r * 2.6, 0, Math.PI * 2);
+      ctx.fill();
+      const n = 180,
+        bands = a.bands(64),
+        len = m * 0.22;
       ctx.lineCap = 'round';
       ctx.lineWidth = Math.max(1, m * 0.004);
       ctx.shadowBlur = opts.glow === false ? 0 : 10;
@@ -449,8 +528,15 @@
         const half = i < n / 2 ? i : n - 1 - i;
         const v = bands[Math.min(63, Math.floor((half / (n / 2)) * 64))];
         const ang = (i / n) * Math.PI * 2 - Math.PI / 2 + rot;
-        batch.add(pal[i % 2 ? 1 : 2], 0.5 + v * 0.5, 0.5, cx + Math.cos(ang) * r, cy + Math.sin(ang) * r,
-          cx + Math.cos(ang) * (r + 4 + v * len), cy + Math.sin(ang) * (r + 4 + v * len));
+        batch.add(
+          pal[i % 2 ? 1 : 2],
+          0.5 + v * 0.5,
+          0.5,
+          cx + Math.cos(ang) * r,
+          cy + Math.sin(ang) * r,
+          cx + Math.cos(ang) * (r + 4 + v * len),
+          cy + Math.sin(ang) * (r + 4 + v * len),
+        );
       }
       batch.stroke(ctx, opts.glow !== false);
       ctx.shadowBlur = 0;
@@ -462,7 +548,8 @@
     disc(ctx, w, h, a, basePal, opts) {
       // Comme sur une pochette de vinyle : rayons et points aux couleurs de la pochette.
       const pal = opts.palette || basePal;
-      const cx = opts.cx ?? w / 2, cy = opts.cy ?? h / 2;
+      const cx = opts.cx ?? w / 2,
+        cy = opts.cy ?? h / 2;
       const pulse = 1 + a.bass * 0.06;
       const r = (opts.radius ?? Math.min(w, h) * 0.12) * pulse;
       const t = opts.t || 0;
@@ -480,7 +567,9 @@
       halo.addColorStop(0.4, withAlpha(opts.halo || pal[0], Math.min(0.5, 0.16 * k)));
       halo.addColorStop(1, withAlpha(opts.halo || pal[0], 0));
       ctx.fillStyle = halo;
-      ctx.beginPath(); ctx.arc(cx, cy, haloR, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx, cy, haloR, 0, Math.PI * 2);
+      ctx.fill();
 
       // Lueur du centre : un cœur presque blanc qui s'illumine avec le son.
       const bloom = Math.max(0, Math.min(1.5, opts.bloom ?? 0.8));
@@ -491,7 +580,9 @@
         b.addColorStop(0.35, withAlpha(pal[2], Math.min(0.6, bloom * (0.18 + a.level * 0.3))));
         b.addColorStop(1, withAlpha(pal[2], 0));
         ctx.fillStyle = b;
-        ctx.beginPath(); ctx.arc(cx, cy, bR, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath();
+        ctx.arc(cx, cy, bR, 0, Math.PI * 2);
+        ctx.fill();
       }
 
       // Rayons : traits fins et serrés (« fins ») ou barres épaisses et espacées
@@ -499,7 +590,8 @@
       const bold = opts.rays === 'bold';
       const n = bold ? Math.round(56 + 16 * k) : Math.min(320, Math.round(140 + 90 * k));
       const bands = a.bands(64);
-      const inner = r + 12, len = r * (bold ? 1.35 : 1.15) * k;
+      const inner = r + 12,
+        len = r * (bold ? 1.35 : 1.15) * k;
       ctx.lineCap = 'round';
       ctx.lineWidth = bold ? Math.max(3, r * 0.055) : Math.max(1.1, r * 0.014);
       ctx.shadowBlur = opts.glow === false ? 0 : 8 + 6 * k;
@@ -509,8 +601,15 @@
         const wob = 0.5 + 0.5 * Math.sin(i * 1.7 + t * 0.004); // un peu de vie au repos
         const l = 3 + v * len + wob * 3 * k;
         const ang = (i / n) * Math.PI * 2 - Math.PI / 2;
-        batch.add(pal[i % 2 ? 0 : 1], 0.55 + v * 0.45, 0.55, cx + Math.cos(ang) * inner, cy + Math.sin(ang) * inner,
-          cx + Math.cos(ang) * (inner + l), cy + Math.sin(ang) * (inner + l));
+        batch.add(
+          pal[i % 2 ? 0 : 1],
+          0.55 + v * 0.45,
+          0.55,
+          cx + Math.cos(ang) * inner,
+          cy + Math.sin(ang) * inner,
+          cx + Math.cos(ang) * (inner + l),
+          cy + Math.sin(ang) * (inner + l),
+        );
       }
       batch.stroke(ctx, opts.glow !== false);
       ctx.shadowBlur = 0;
@@ -522,7 +621,8 @@
       ctx.beginPath();
       for (let i = 0; i < dots; i++) {
         const ang = (i / dots) * Math.PI * 2 + discState.rot * 0.5;
-        const x = cx + Math.cos(ang) * (r + 5), y = cy + Math.sin(ang) * (r + 5);
+        const x = cx + Math.cos(ang) * (r + 5),
+          y = cy + Math.sin(ang) * (r + 5);
         ctx.moveTo(x + dotR, y);
         ctx.arc(x, y, dotR, 0, Math.PI * 2);
       }
@@ -530,19 +630,27 @@
 
       // Pochette ronde qui tourne.
       ctx.save();
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.clip();
       if (opts.image && opts.image.complete && opts.image.naturalWidth) {
-        ctx.translate(cx, cy); ctx.rotate(discState.rot);
+        ctx.translate(cx, cy);
+        ctx.rotate(discState.rot);
         ctx.drawImage(opts.image, -r, -r, r * 2, r * 2);
       } else {
         const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-        g.addColorStop(0, pal[1]); g.addColorStop(1, pal[0]);
-        ctx.fillStyle = g; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+        g.addColorStop(0, pal[1]);
+        g.addColorStop(1, pal[0]);
+        ctx.fillStyle = g;
+        ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
       }
       ctx.restore();
       // Liseré sombre pour détacher la pochette des rayons.
-      ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = 'rgba(0,0,0,.35)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
     },
   };
 
@@ -587,7 +695,9 @@
       ctx.shadowColor = pal[i % 3];
       ctx.shadowBlur = 12;
       ctx.globalAlpha = Math.min(0.95, 0.2 + v * 0.9) * (1 - i * 0.22);
-      ctx.beginPath(); ctx.arc(cx, cy, rr, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(cx, cy, rr, 0, Math.PI * 2);
+      ctx.stroke();
     }
     ctx.restore();
   }
@@ -596,7 +706,11 @@
   // La fenêtre des paramètres ne capte pas le son : ses aperçus bougent sur un
   // rythme inventé, pour montrer à quoi ressemble chaque style.
   class FakeAudio {
-    constructor() { this.cache = new Map(); this.wave = new Float32Array(1024); this.t = 0; }
+    constructor() {
+      this.cache = new Map();
+      this.wave = new Float32Array(1024);
+      this.t = 0;
+    }
     frame(now) {
       this.t = now / 1000;
       const beat = Math.pow(Math.max(0, Math.sin(this.t * Math.PI * 2 * 1.9)), 8);
@@ -604,7 +718,13 @@
         this.wave[i] = Math.sin(i * 0.05 + this.t * 6) * 0.18 * (0.5 + beat) + Math.sin(i * 0.013 - this.t * 2) * 0.08;
       }
       const self = this;
-      return { bands: (n) => self.bands(n), wave: this.wave, bass: 0.25 + beat * 0.7, level: 0.3 + beat * 0.4, beat: beat > 0.9 };
+      return {
+        bands: (n) => self.bands(n),
+        wave: this.wave,
+        bass: 0.25 + beat * 0.7,
+        level: 0.3 + beat * 0.4,
+        beat: beat > 0.9,
+      };
     }
     bands(n) {
       const t = this.t;
@@ -612,7 +732,10 @@
       const arr = new Float32Array(n);
       for (let i = 0; i < n; i++) {
         const x = i / n;
-        const v = (1 - x) * (0.35 + beat * 0.55) + 0.25 * Math.max(0, Math.sin(x * 14 + t * 3.1)) + 0.15 * Math.sin(x * 37 - t * 5);
+        const v =
+          (1 - x) * (0.35 + beat * 0.55) +
+          0.25 * Math.max(0, Math.sin(x * 14 + t * 3.1)) +
+          0.15 * Math.sin(x * 37 - t * 5);
         arr[i] = Math.max(0.03, Math.min(1, v * 0.85));
       }
       return arr;
@@ -654,7 +777,8 @@
     resize() {
       const dpr = window.devicePixelRatio || 1;
       const r = this.canvas.getBoundingClientRect();
-      this.w = r.width; this.h = r.height;
+      this.w = r.width;
+      this.h = r.height;
       this.canvas.width = Math.max(1, Math.round(r.width * dpr));
       this.canvas.height = Math.max(1, Math.round(r.height * dpr));
       this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -693,8 +817,19 @@
   const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
   window.SV = {
-    AudioEngine, Renderer, VISUALIZERS, THEMES, STYLE_ORDER, THEME_ORDER,
-    paletteFromImage, paletteFromColor, currentPosition, fmt, withAlpha,
-    drawEdgeGlow, drawCoverRings, FakeAudio,
+    AudioEngine,
+    Renderer,
+    VISUALIZERS,
+    THEMES,
+    STYLE_ORDER,
+    THEME_ORDER,
+    paletteFromImage,
+    paletteFromColor,
+    currentPosition,
+    fmt,
+    withAlpha,
+    drawEdgeGlow,
+    drawCoverRings,
+    FakeAudio,
   };
 })();

@@ -39,18 +39,27 @@ let proc = null;
 let restartTimer = null;
 const listeners = new Set(); // fenêtres qui reçoivent le son
 
-function wanted() { return S.settings.get('audioSource') !== 'system'; }
+function wanted() {
+  return S.settings.get('audioSource') !== 'system';
+}
 
 function send(chunk) {
   for (const w of listeners) {
-    if (w.isDestroyed()) { listeners.delete(w); continue; }
+    if (w.isDestroyed()) {
+      listeners.delete(w);
+      continue;
+    }
     w.webContents.send('audio-pcm', chunk);
   }
 }
 
 function stopHelper() {
   clearTimeout(restartTimer);
-  if (proc) { proc.removeAllListeners('exit'); proc.kill(); proc = null; }
+  if (proc) {
+    proc.removeAllListeners('exit');
+    proc.kill();
+    proc = null;
+  }
 }
 
 function startHelper(exe) {
@@ -68,7 +77,9 @@ function startHelper(exe) {
     useSystem(`assistant introuvable : ${e.message}`);
   });
   p.stdout.on('data', send);
-  p.stderr.on('data', (d) => { err += d.toString(); });
+  p.stderr.on('data', (d) => {
+    err += d.toString();
+  });
   p.on('exit', (code) => {
     if (proc !== p) return;
     proc = null;
@@ -96,7 +107,8 @@ function useSystem(reason) {
 
 // Choisit la source selon le réglage et la session média en cours.
 function refresh() {
-  const exe = exeForApp(S.lastMedia && S.lastMedia.app) || (S.settings.get('preferApp') === 'spotify' ? 'Spotify.exe' : null);
+  const exe =
+    exeForApp(S.lastMedia && S.lastMedia.app) || (S.settings.get('preferApp') === 'spotify' ? 'Spotify.exe' : null);
   if (!wanted() || state.unsupported) {
     if (state.mode !== 'system') useSystem(wanted() ? state.reason : 'réglage « tout le son du PC »');
     return;
@@ -115,7 +127,10 @@ function refresh() {
 
 // Démarre l'analyse du son dans une fenêtre (simule un geste utilisateur).
 function startIn(win) {
-  const js = state.mode === 'app' ? 'window.sillon && window.sillon.startAppAudio()' : 'window.sillon && window.sillon.startAudio()';
+  const js =
+    state.mode === 'app'
+      ? 'window.sillon && window.sillon.startAppAudio()'
+      : 'window.sillon && window.sillon.startAudio()';
   win.webContents.executeJavaScript(js, true).catch((e) => console.error('Audio :', e.message));
 }
 

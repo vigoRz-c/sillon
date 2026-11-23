@@ -10,7 +10,15 @@
   let coverImg = null;
 
   const STYLE_NAMES = { bars: 'Barres', mirror: 'Miroir', ring: 'Anneau', wave: 'Onde', aurora: 'Aurore' };
-  const THEME_NAMES = { wallpaper: "Couleurs du fond d'écran", album: 'Couleurs de la pochette', spotify: 'Spotify', neon: 'Néon', sunset: 'Coucher de soleil', ocean: 'Océan', mono: 'Blanc' };
+  const THEME_NAMES = {
+    wallpaper: "Couleurs du fond d'écran",
+    album: 'Couleurs de la pochette',
+    spotify: 'Spotify',
+    neon: 'Néon',
+    sunset: 'Coucher de soleil',
+    ocean: 'Océan',
+    mono: 'Blanc',
+  };
 
   // En plein écran, le visualiseur et les couleurs se changent ici sans toucher au widget.
   let localStyle = null;
@@ -24,11 +32,14 @@
     onLyrics: (l) => lyrics.set(l),
     onMedia(m, coverChanged) {
       volume.update(m);
-      $('title').textContent = m.active ? (m.title || '') : 'Rien en lecture';
+      $('title').textContent = m.active ? m.title || '' : 'Rien en lecture';
       $('artist').textContent = m.active ? [m.artist, m.album].filter(Boolean).join(' · ') : '';
       $('play').innerHTML = m.status === 'Playing' ? '&#10074;&#10074;' : '&#9654;';
       if (coverChanged) {
-        if (m.cover) { coverImg = new Image(); coverImg.src = m.cover; } else coverImg = null;
+        if (m.cover) {
+          coverImg = new Image();
+          coverImg.src = m.cover;
+        } else coverImg = null;
         $('cover').src = m.cover || '';
         $('roomImg').src = m.cover || '';
         $('cover').classList.toggle('hidden', !m.cover);
@@ -56,7 +67,8 @@
   // Placement : l'anneau tourne autour de la pochette, les autres montent du bas.
   function layout() {
     const r = app.renderer;
-    const w = window.innerWidth, h = window.innerHeight;
+    const w = window.innerWidth,
+      h = window.innerHeight;
     const size = Math.min(w, h) * 0.34;
     if (VEILLE) {
       const radius = Math.min(w, h) * 0.17;
@@ -85,10 +97,14 @@
   window.addEventListener('resize', layout);
 
   function veilleOpts(radius) {
-    const w = window.innerWidth, h = window.innerHeight;
+    const w = window.innerWidth,
+      h = window.innerHeight;
     const st = app.state;
     app.renderer.opts = {
-      glow: true, cx: w / 2, cy: h / 2, radius: radius || Math.min(w, h) * 0.17,
+      glow: true,
+      cx: w / 2,
+      cy: h / 2,
+      radius: radius || Math.min(w, h) * 0.17,
       image: coverImg,
       intensity: st.settings.discIntensity ?? 1.3,
       spin: st.media.status === 'Playing',
@@ -99,7 +115,10 @@
     };
     // Couleurs fixes choisies pour le disque (sinon celles de la pochette).
     const c = st.settings.discColors;
-    if (c && c !== 'album' && window.SV.THEMES[c]) { app.renderer.opts.palette = window.SV.THEMES[c]; app.renderer.opts.halo = window.SV.THEMES[c][0]; }
+    if (c && c !== 'album' && window.SV.THEMES[c]) {
+      app.renderer.opts.palette = window.SV.THEMES[c];
+      app.renderer.opts.halo = window.SV.THEMES[c][0];
+    }
   }
 
   // ----- Ondes au rythme des basses -----
@@ -116,7 +135,8 @@
 
   let coverPulse = 0;
   app.renderer.hooks.push((a) => {
-    const w = window.innerWidth, h = window.innerHeight;
+    const w = window.innerWidth,
+      h = window.innerHeight;
     const base = Math.min(w, h) * 0.17;
     if (a.beat && app.state.media.active) ripples.push({ r: base, alpha: 0.5 });
     rctx.clearRect(0, 0, w, h);
@@ -125,10 +145,15 @@
       const p = ripples[i];
       p.r += 4 + p.r * 0.012;
       p.alpha *= 0.965;
-      if (p.alpha < 0.02) { ripples.splice(i, 1); continue; }
+      if (p.alpha < 0.02) {
+        ripples.splice(i, 1);
+        continue;
+      }
       rctx.globalAlpha = p.alpha;
       rctx.lineWidth = 2;
-      rctx.beginPath(); rctx.arc(w / 2, h / 2, p.r, 0, Math.PI * 2); rctx.stroke();
+      rctx.beginPath();
+      rctx.arc(w / 2, h / 2, p.r, 0, Math.PI * 2);
+      rctx.stroke();
     }
     rctx.globalAlpha = 1;
     coverPulse = coverPulse * 0.85 + a.bass * 0.15;
@@ -170,11 +195,21 @@
       bridge.veilleExit();
     };
     window.addEventListener('mousemove', (e) => {
-      if (!origin) { origin = { x: e.screenX, y: e.screenY }; return; }
+      if (!origin) {
+        origin = { x: e.screenX, y: e.screenY };
+        return;
+      }
       if (Math.hypot(e.screenX - origin.x, e.screenY - origin.y) > 12) leave();
     });
     for (const ev of ['mousedown', 'wheel', 'keydown', 'touchstart']) {
-      window.addEventListener(ev, (e) => { e.preventDefault(); leave(); }, { capture: true, passive: false });
+      window.addEventListener(
+        ev,
+        (e) => {
+          e.preventDefault();
+          leave();
+        },
+        { capture: true, passive: false },
+      );
     }
     window.addEventListener('blur', leave);
   }
@@ -182,17 +217,21 @@
   window.addEventListener('keydown', (e) => {
     if (VEILLE) return;
     const s = app.state.settings;
-    if (e.code === 'Space') { e.preventDefault(); cmd('playpause'); }
-    else if (e.key === 'ArrowRight') cmd('next');
+    if (e.code === 'Space') {
+      e.preventDefault();
+      cmd('playpause');
+    } else if (e.key === 'ArrowRight') cmd('next');
     else if (e.key === 'ArrowLeft') cmd('previous');
     else if (e.key === 'v' || e.key === 'V') {
       const cur = localStyle || s.style || 'bars';
       localStyle = STYLE_ORDER[(STYLE_ORDER.indexOf(cur) + 1) % STYLE_ORDER.length];
-      apply(s); toast(STYLE_NAMES[localStyle]);
+      apply(s);
+      toast(STYLE_NAMES[localStyle]);
     } else if (e.key === 'c' || e.key === 'C') {
       const cur = localTheme || s.theme || 'wallpaper';
       localTheme = THEME_ORDER[(THEME_ORDER.indexOf(cur) + 1) % THEME_ORDER.length];
-      apply(s); toast(THEME_NAMES[localTheme]);
+      apply(s);
+      toast(THEME_NAMES[localTheme]);
     } else if (e.key === '[' || e.key === ']') {
       // Décalage des paroles pour ce morceau.
       const d = e.key === ']' ? 0.25 : -0.25;

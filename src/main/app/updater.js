@@ -23,10 +23,16 @@ function changed() {
   if (S.actions.buildTray) S.actions.buildTray();
 }
 
-function set(patch) { Object.assign(U, patch); changed(); }
+function set(patch) {
+  Object.assign(U, patch);
+  changed();
+}
 
 function init() {
-  if (!app.isPackaged) { U.state = 'dev'; return; }
+  if (!app.isPackaged) {
+    U.state = 'dev';
+    return;
+  }
   ({ autoUpdater } = require('electron-updater'));
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
@@ -41,7 +47,7 @@ function init() {
     if (Notification.isSupported()) {
       const n = new Notification({
         title: `Sillon ${info.version} est prêt`,
-        body: 'La mise à jour s\'installera à la fermeture. Clique pour redémarrer maintenant.',
+        body: "La mise à jour s'installera à la fermeture. Clique pour redémarrer maintenant.",
       });
       n.on('click', installNow);
       n.show();
@@ -49,8 +55,12 @@ function init() {
   });
   autoUpdater.on('error', (e) => set({ state: 'error', error: friendly(e) }));
 
-  setTimeout(() => { if (S.settings.get('autoUpdate') !== false) check(); }, 15000);
-  setInterval(() => { if (S.settings.get('autoUpdate') !== false) check(); }, CHECK_EVERY);
+  setTimeout(() => {
+    if (S.settings.get('autoUpdate') !== false) check();
+  }, 15000);
+  setInterval(() => {
+    if (S.settings.get('autoUpdate') !== false) check();
+  }, CHECK_EVERY);
 }
 
 // Messages lisibles pour les erreurs les plus probables.
@@ -64,8 +74,14 @@ function friendly(e) {
 }
 
 function check() {
-  if (!autoUpdater) { changed(); return; }
-  if (U.state === 'downloading' || U.state === 'ready') { changed(); return; }
+  if (!autoUpdater) {
+    changed();
+    return;
+  }
+  if (U.state === 'downloading' || U.state === 'ready') {
+    changed();
+    return;
+  }
   autoUpdater.checkForUpdates().catch((e) => set({ state: 'error', error: friendly(e) }));
 }
 

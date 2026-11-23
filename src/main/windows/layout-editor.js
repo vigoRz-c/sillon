@@ -30,7 +30,8 @@ function wallpaperPath() {
 function cropToDisplay(img, display) {
   const all = screen.getAllDisplays().map((d) => screen.dipToScreenRect(null, d.bounds));
   if (all.length < 2) return img;
-  const vx = Math.min(...all.map((r) => r.x)), vy = Math.min(...all.map((r) => r.y));
+  const vx = Math.min(...all.map((r) => r.x)),
+    vy = Math.min(...all.map((r) => r.y));
   const vw = Math.max(...all.map((r) => r.x + r.width)) - vx;
   const vh = Math.max(...all.map((r) => r.y + r.height)) - vy;
   const { width: iw, height: ih } = img.getSize();
@@ -39,8 +40,10 @@ function cropToDisplay(img, display) {
   const r = screen.dipToScreenRect(null, display.bounds);
   const k = iw / vw;
   return img.crop({
-    x: Math.round((r.x - vx) * k), y: Math.round((r.y - vy) * k),
-    width: Math.round(r.width * k), height: Math.round(r.height * k),
+    x: Math.round((r.x - vx) * k),
+    y: Math.round((r.y - vy) * k),
+    width: Math.round(r.width * k),
+    height: Math.round(r.height * k),
   });
 }
 
@@ -58,14 +61,27 @@ async function wallpaperDataUrl(display) {
 }
 
 function openLayoutEditor() {
-  if (S.alive(S.editorWin)) { S.editorWin.focus(); return; }
+  if (S.alive(S.editorWin)) {
+    S.editorWin.focus();
+    return;
+  }
   if (S.alive(S.settingsWin)) S.settingsWin.close();
   const display = S.actions.sceneDisplay();
   const { workArea: wa } = display;
   const win = new BrowserWindow({
-    x: wa.x, y: wa.y, width: wa.width, height: wa.height,
-    frame: false, resizable: false, movable: false, minimizable: false, maximizable: false,
-    alwaysOnTop: true, skipTaskbar: false, backgroundColor: '#0b0b10', show: false,
+    x: wa.x,
+    y: wa.y,
+    width: wa.width,
+    height: wa.height,
+    frame: false,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    alwaysOnTop: true,
+    skipTaskbar: false,
+    backgroundColor: '#0b0b10',
+    show: false,
     title: 'Personnaliser la scène · Sillon',
     icon: path.join(S.ASSETS, 'icon.png'),
     webPreferences: { preload: S.PRELOAD, backgroundThrottling: false },
@@ -82,7 +98,10 @@ function openLayoutEditor() {
     S.actions.startAudio(win);
     win.webContents.send('editor-background', await wallpaperDataUrl(display));
   });
-  win.once('ready-to-show', () => { win.show(); win.focus(); });
+  win.once('ready-to-show', () => {
+    win.show();
+    win.focus();
+  });
   win.on('closed', () => {
     if (S.editorWin === win) S.editorWin = null;
     S.actions.updateControls();
@@ -94,7 +113,9 @@ function fromEditor(e) {
 }
 
 ipcMain.on('layout:open', openLayoutEditor);
-ipcMain.on('layout:cancel', (e) => { if (fromEditor(e)) S.editorWin.close(); });
+ipcMain.on('layout:cancel', (e) => {
+  if (fromEditor(e)) S.editorWin.close();
+});
 ipcMain.on('layout:done', (e, patch) => {
   if (!fromEditor(e) || !patch || typeof patch !== 'object') return;
   // Seules ces clés peuvent venir de l'éditeur.

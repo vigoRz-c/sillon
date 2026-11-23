@@ -24,7 +24,8 @@ function nudgeLyrics(delta) {
   const all = { ...(S.settings.get('lyricsOffsets') || {}) };
   const key = offsetKey(m);
   const v = delta === null ? 0 : Math.round(((all[key] || 0) + delta) * 100) / 100;
-  if (v) all[key] = v; else delete all[key];
+  if (v) all[key] = v;
+  else delete all[key];
   S.actions.updateSettings({ lyricsOffsets: all });
   if (S.lastLyrics) {
     S.lastLyrics = { ...S.lastLyrics, offset: v };
@@ -44,16 +45,25 @@ function startMedia() {
     const canShuffle = !!(S.spotify && S.spotify.canControl());
     // volume : celui du lecteur dans le mélangeur de Windows (null = inconnu).
     S.lastMedia = {
-      ...m, canShuffle, volume: S.appVolume,
-      ...(canShuffle && ps ? {
-        shuffle: ps.shuffle, repeat: ps.repeat,
-        shuffleAllowed: ps.shuffleAllowed, repeatAllowed: ps.repeatAllowed,
-      } : { shuffleAllowed: true, repeatAllowed: true }),
+      ...m,
+      canShuffle,
+      volume: S.appVolume,
+      ...(canShuffle && ps
+        ? {
+            shuffle: ps.shuffle,
+            repeat: ps.repeat,
+            shuffleAllowed: ps.shuffleAllowed,
+            repeatAllowed: ps.repeatAllowed,
+          }
+        : { shuffleAllowed: true, repeatAllowed: true }),
     };
     S.send([S.widget, S.fullscreen, S.controlsWin, S.editorWin], 'media', S.lastMedia);
     S.actions.audioOnMedia(S.lastMedia);
   };
-  S.actions.rebroadcast = () => { broadcast(S.lastMedia); S.actions.buildTray(); };
+  S.actions.rebroadcast = () => {
+    broadcast(S.lastMedia);
+    S.actions.buildTray();
+  };
   const sendLyrics = (l) => {
     S.lastLyrics = { ...l, offset: lyricsOffsetFor(l) };
     S.send([S.widget, S.fullscreen, S.editorWin], 'lyrics', S.lastLyrics);
@@ -65,7 +75,10 @@ function startMedia() {
   let lastStatus = '';
   media.on('media', (m) => {
     // Lecture / pause : ce que Spotify autorise (aléatoire, répétition) peut changer.
-    if (m.status !== lastStatus) { lastStatus = m.status; setTimeout(S.actions.refreshPlayer, 1000); }
+    if (m.status !== lastStatus) {
+      lastStatus = m.status;
+      setTimeout(S.actions.refreshPlayer, 1000);
+    }
     const key = m.active ? `${m.app}|${m.title}|${m.artist}|${m.album}` : '';
     if (key !== trackKey) {
       trackKey = key;
@@ -77,7 +90,12 @@ function startMedia() {
       if (key) {
         lookupLyrics(m).then((l) => {
           if (trackKey !== key) return;
-          sendLyrics({ title: m.title, artist: m.artist, lines: l ? l.lines : [], instrumental: !!(l && l.instrumental) });
+          sendLyrics({
+            title: m.title,
+            artist: m.artist,
+            lines: l ? l.lines : [],
+            instrumental: !!(l && l.instrumental),
+          });
         });
         lookupCover(m).then((cover) => {
           if (!cover || trackKey !== key) return;
@@ -87,7 +105,10 @@ function startMedia() {
       }
     }
     const exe = m.active ? exeForApp(m.app) : null;
-    if (exe !== media.volumeExe) { S.appVolume = null; media.setVolumeTarget(exe); }
+    if (exe !== media.volumeExe) {
+      S.appVolume = null;
+      media.setVolumeTarget(exe);
+    }
     broadcast(officialCover ? { ...m, cover: officialCover } : m);
     S.actions.buildTray();
   });
@@ -102,10 +123,17 @@ function startMedia() {
     media.setVolume(percent);
     S.appVolume = Math.round(percent);
   };
-  media.on('error', (e) => { console.error('Média :', e.message); diagnostic.note('média', e.message); });
+  media.on('error', (e) => {
+    console.error('Média :', e.message);
+    diagnostic.note('média', e.message);
+  });
   media.on('log', (t) => diagnostic.note('assistant', t));
-  media.on('command-result', (r) => diagnostic.note('windows',
-    `${r.cmd} → ${r.ok ? 'accepté' : 'refusé'}${r.app ? ` par ${r.app}` : ''}${r.reason ? ` (${r.reason})` : ''}`));
+  media.on('command-result', (r) =>
+    diagnostic.note(
+      'windows',
+      `${r.cmd} → ${r.ok ? 'accepté' : 'refusé'}${r.app ? ` par ${r.app}` : ''}${r.reason ? ` (${r.reason})` : ''}`,
+    ),
+  );
   media.start();
 }
 

@@ -40,7 +40,9 @@ class SpotifyApi extends EventEmitter {
     this.file = path.join(app.getPath('userData'), 'spotify-token.bin');
     this.tokens = null;
     // Lecture asynchrone des jetons (API de chiffrement d'Electron 45+).
-    this.ready = this.load().then((t) => { this.tokens = t; });
+    this.ready = this.load().then((t) => {
+      this.tokens = t;
+    });
     this.server = null;
     this.lastError = '';
   }
@@ -56,7 +58,9 @@ class SpotifyApi extends EventEmitter {
         return tokens;
       }
       return JSON.parse(raw.toString('utf8'));
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   }
 
   async save(tokens) {
@@ -75,7 +79,9 @@ class SpotifyApi extends EventEmitter {
     return c.custom ? (c.clientId || '').trim() : BUILTIN_CLIENT_ID;
   }
 
-  builtIn() { return !this.getConfig().custom; }
+  builtIn() {
+    return !this.getConfig().custom;
+  }
 
   // Jetons obtenus avec un autre Client ID (on a changé d'option) : inutilisables.
   tokensMatch() {
@@ -86,14 +92,26 @@ class SpotifyApi extends EventEmitter {
   // commander la lecture (connexions d'avant la 0.1.3 : se reconnecter).
   // Spotify peut ensuite les interdire par moments : voir player().allowed.
   canControl() {
-    return this.tokensMatch() && String(this.tokens.scope || '').split(' ').includes(MODIFY);
+    return (
+      this.tokensMatch() &&
+      String(this.tokens.scope || '')
+        .split(' ')
+        .includes(MODIFY)
+    );
   }
 
   status() {
     return {
-      connected: this.tokensMatch(), builtIn: this.builtIn(), error: this.lastError, redirectUri: REDIRECT_URI,
+      connected: this.tokensMatch(),
+      builtIn: this.builtIn(),
+      error: this.lastError,
+      redirectUri: REDIRECT_URI,
       canControl: this.canControl(),
-      needsReconnect: this.tokensMatch() && !String(this.tokens.scope || '').split(' ').includes(MODIFY),
+      needsReconnect:
+        this.tokensMatch() &&
+        !String(this.tokens.scope || '')
+          .split(' ')
+          .includes(MODIFY),
     };
   }
 
@@ -104,7 +122,11 @@ class SpotifyApi extends EventEmitter {
 
   logout() {
     this.tokens = null;
-    try { fs.unlinkSync(this.file); } catch { /* déjà absent */ }
+    try {
+      fs.unlinkSync(this.file);
+    } catch {
+      /* déjà absent */
+    }
     this.setError('');
   }
 
@@ -115,14 +137,20 @@ class SpotifyApi extends EventEmitter {
       this.setError('Client ID manquant ou invalide (32 caractères, copié depuis le tableau de bord Spotify).');
       return;
     }
-    if (this.server) { this.server.close(); this.server = null; }
+    if (this.server) {
+      this.server.close();
+      this.server = null;
+    }
     const verifier = b64url(crypto.randomBytes(64));
     const challenge = b64url(crypto.createHash('sha256').update(verifier).digest());
     const state = b64url(crypto.randomBytes(16));
 
     const server = http.createServer(async (req, res) => {
       const url = new URL(req.url, REDIRECT_URI);
-      if (url.pathname !== '/callback') { res.writeHead(404).end(); return; }
+      if (url.pathname !== '/callback') {
+        res.writeHead(404).end();
+        return;
+      }
       const done = (ok, text) => {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(`<!doctype html><meta charset="utf-8"><title>Sillon</title>
@@ -131,15 +159,31 @@ class SpotifyApi extends EventEmitter {
         server.close();
         if (this.server === server) this.server = null;
       };
-      if (url.searchParams.get('state') !== state) { done(false, 'Réponse inattendue : relance la connexion depuis Sillon.'); return; }
+      if (url.searchParams.get('state') !== state) {
+        done(false, 'Réponse inattendue : relance la connexion depuis Sillon.');
+        return;
+      }
       const err = url.searchParams.get('error');
-      if (err) { this.setError(err === 'access_denied' ? 'Connexion refusée dans Spotify.' : `Spotify : ${err}`); done(false, 'Tu peux fermer cet onglet.'); return; }
+      if (err) {
+        this.setError(err === 'access_denied' ? 'Connexion refusée dans Spotify.' : `Spotify : ${err}`);
+        done(false, 'Tu peux fermer cet onglet.');
+        return;
+      }
       try {
         const tok = await this.tokenRequest({
-          grant_type: 'authorization_code', code: url.searchParams.get('code'),
-          redirect_uri: REDIRECT_URI, client_id: clientId, code_verifier: verifier,
+          grant_type: 'authorization_code',
+          code: url.searchParams.get('code'),
+          redirect_uri: REDIRECT_URI,
+          client_id: clientId,
+          code_verifier: verifier,
         });
-        await this.save({ access: tok.access_token, refresh: tok.refresh_token, expiresAt: Date.now() + tok.expires_in * 1000, clientId, scope: tok.scope || '' });
+        await this.save({
+          access: tok.access_token,
+          refresh: tok.refresh_token,
+          expiresAt: Date.now() + tok.expires_in * 1000,
+          clientId,
+          scope: tok.scope || '',
+        });
         this.setError('');
         this.emit('connected');
         done(true, 'Tu peux fermer cet onglet et revenir au bureau.');
@@ -151,14 +195,27 @@ class SpotifyApi extends EventEmitter {
     server.on('error', (e) => this.setError(`Port ${PORT} indisponible : ${e.message}`));
     server.listen(PORT, '127.0.0.1', () => {
       const q = new URLSearchParams({
-        client_id: clientId, response_type: 'code', redirect_uri: REDIRECT_URI,
-        code_challenge_method: 'S256', code_challenge: challenge, scope: SCOPES, state,
+        client_id: clientId,
+        response_type: 'code',
+        redirect_uri: REDIRECT_URI,
+        code_challenge_method: 'S256',
+        code_challenge: challenge,
+        scope: SCOPES,
+        state,
       });
       shell.openExternal(`${ACCOUNTS}/authorize?${q}`);
     });
     this.server = server;
     // Abandon au bout de 5 minutes sans retour.
-    setTimeout(() => { if (this.server === server) { server.close(); this.server = null; } }, 5 * 60 * 1000);
+    setTimeout(
+      () => {
+        if (this.server === server) {
+          server.close();
+          this.server = null;
+        }
+      },
+      5 * 60 * 1000,
+    );
   }
 
   async tokenRequest(params) {
@@ -183,8 +240,18 @@ class SpotifyApi extends EventEmitter {
     if (!this.tokensMatch()) return null; // connecté avec l'autre option : se reconnecter
     if (t.access && Date.now() < t.expiresAt - 60000) return t.access;
     try {
-      const tok = await this.tokenRequest({ grant_type: 'refresh_token', refresh_token: t.refresh, client_id: t.clientId });
-      await this.save({ ...t, access: tok.access_token, refresh: tok.refresh_token || t.refresh, expiresAt: Date.now() + tok.expires_in * 1000, scope: tok.scope || t.scope || '' });
+      const tok = await this.tokenRequest({
+        grant_type: 'refresh_token',
+        refresh_token: t.refresh,
+        client_id: t.clientId,
+      });
+      await this.save({
+        ...t,
+        access: tok.access_token,
+        refresh: tok.refresh_token || t.refresh,
+        expiresAt: Date.now() + tok.expires_in * 1000,
+        scope: tok.scope || t.scope || '',
+      });
       return this.tokens.access;
     } catch (e) {
       // Jeton révoqué ou app supprimée : il faut se reconnecter.
@@ -197,18 +264,26 @@ class SpotifyApi extends EventEmitter {
   async get(pathname, retry = true) {
     const token = await this.accessToken();
     if (!token) return null;
-    const res = await fetch(API + pathname, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000) });
+    const res = await fetch(API + pathname, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(8000),
+    });
     if (res.status === 403) {
       // La vraie raison donnée par Spotify, pour le diagnostic.
       const body = await res.json().catch(() => ({}));
       const why = (body.error && (body.error.reason || body.error.message)) || '';
-      throw new Error((this.builtIn()
-        ? 'Ton compte Spotify n\'est pas autorisé sur l\'app intégrée à Sillon (Spotify la limite à 5 comptes, ajoutés par son propriétaire). Demande-lui de t\'ajouter, ou utilise ton propre Client ID ci-dessous.'
-        : 'Spotify refuse l\'accès : le propriétaire de ton app doit avoir Premium, et ton compte doit être ajouté dans « User Management » de l\'app.')
-        + (why ? ` (Spotify : ${why})` : ''));
+      throw new Error(
+        (this.builtIn()
+          ? "Ton compte Spotify n'est pas autorisé sur l'app intégrée à Sillon (Spotify la limite à 5 comptes, ajoutés par son propriétaire). Demande-lui de t'ajouter, ou utilise ton propre Client ID ci-dessous."
+          : "Spotify refuse l'accès : le propriétaire de ton app doit avoir Premium, et ton compte doit être ajouté dans « User Management » de l'app.") +
+          (why ? ` (Spotify : ${why})` : ''),
+      );
     }
     if (res.status === 204) return null;
-    if (res.status === 401 && retry) { this.tokens.expiresAt = 0; return this.get(pathname, false); }
+    if (res.status === 401 && retry) {
+      this.tokens.expiresAt = 0;
+      return this.get(pathname, false);
+    }
     if (res.status === 429) {
       const wait = Number(res.headers.get('retry-after')) || 30;
       throw Object.assign(new Error(`Spotify : trop de requêtes, nouvel essai dans ${wait} s`), { retryAfter: wait });
@@ -221,7 +296,11 @@ class SpotifyApi extends EventEmitter {
   async put(pathname) {
     const token = await this.accessToken();
     if (!token) throw new Error('Spotify non connecté');
-    const res = await fetch(API + pathname, { method: 'PUT', headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000) });
+    const res = await fetch(API + pathname, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(8000),
+    });
     if (res.ok) return;
     const body = await res.json().catch(() => ({}));
     const why = (body.error && (body.error.reason || body.error.message)) || res.status;
@@ -249,8 +328,12 @@ class SpotifyApi extends EventEmitter {
     };
   }
 
-  setShuffle(on) { return this.put(`/me/player/shuffle?state=${on ? 'true' : 'false'}`); }
-  setRepeat(mode) { return this.put(`/me/player/repeat?state=${{ List: 'context', Track: 'track' }[mode] || 'off'}`); }
+  setShuffle(on) {
+    return this.put(`/me/player/shuffle?state=${on ? 'true' : 'false'}`);
+  }
+  setRepeat(mode) {
+    return this.put(`/me/player/repeat?state=${{ List: 'context', Track: 'track' }[mode] || 'off'}`);
+  }
 
   // Les prochains morceaux : [{ title, artist, image }] (image = URL Spotify).
   async queue(limit = 4) {
@@ -258,7 +341,9 @@ class SpotifyApi extends EventEmitter {
     if (!data || !Array.isArray(data.queue)) return [];
     return data.queue.slice(0, limit).map((it) => {
       const images = (it.album && it.album.images) || it.images || (it.show && it.show.images) || [];
-      const small = [...images].sort((a, b) => (a.width || 0) - (b.width || 0)).find((i) => (i.width || 0) >= 64) || images[images.length - 1];
+      const small =
+        [...images].sort((a, b) => (a.width || 0) - (b.width || 0)).find((i) => (i.width || 0) >= 64) ||
+        images[images.length - 1];
       return {
         title: it.name || '',
         artist: (it.artists && it.artists.map((a) => a.name).join(', ')) || (it.show && it.show.name) || '',

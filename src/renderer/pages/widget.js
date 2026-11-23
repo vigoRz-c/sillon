@@ -16,14 +16,18 @@
   let titleTimer = null;
 
   // Disposition affichée : celle des réglages, ou le brouillon de l'éditeur.
-  let draft = null;        // éditeur : disposition en cours de modification
-  let draftOpts = {};      // éditeur : options modifiées (rayons, couleurs…)
+  let draft = null; // éditeur : disposition en cours de modification
+  let draftOpts = {}; // éditeur : options modifiées (rayons, couleurs…)
   const settings = () => (EDIT ? { ...app.state.settings, ...draftOpts } : app.state.settings);
   // Recalculée seulement quand les réglages changent (appelée à chaque image).
-  let cachedFor = null, cachedLayout = null;
+  let cachedFor = null,
+    cachedLayout = null;
   const layout = () => {
     if (EDIT && draft) return draft;
-    if (cachedFor !== app.state.settings) { cachedFor = app.state.settings; cachedLayout = SL.fromSettings(cachedFor); }
+    if (cachedFor !== app.state.settings) {
+      cachedFor = app.state.settings;
+      cachedLayout = SL.fromSettings(cachedFor);
+    }
     return cachedLayout;
   };
 
@@ -35,14 +39,17 @@
       $('now').classList.toggle('hidden', !(m.active && m.title && show) || scene);
       $('title').textContent = m.title || '';
       $('artist').textContent = [m.artist, m.album].filter(Boolean).join(' · ');
-      $('pTitle').textContent = m.active ? (m.title || '') : 'Rien en lecture';
+      $('pTitle').textContent = m.active ? m.title || '' : 'Rien en lecture';
       $('pArtist').textContent = m.active ? [m.artist, m.album].filter(Boolean).join(' · ') : '';
       if (coverChanged) {
         $('cover').src = m.cover || '';
         $('cover').classList.toggle('hidden', !m.cover);
         $('pCover').src = m.cover || '';
         $('pCover').classList.toggle('empty', !m.cover);
-        if (m.cover) { coverImg = new Image(); coverImg.src = m.cover; } else coverImg = null;
+        if (m.cover) {
+          coverImg = new Image();
+          coverImg.src = m.cover;
+        } else coverImg = null;
       }
       // Nouveau morceau : le titre en très grand quelques secondes.
       const title = m.active ? m.title : null;
@@ -53,7 +60,10 @@
     onLyrics: (l) => lyrics.set(l),
     transformSettings: (s) => (isScene(s) ? { ...s, style: 'disc' } : s),
     onSettings: (s) => {
-      if (EDIT && !draft) { draft = SL.fromSettings(s); buildEditor(); }
+      if (EDIT && !draft) {
+        draft = SL.fromSettings(s);
+        buildEditor();
+      }
       applyLayout(s);
     },
     onPalette(pal) {
@@ -77,8 +87,15 @@
   // ----- Placement des éléments -----
   const geo = {};
   const NODES = {
-    disc: 'discEl', lyrics: 'lyrics', title: 'bigTitle', cover: 'pCover', info: 'pInfo',
-    buttons: 'pControls', queue: 'pQueue', clock: 'clock', bars: 'barsEl',
+    disc: 'discEl',
+    lyrics: 'lyrics',
+    title: 'bigTitle',
+    cover: 'pCover',
+    info: 'pInfo',
+    buttons: 'pControls',
+    queue: 'pQueue',
+    clock: 'clock',
+    bars: 'barsEl',
   };
   // Éléments agrandis par transform (texte) ; les autres changent de taille réelle.
   const SCALED = new Set(['info', 'buttons', 'queue', 'clock']);
@@ -87,7 +104,8 @@
 
   function placeAll() {
     if (!scene) return;
-    const W = window.innerWidth, H = window.innerHeight;
+    const W = window.innerWidth,
+      H = window.innerHeight;
     const L = layout();
     const base = Math.min(W, H);
     // Taille de base du texte de la scène (l'horloge s'en sert), et taille des
@@ -95,10 +113,14 @@
     const textBase = Math.round(Math.min(H * 0.075, W * 0.045));
     document.documentElement.style.setProperty('--scene-text', `${textBase}px`);
     $('lyrics').style.setProperty('--lyr-size', `${Math.round(textBase * L.lyrics.scale)}px`);
-    document.documentElement.style.setProperty('--title-size', `${Math.round(Math.min(W * 0.075, H * 0.14) * L.title.scale)}px`);
+    document.documentElement.style.setProperty(
+      '--title-size',
+      `${Math.round(Math.min(W * 0.075, H * 0.14) * L.title.scale)}px`,
+    );
 
     // Disque (dessiné dans le canevas) : rayon et zone de saisie.
-    geo.cx = W * L.disc.x; geo.cy = H * L.disc.y;
+    geo.cx = W * L.disc.x;
+    geo.cy = H * L.disc.y;
     geo.r = base * 0.13 * L.disc.scale;
     geo.discOn = L.disc.visible;
     const reach = geo.r * (1.6 + 0.6 * (settings().discIntensity ?? 1.3));
@@ -114,7 +136,9 @@
 
     const c = $('pCover').getBoundingClientRect();
     geo.pc = L.cover.visible && c.width ? { x: c.left + c.width / 2, y: c.top + c.height / 2, R: c.width / 2 } : null;
-    geo.bars = L.bars.visible ? { x: W * L.bars.x - (L.bars.w * W) / 2, y: H * L.bars.y - (L.bars.h * H) / 2, w: L.bars.w * W, h: L.bars.h * H } : null;
+    geo.bars = L.bars.visible
+      ? { x: W * L.bars.x - (L.bars.w * W) / 2, y: H * L.bars.y - (L.bars.h * H) / 2, w: L.bars.w * W, h: L.bars.h * H }
+      : null;
     updateDisc();
     if (EDIT) drawSelection();
     requestAnimationFrame(reportControls);
@@ -127,7 +151,8 @@
   }
 
   function place(id, el, W, H) {
-    const n = $(NODES[id]), spec = SL.ELEMENTS[id];
+    const n = $(NODES[id]),
+      spec = SL.ELEMENTS[id];
     n.classList.toggle('off', !el.visible);
     if (!el.visible) return;
     const s = SCALED.has(id) ? el.scale : 1;
@@ -140,24 +165,32 @@
       const r = n.getBoundingClientRect();
       const dx = r.left < 0 ? -r.left : r.right > W ? W - r.right : 0;
       const dy = r.top < 0 ? -r.top : r.bottom > H ? H - r.bottom : 0;
-      if (dx || dy) { n.style.left = `${W * el.x + dx}px`; n.style.top = `${H * el.y + dy}px`; }
+      if (dx || dy) {
+        n.style.left = `${W * el.x + dx}px`;
+        n.style.top = `${H * el.y + dy}px`;
+      }
     }
   }
 
   // Couleurs du disque : celles de la pochette, ou un thème fixe.
   function discPalette() {
-    const st = app.state, c = settings().discColors || 'album';
+    const st = app.state,
+      c = settings().discColors || 'album';
     if (c !== 'album' && THEMES[c]) return THEMES[c];
     return st.albumPalette || app.renderer.palette;
   }
 
   function updateDisc() {
     if (!scene) return;
-    const st = app.state, s = settings();
+    const st = app.state,
+      s = settings();
     const pal = discPalette();
     app.renderer.style = geo.discOn === false ? 'none' : 'disc';
     app.renderer.opts = {
-      glow: true, cx: geo.cx, cy: geo.cy, radius: geo.r,
+      glow: true,
+      cx: geo.cx,
+      cy: geo.cy,
+      radius: geo.r,
       image: coverImg,
       intensity: s.discIntensity ?? 1.3,
       spin: st.media.status === 'Playing',
@@ -192,11 +225,16 @@
       const img = document.createElement('img');
       img.className = 'q-cover';
       img.alt = '';
-      if (it.image) img.src = it.image; else img.classList.add('empty');
+      if (it.image) img.src = it.image;
+      else img.classList.add('empty');
       const meta = document.createElement('div');
       meta.className = 'q-meta';
-      const t = document.createElement('div'); t.className = 'q-title'; t.textContent = it.title;
-      const a = document.createElement('div'); a.className = 'q-artist'; a.textContent = it.artist;
+      const t = document.createElement('div');
+      t.className = 'q-title';
+      t.textContent = it.title;
+      const a = document.createElement('div');
+      a.className = 'q-artist';
+      a.textContent = it.artist;
       meta.append(t, a);
       row.append(img, meta);
       list.appendChild(row);
@@ -211,7 +249,10 @@
   function reportControls() {
     if (EDIT || !bridge || !bridge.reportControlsRect) return;
     const visible = scene && layout().buttons.visible;
-    if (!visible) { bridge.reportControlsRect(null); return; }
+    if (!visible) {
+      bridge.reportControlsRect(null);
+      return;
+    }
     const r = $('pControls').getBoundingClientRect();
     bridge.reportControlsRect({ x: r.left, y: r.top, width: r.width, height: r.height });
   }
@@ -221,9 +262,15 @@
     document.body.style.opacity = EDIT ? 1 : (s.opacity ?? 1);
     document.body.classList.toggle('scene', scene);
     document.body.classList.toggle('with-now', !scene && s.showNowPlaying !== false);
-    $('now').classList.toggle('hidden',
-      scene || !(s.showNowPlaying !== false && app.state.media.active && app.state.media.title));
-    if (!scene) { app.renderer.opts = { glow: true }; requestAnimationFrame(reportControls); return; }
+    $('now').classList.toggle(
+      'hidden',
+      scene || !(s.showNowPlaying !== false && app.state.media.active && app.state.media.title),
+    );
+    if (!scene) {
+      app.renderer.opts = { glow: true };
+      requestAnimationFrame(reportControls);
+      return;
+    }
     placeAll();
   }
 
@@ -233,15 +280,25 @@
   // pochette, barres.
   app.renderer.hooks.push((a, now) => {
     if (!scene) return;
-    const s = settings(), r = app.renderer, pal = discPalette();
+    const s = settings(),
+      r = app.renderer,
+      pal = discPalette();
     drawEdgeGlow(r.ctx, r.w, r.h, a, pal, s.edgeGlow ?? 0.8);
     if (s.panelRing !== false && geo.pc) drawCoverRings(r.ctx, geo.pc.x, geo.pc.y, geo.pc.R, a, pal);
     if (geo.bars) {
-      const b = geo.bars, draw = VISUALIZERS[s.style] || VISUALIZERS.bars;
+      const b = geo.bars,
+        draw = VISUALIZERS[s.style] || VISUALIZERS.bars;
       r.ctx.save();
-      r.ctx.beginPath(); r.ctx.rect(b.x, b.y, b.w, b.h); r.ctx.clip();
+      r.ctx.beginPath();
+      r.ctx.rect(b.x, b.y, b.w, b.h);
+      r.ctx.clip();
       r.ctx.translate(b.x, b.y);
-      draw(r.ctx, b.w, b.h, a, r.palette, { glow: true, t: now, reflection: false, sensitivity: app.engine.sensitivity });
+      draw(r.ctx, b.w, b.h, a, r.palette, {
+        glow: true,
+        t: now,
+        reflection: false,
+        sensitivity: app.engine.sensitivity,
+      });
       r.ctx.restore();
     }
   });
@@ -249,7 +306,8 @@
   // Progression, paroles et message d'état audio, à chaque image. On ne
   // touche à la page que si quelque chose a changé : sinon le navigateur
   // recalcule les styles pour rien, 60 fois par seconde.
-  let lastPct = '', lastMsg = null;
+  let lastPct = '',
+    lastMsg = null;
   app.renderer.hooks.push(() => {
     const m = app.state.media;
     const pos = currentPosition(m);
@@ -261,8 +319,7 @@
     }
     if (scene && layout().lyrics.visible) lyrics.update(m, pos);
     const st = app.engine.status;
-    const msg = st === 'no-audio' ? 'Aucun son système détecté'
-      : st === 'error' ? 'Capture audio refusée' : '';
+    const msg = st === 'no-audio' ? 'Aucun son système détecté' : st === 'error' ? 'Capture audio refusée' : '';
     if (msg !== lastMsg) {
       lastMsg = msg;
       $('status').textContent = msg;
@@ -290,7 +347,11 @@
   }
   setInterval(updateRest, 2000);
   if (bridge && bridge.onMedia) bridge.onMedia(() => setTimeout(updateRest, 0));
-  if (bridge && bridge.onRenderPause) bridge.onRenderPause((on) => { gamePause = on; updateRest(); });
+  if (bridge && bridge.onRenderPause)
+    bridge.onRenderPause((on) => {
+      gamePause = on;
+      updateRest();
+    });
 
   // ----- Mode placement (bandeau) -----
   if (bridge && !EDIT) {
@@ -310,7 +371,9 @@
       if (!start) return;
       bridge.resizeTo(start.w + e.screenX - start.x, start.h + e.screenY - start.y);
     });
-    grip.addEventListener('pointerup', () => { start = null; });
+    grip.addEventListener('pointerup', () => {
+      start = null;
+    });
   }
 
   // =================== Éditeur de disposition ===================
@@ -319,7 +382,9 @@
   // « Terminé » enregistre, « Annuler » oublie tout.
 
   if (EDIT && bridge && bridge.onEditorBackground) {
-    bridge.onEditorBackground((url) => { document.body.style.backgroundImage = url ? `url("${url}")` : ''; });
+    bridge.onEditorBackground((url) => {
+      document.body.style.backgroundImage = url ? `url("${url}")` : '';
+    });
   }
 
   let selected = 'disc';
@@ -327,7 +392,10 @@
   let sideLeft = false;
   const history = [];
 
-  function snapshot() { history.push(JSON.stringify({ draft, draftOpts })); if (history.length > 50) history.shift(); }
+  function snapshot() {
+    history.push(JSON.stringify({ draft, draftOpts }));
+    if (history.length > 50) history.shift();
+  }
   function undo() {
     const h = history.pop();
     if (!h) return;
@@ -355,7 +423,9 @@
       <strong>Personnaliser la scène</strong>
       <select id="ePreset" title="Partir d'un modèle">
         <option value="">Modèles…</option>
-        ${Object.entries(SL.PRESETS).map(([k, p]) => `<option value="${k}">${p.label}</option>`).join('')}
+        ${Object.entries(SL.PRESETS)
+          .map(([k, p]) => `<option value="${k}">${p.label}</option>`)
+          .join('')}
       </select>
       <button id="eUndo" title="Annuler la dernière modification (Ctrl+Z)">↶</button>
       <button id="eReset">Réinitialiser</button>
@@ -372,8 +442,12 @@
     frame.id = 'selFrame';
     frame.innerHTML = '<span class="lbl"></span><div class="handle" title="Tirer pour redimensionner"></div>';
     document.body.appendChild(frame);
-    const gx = document.createElement('div'); gx.id = 'guideX'; gx.className = 'guide v';
-    const gy = document.createElement('div'); gy.id = 'guideY'; gy.className = 'guide h';
+    const gx = document.createElement('div');
+    gx.id = 'guideX';
+    gx.className = 'guide v';
+    const gy = document.createElement('div');
+    gy.id = 'guideY';
+    gy.className = 'guide h';
     document.body.append(gx, gy);
 
     $('ePreset').onchange = () => {
@@ -385,7 +459,12 @@
       refreshEditor();
     };
     $('eUndo').onclick = undo;
-    $('eReset').onclick = () => { snapshot(); draft = SL.preset('default'); draftOpts = {}; refreshEditor(); };
+    $('eReset').onclick = () => {
+      snapshot();
+      draft = SL.preset('default');
+      draftOpts = {};
+      refreshEditor();
+    };
     $('eCancel').onclick = () => bridge.layoutCancel();
     $('eDone').onclick = () => bridge.layoutDone({ sceneLayout: draft, ...draftOpts });
 
@@ -394,7 +473,10 @@
       const n = $(NODES[id]);
       n.addEventListener('pointerdown', (e) => startDrag(e, id, 'move'));
     }
-    frame.querySelector('.handle').addEventListener('pointerdown', (e) => { e.stopPropagation(); startDrag(e, selected, 'resize'); });
+    frame.querySelector('.handle').addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      startDrag(e, selected, 'resize');
+    });
     window.addEventListener('pointermove', onDrag);
     window.addEventListener('pointerup', endDrag);
     window.addEventListener('keydown', onKey);
@@ -405,7 +487,10 @@
   function startDrag(e, id, kind) {
     if (e.button !== 0) return;
     e.preventDefault();
-    if (selected !== id) { selected = id; fillSide(); }
+    if (selected !== id) {
+      selected = id;
+      fillSide();
+    }
     snapshot();
     const el = draft[id];
     const r = $(NODES[id]).getBoundingClientRect();
@@ -415,18 +500,27 @@
 
   function onDrag(e) {
     if (!drag) return;
-    const W = window.innerWidth, H = window.innerHeight;
-    const dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
+    const W = window.innerWidth,
+      H = window.innerHeight;
+    const dx = e.clientX - drag.x0,
+      dy = e.clientY - drag.y0;
     const el = { ...drag.el };
     const spec = SL.ELEMENTS[drag.id];
-    let gxOn = false, gyOn = false;
+    let gxOn = false,
+      gyOn = false;
     if (drag.kind === 'move') {
       el.x = drag.el.x + dx / W;
       el.y = drag.el.y + dy / H;
       if (snap && !e.altKey) {
         // Aimants : centres de l'écran, puis grille de 0,5 %.
-        if (Math.abs(el.x - 0.5) < 0.012) { el.x = 0.5; gxOn = true; } else el.x = Math.round(el.x * 200) / 200;
-        if (Math.abs(el.y - 0.5) < 0.012) { el.y = 0.5; gyOn = true; } else el.y = Math.round(el.y * 200) / 200;
+        if (Math.abs(el.x - 0.5) < 0.012) {
+          el.x = 0.5;
+          gxOn = true;
+        } else el.x = Math.round(el.x * 200) / 200;
+        if (Math.abs(el.y - 0.5) < 0.012) {
+          el.y = 0.5;
+          gyOn = true;
+        } else el.y = Math.round(el.y * 200) / 200;
       }
     } else if (spec.w) {
       // Étirables : la largeur (et la hauteur des barres) suit la poignée.
@@ -453,12 +547,27 @@
 
   function onKey(e) {
     if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') return;
-    if (e.key === 'Escape') { bridge.layoutCancel(); return; }
-    if (e.key === 'Enter') { $('eDone').click(); return; }
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); return; }
+    if (e.key === 'Escape') {
+      bridge.layoutCancel();
+      return;
+    }
+    if (e.key === 'Enter') {
+      $('eDone').click();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+      e.preventDefault();
+      undo();
+      return;
+    }
     const el = draft[selected];
     if (!el) return;
-    if (e.key === 'Delete' || e.key === 'Backspace') { snapshot(); el.visible = false; refreshEditor(); return; }
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      snapshot();
+      el.visible = false;
+      refreshEditor();
+      return;
+    }
     const step = e.shiftKey ? 10 : 1;
     const mv = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
     if (!mv) return;
@@ -475,7 +584,10 @@
     const f = $('selFrame');
     if (!f) return;
     const el = draft && draft[selected];
-    if (!el || !el.visible) { f.classList.add('hidden'); return; }
+    if (!el || !el.visible) {
+      f.classList.add('hidden');
+      return;
+    }
     const spec = SL.ELEMENTS[selected];
     const r = $(NODES[selected]).getBoundingClientRect();
     f.classList.remove('hidden');
@@ -490,7 +602,8 @@
   function fillSide(onlyValues) {
     const side = $('editSide');
     if (!side) return;
-    const el = draft[selected], spec = SL.ELEMENTS[selected];
+    const el = draft[selected],
+      spec = SL.ELEMENTS[selected];
     if (onlyValues) {
       for (const k of ['scale', 'w', 'h']) {
         const i = side.querySelector(`[data-k="${k}"]`);
@@ -499,8 +612,10 @@
       return;
     }
     const s = settings();
-    const opt = (k, v, label) => `<option value="${v}" ${String(s[k] ?? '') === String(v) ? 'selected' : ''}>${label}</option>`;
-    const range = (k, lo, hi, step, label) => `<label class="er">${label}<input type="range" data-k="${k}" min="${lo}" max="${hi}" step="${step}" value="${el[k]}"></label>`;
+    const opt = (k, v, label) =>
+      `<option value="${v}" ${String(s[k] ?? '') === String(v) ? 'selected' : ''}>${label}</option>`;
+    const range = (k, lo, hi, step, label) =>
+      `<label class="er">${label}<input type="range" data-k="${k}" min="${lo}" max="${hi}" step="${step}" value="${el[k]}"></label>`;
     let extra = '';
     if (selected === 'disc') {
       extra = `<label class="er">Rayons<select data-o="discRays">${opt('discRays', 'fine', 'Fins et serrés')}${opt('discRays', 'bold', 'Épais et espacés')}</select></label>
@@ -508,13 +623,23 @@
     } else if (selected === 'cover') {
       extra = `<label class="ec"><input type="checkbox" data-o="panelRing" ${s.panelRing !== false ? 'checked' : ''}> Anneaux qui vibrent</label>`;
     } else if (selected === 'bars') {
-      extra = `<label class="er">Style<select data-o="style">${[['bars', 'Barres'], ['mirror', 'Miroir'], ['blocks', 'Blocs'], ['wave', 'Onde'], ['aurora', 'Aurore']].map(([v, l]) => opt('style', v, l)).join('')}</select></label>`;
+      extra = `<label class="er">Style<select data-o="style">${[
+        ['bars', 'Barres'],
+        ['mirror', 'Miroir'],
+        ['blocks', 'Blocs'],
+        ['wave', 'Onde'],
+        ['aurora', 'Aurore'],
+      ]
+        .map(([v, l]) => opt('style', v, l))
+        .join('')}</select></label>`;
     }
     side.classList.toggle('left', sideLeft);
     side.innerHTML = `
       <div class="eh">Éléments <button id="eSwap" title="Passer la colonne de l'autre côté">⇆</button></div>
-      ${SL.ORDER.map((id) => `<label class="ec ${id === selected ? 'cur' : ''}" data-id="${id}">
-        <input type="checkbox" data-vis="${id}" ${draft[id].visible ? 'checked' : ''}> ${SL.ELEMENTS[id].label}</label>`).join('')}
+      ${SL.ORDER.map(
+        (id) => `<label class="ec ${id === selected ? 'cur' : ''}" data-id="${id}">
+        <input type="checkbox" data-vis="${id}" ${draft[id].visible ? 'checked' : ''}> ${SL.ELEMENTS[id].label}</label>`,
+      ).join('')}
       <div class="eh">${spec.label}</div>
       ${spec.scale[0] !== spec.scale[1] ? range('scale', spec.scale[0], spec.scale[1], 0.01, 'Taille') : ''}
       ${spec.w ? range('w', spec.w[0], spec.w[1], 0.005, 'Largeur') : ''}
@@ -523,18 +648,22 @@
       <label class="ec"><input type="checkbox" id="eSnap" ${snap ? 'checked' : ''}> Aimanter (grille et centres)</label>
       <p class="eh2">Glisser : déplacer · poignée : taille · flèches : 1 px (Maj : 10) · Suppr : masquer · Alt : sans aimant · Ctrl+Z : annuler</p>`;
 
-    side.querySelectorAll('[data-vis]').forEach((c) => c.addEventListener('change', () => {
-      snapshot();
-      draft[c.dataset.vis].visible = c.checked;
-      selected = c.dataset.vis;
-      refreshEditor();
-    }));
-    side.querySelectorAll('label[data-id]').forEach((l) => l.addEventListener('click', (e) => {
-      if (e.target.tagName === 'INPUT') return;
-      selected = l.dataset.id;
-      fillSide();
-      drawSelection();
-    }));
+    side.querySelectorAll('[data-vis]').forEach((c) =>
+      c.addEventListener('change', () => {
+        snapshot();
+        draft[c.dataset.vis].visible = c.checked;
+        selected = c.dataset.vis;
+        refreshEditor();
+      }),
+    );
+    side.querySelectorAll('label[data-id]').forEach((l) =>
+      l.addEventListener('click', (e) => {
+        if (e.target.tagName === 'INPUT') return;
+        selected = l.dataset.id;
+        fillSide();
+        drawSelection();
+      }),
+    );
     side.querySelectorAll('input[type=range][data-k]').forEach((i) => {
       i.addEventListener('pointerdown', snapshot);
       i.addEventListener('input', () => {
@@ -542,12 +671,19 @@
         placeAll();
       });
     });
-    side.querySelectorAll('[data-o]').forEach((i) => i.addEventListener('change', () => {
-      snapshot();
-      draftOpts[i.dataset.o] = i.type === 'checkbox' ? i.checked : i.value;
-      refreshEditor();
-    }));
-    $('eSnap').onchange = () => { snap = $('eSnap').checked; };
-    $('eSwap').onclick = () => { sideLeft = !sideLeft; fillSide(); };
+    side.querySelectorAll('[data-o]').forEach((i) =>
+      i.addEventListener('change', () => {
+        snapshot();
+        draftOpts[i.dataset.o] = i.type === 'checkbox' ? i.checked : i.value;
+        refreshEditor();
+      }),
+    );
+    $('eSnap').onchange = () => {
+      snap = $('eSnap').checked;
+    };
+    $('eSwap').onclick = () => {
+      sideLeft = !sideLeft;
+      fillSide();
+    };
   }
 })();

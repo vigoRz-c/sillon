@@ -11,9 +11,22 @@ const HEADERS = { 'User-Agent': 'Sillon/0.1' };
 const cache = new Map();
 
 // "Bohemian Rhapsody - Remastered 2011" -> "Bohemian Rhapsody"
-const cleanTitle = (s) => String(s || '').replace(/\s*[([].*?[)\]]/g, '').replace(/\s+-\s+.*$/, '').trim();
-const firstArtist = (s) => String(s || '').split(/,|&| feat\.? | ft\.? /i)[0].trim();
-const norm = (s) => cleanTitle(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const cleanTitle = (s) =>
+  String(s || '')
+    .replace(/\s*[([].*?[)\]]/g, '')
+    .replace(/\s+-\s+.*$/, '')
+    .trim();
+const firstArtist = (s) =>
+  String(s || '')
+    .split(/,|&| feat\.? | ft\.? /i)[0]
+    .trim();
+const norm = (s) =>
+  cleanTitle(s)
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
 
 async function getJson(path) {
   const res = await fetch(API + path, { headers: HEADERS, signal: AbortSignal.timeout(6000) });
@@ -32,7 +45,9 @@ function parseLrc(lrc) {
     for (const m of stamps) lines.push({ t: Number(m[1]) * 60 + Number(m[2]), text, words: null });
   }
   lines.sort((a, b) => a.t - b.t);
-  lines.forEach((l, i) => { l.end = lines[i + 1] ? lines[i + 1].t : l.t + 5; });
+  lines.forEach((l, i) => {
+    l.end = lines[i + 1] ? lines[i + 1].t : l.t + 5;
+  });
   return lines;
 }
 
@@ -41,22 +56,36 @@ function parseLrc(lrc) {
 function yamlValue(v) {
   v = v.trim();
   if (v.startsWith("'") && v.endsWith("'")) return v.slice(1, -1).replace(/''/g, "'");
-  if (v.startsWith('"') && v.endsWith('"')) { try { return JSON.parse(v); } catch { return v.slice(1, -1); } }
+  if (v.startsWith('"') && v.endsWith('"')) {
+    try {
+      return JSON.parse(v);
+    } catch {
+      return v.slice(1, -1);
+    }
+  }
   return v;
 }
 
 function parseLyricsFile(text) {
   const lines = [];
-  let line = null, word = null, inLines = false;
+  let line = null,
+    word = null,
+    inLines = false;
   for (const raw of String(text || '').split(/\r?\n/)) {
-    if (/^lines:\s*$/.test(raw)) { inLines = true; continue; }
+    if (/^lines:\s*$/.test(raw)) {
+      inLines = true;
+      continue;
+    }
     if (!inLines) continue;
     if (/^[A-Za-z_]/.test(raw)) break; // clé de premier niveau : fin du bloc "lines"
     let m;
     if ((m = raw.match(/^- text:\s*(.*)$/))) {
-      line = { text: yamlValue(m[1]), t: 0, end: 0, words: [] }; word = null; lines.push(line);
+      line = { text: yamlValue(m[1]), t: 0, end: 0, words: [] };
+      word = null;
+      lines.push(line);
     } else if (line && (m = raw.match(/^ {2}- text:\s*(.*)$/))) {
-      word = { text: yamlValue(m[1]), t: 0 }; line.words.push(word);
+      word = { text: yamlValue(m[1]), t: 0 };
+      line.words.push(word);
     } else if (line && (m = raw.match(/^ {4}start_ms:\s*(\d+)/)) && word) {
       word.t = Number(m[1]) / 1000;
     } else if (line && (m = raw.match(/^ {2}start_ms:\s*(\d+)/))) {
@@ -83,7 +112,8 @@ function toResult(rec) {
 }
 
 async function findLyrics({ title, artist, album, duration }) {
-  const t = cleanTitle(title), a = firstArtist(artist);
+  const t = cleanTitle(title),
+    a = firstArtist(artist);
   if (!t || !a) return null;
   const p = new URLSearchParams({ track_name: t, artist_name: a });
   if (album) p.set('album_name', cleanTitle(album));
@@ -95,8 +125,9 @@ async function findLyrics({ title, artist, album, duration }) {
   // gardant un résultat du même artiste, même titre et durée proche.
   const list = (await getJson(`/search?${new URLSearchParams({ track_name: t, artist_name: a })}`)) || [];
   const close = (r) => !duration || !r.duration || Math.abs(r.duration - duration) <= 8;
-  const hit = list.find((r) => r.syncedLyrics && norm(r.trackName) === norm(t)
-    && norm(firstArtist(r.artistName)) === norm(a) && close(r));
+  const hit = list.find(
+    (r) => r.syncedLyrics && norm(r.trackName) === norm(t) && norm(firstArtist(r.artistName)) === norm(a) && close(r),
+  );
   return toResult(hit);
 }
 
@@ -104,7 +135,10 @@ async function lookupLyrics(media) {
   const key = `${norm(firstArtist(media.artist))}|${norm(media.title)}|${Math.round((media.duration || 0) / 5)}`;
   if (cache.has(key)) return cache.get(key);
   const stored = disk.get('lyrics', key);
-  if (stored !== undefined) { cache.set(key, stored); return stored; }
+  if (stored !== undefined) {
+    cache.set(key, stored);
+    return stored;
+  }
   let result;
   try {
     result = await findLyrics(media);

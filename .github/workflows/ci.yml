@@ -1,5 +1,5 @@
-# Vérifications automatiques à chaque push et pull request :
-# syntaxe, règles de qualité (ESLint) et tests.
+# VÃ©rifications automatiques Ã  chaque push et pull request :
+# syntaxe, rÃ¨gles de qualitÃ© (ESLint) et tests.
 name: CI
 
 on:
@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   verify:
-    name: Vérifier (Windows)
+    name: VÃ©rifier (Windows)
     runs-on: windows-latest
     timeout-minutes: 15
     env:
@@ -34,6 +34,8 @@ jobs:
         run: npm run check
       - name: ESLint
         run: npm run lint
+      - name: Formatage (Prettier)
+        run: npm run format:check
       - name: Tests
         run: npm test
       - name: Assistant natif (Rust)

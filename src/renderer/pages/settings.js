@@ -4,14 +4,37 @@
   const $ = (id) => document.getElementById(id);
   const bridge = window.bridge;
 
-  const selects = ['layout', 'theme', 'discRays', 'discColors', 'mode', 'preferApp', 'fps', 'veilleDelay', 'sceneScreen', 'sleepAfter', 'audioSource'];
-  const checks = ['showNowPlaying', 'showLyrics', 'launchAtLogin', 'veilleOnlyPlaying', 'veilleLock', 'gameMode', 'dimOnPause', 'autoUpdate'];
+  const selects = [
+    'layout',
+    'theme',
+    'discRays',
+    'discColors',
+    'mode',
+    'preferApp',
+    'fps',
+    'veilleDelay',
+    'sceneScreen',
+    'sleepAfter',
+    'audioSource',
+  ];
+  const checks = [
+    'showNowPlaying',
+    'showLyrics',
+    'launchAtLogin',
+    'veilleOnlyPlaying',
+    'veilleLock',
+    'gameMode',
+    'dimOnPause',
+    'autoUpdate',
+  ];
   const numeric = new Set(['fps', 'veilleDelay', 'sleepAfter']);
   const pct = (v) => `${Math.round(v * 100)} %`;
   const ranges = {
-    sensitivity: (v) => `× ${v.toFixed(1)}`, opacity: pct,
-    discIntensity: (v) => `× ${v.toFixed(1)}`, 
-    discBloom: (v) => (v ? `× ${v.toFixed(1)}` : 'aucune'), edgeGlow: (v) => (v ? `× ${v.toFixed(1)}` : 'aucun'),
+    sensitivity: (v) => `× ${v.toFixed(1)}`,
+    opacity: pct,
+    discIntensity: (v) => `× ${v.toFixed(1)}`,
+    discBloom: (v) => (v ? `× ${v.toFixed(1)}` : 'aucune'),
+    edgeGlow: (v) => (v ? `× ${v.toFixed(1)}` : 'aucun'),
   };
 
   // ----- Galerie des visualiseurs : aperçus animés -----
@@ -28,19 +51,31 @@
   const sizes = new ResizeObserver((entries) => {
     for (const e of entries) {
       const p = previews.find((x) => x.c === e.target);
-      p.w = e.contentRect.width; p.h = e.contentRect.height;
-      p.c.width = Math.round(p.w * dpr); p.c.height = Math.round(p.h * dpr);
+      p.w = e.contentRect.width;
+      p.h = e.contentRect.height;
+      p.c.width = Math.round(p.w * dpr);
+      p.c.height = Math.round(p.h * dpr);
     }
   });
   const seen = new IntersectionObserver((entries) => {
     for (const e of entries) previews.find((x) => x.c === e.target).visible = e.isIntersecting;
   });
-  for (const p of previews) { sizes.observe(p.c); seen.observe(p.c); }
-  let scrolling = 0, lastDraw = 0;
-  document.querySelector('main').addEventListener('scroll', () => {
-    clearTimeout(scrolling);
-    scrolling = setTimeout(() => { scrolling = 0; }, 180);
-  }, { passive: true });
+  for (const p of previews) {
+    sizes.observe(p.c);
+    seen.observe(p.c);
+  }
+  let scrolling = 0,
+    lastDraw = 0;
+  document.querySelector('main').addEventListener(
+    'scroll',
+    () => {
+      clearTimeout(scrolling);
+      scrolling = setTimeout(() => {
+        scrolling = 0;
+      }, 180);
+    },
+    { passive: true },
+  );
   function drawGallery(now) {
     requestAnimationFrame(drawGallery);
     if (scrolling || now - lastDraw < 1000 / 30 - 2) return;
@@ -58,7 +93,14 @@
   requestAnimationFrame(drawGallery);
 
   function fill(s) {
-    const defaults = { layout: 'scene', sceneScreen: 'primary', sleepAfter: 5, discRays: 'fine', discColors: 'album', audioSource: 'app' };
+    const defaults = {
+      layout: 'scene',
+      sceneScreen: 'primary',
+      sleepAfter: 5,
+      discRays: 'fine',
+      discColors: 'album',
+      audioSource: 'app',
+    };
     for (const k of selects) if (document.activeElement !== $(k)) $(k).value = String(s[k] ?? defaults[k] ?? '');
     $('showNowPlaying').checked = s.showNowPlaying !== false;
     $('showLyrics').checked = s.showLyrics !== false;
@@ -108,10 +150,14 @@
   $('resetBounds').onclick = () => bridge.resetBounds();
   $('veilleNow').onclick = () => bridge.startVeille();
   $('close').onclick = () => window.close();
-  window.addEventListener('keydown', (e) => { if (e.key === 'Escape') window.close(); });
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') window.close();
+  });
 
   // ----- Compte Spotify -----
-  $('spotifyClientId').addEventListener('change', () => bridge.setSettings({ spotifyClientId: $('spotifyClientId').value.trim() }));
+  $('spotifyClientId').addEventListener('change', () =>
+    bridge.setSettings({ spotifyClientId: $('spotifyClientId').value.trim() }),
+  );
   $('spotifyCustomClientId').addEventListener('change', () => {
     bridge.setSettings({ spotifyCustomClientId: $('spotifyCustomClientId').checked });
     setTimeout(() => bridge.spotifyStatus().then(showSpotify), 150);
@@ -123,11 +169,16 @@
     setTimeout(() => bridge.spotifyLogin(), 200);
   };
   $('spotifyLogout').onclick = () => bridge.spotifyLogout();
-  $('dashboard').onclick = (e) => { e.preventDefault(); bridge.openSpotifyDashboard(); };
+  $('dashboard').onclick = (e) => {
+    e.preventDefault();
+    bridge.openSpotifyDashboard();
+  };
   $('copyRedirect').onclick = async () => {
     await navigator.clipboard.writeText($('redirectUri').textContent);
     $('copyRedirect').textContent = 'Copié';
-    setTimeout(() => { $('copyRedirect').textContent = 'Copier'; }, 1500);
+    setTimeout(() => {
+      $('copyRedirect').textContent = 'Copier';
+    }, 1500);
   };
   function showSpotify(st) {
     if (!st) return;
@@ -135,10 +186,13 @@
     $('spotifyLogin').textContent = st.connected ? 'Se reconnecter' : 'Se connecter à Spotify';
     $('spotifyLogout').classList.toggle('hidden', !st.connected);
     const el = $('spotifyState');
-    el.textContent = st.error ? st.error
-      : !st.connected ? 'Non connecté.'
-      : st.needsReconnect ? 'Connecté. Clique sur « Se reconnecter » pour activer aussi les boutons aléatoire et répétition.'
-      : 'Connecté : file d\'attente, aléatoire et répétition actifs.';
+    el.textContent = st.error
+      ? st.error
+      : !st.connected
+        ? 'Non connecté.'
+        : st.needsReconnect
+          ? 'Connecté. Clique sur « Se reconnecter » pour activer aussi les boutons aléatoire et répétition.'
+          : "Connecté : file d'attente, aléatoire et répétition actifs.";
     el.className = `state${st.error ? ' error' : st.connected ? ' ok' : ''}`;
   }
   bridge.onSpotifyStatus(showSpotify);
@@ -149,15 +203,16 @@
     if (!u) return;
     const el = $('updateState');
     const v = `Version installée : ${u.current}. `;
-    const text = {
-      dev: 'Mode développement (npm start) : pas de mise à jour automatique.',
-      idle: `${v}`,
-      checking: `${v}Recherche en cours…`,
-      uptodate: `${v}Sillon est à jour.`,
-      downloading: `${v}Téléchargement de la version ${u.version}… ${u.progress} %`,
-      ready: `Version ${u.version} prête : elle s'installera à la fermeture, ou maintenant.`,
-      error: `${v}${u.error}`,
-    }[u.state] || v;
+    const text =
+      {
+        dev: 'Mode développement (npm start) : pas de mise à jour automatique.',
+        idle: `${v}`,
+        checking: `${v}Recherche en cours…`,
+        uptodate: `${v}Sillon est à jour.`,
+        downloading: `${v}Téléchargement de la version ${u.version}… ${u.progress} %`,
+        ready: `Version ${u.version} prête : elle s'installera à la fermeture, ou maintenant.`,
+        error: `${v}${u.error}`,
+      }[u.state] || v;
     el.textContent = text;
     el.className = `state${u.state === 'error' ? ' error' : u.state === 'ready' || u.state === 'uptodate' ? ' ok' : ''}`;
     $('checkUpdates').disabled = !u.enabled;

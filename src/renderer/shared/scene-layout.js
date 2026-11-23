@@ -14,29 +14,29 @@
   // id -> description. scale : taille relative (1 = taille d'origine).
   // w / h : largeur / hauteur en fraction de l'écran (éléments étirables).
   const ELEMENTS = {
-    disc:    { label: 'Disque',              ax: 0.5, ay: 0.5, scale: [0.4, 2.2] },
-    lyrics:  { label: 'Paroles',             ax: 0.5, ay: 0.5, scale: [0.5, 1.8], w: [0.15, 0.95] },
-    title:   { label: 'Grand titre',         ax: 0.5, ay: 0.5, scale: [0.4, 1.6] },
-    cover:   { label: 'Pochette du panneau', ax: 0.5, ay: 0.5, scale: [0.4, 2] },
-    info:    { label: 'En lecture',          ax: 0,   ay: 0,   scale: [0.6, 2] },
-    buttons: { label: 'Boutons',             ax: 0,   ay: 0,   scale: [1, 1] },
-    queue:   { label: 'À suivre',            ax: 0,   ay: 0,   scale: [0.6, 2] },
-    clock:   { label: 'Horloge',             ax: 1,   ay: 0,   scale: [0.5, 2.5] },
-    bars:    { label: 'Barres',              ax: 0.5, ay: 0.5, scale: [1, 1], w: [0.1, 1], h: [0.04, 0.5] },
+    disc: { label: 'Disque', ax: 0.5, ay: 0.5, scale: [0.4, 2.2] },
+    lyrics: { label: 'Paroles', ax: 0.5, ay: 0.5, scale: [0.5, 1.8], w: [0.15, 0.95] },
+    title: { label: 'Grand titre', ax: 0.5, ay: 0.5, scale: [0.4, 1.6] },
+    cover: { label: 'Pochette du panneau', ax: 0.5, ay: 0.5, scale: [0.4, 2] },
+    info: { label: 'En lecture', ax: 0, ay: 0, scale: [0.6, 2] },
+    buttons: { label: 'Boutons', ax: 0, ay: 0, scale: [1, 1] },
+    queue: { label: 'À suivre', ax: 0, ay: 0, scale: [0.6, 2] },
+    clock: { label: 'Horloge', ax: 1, ay: 0, scale: [0.5, 2.5] },
+    bars: { label: 'Barres', ax: 0.5, ay: 0.5, scale: [1, 1], w: [0.1, 1], h: [0.04, 0.5] },
   };
   const ORDER = ['disc', 'lyrics', 'title', 'cover', 'info', 'buttons', 'queue', 'clock', 'bars'];
 
   // Disposition d'origine (celle d'avant l'éditeur).
   const DEFAULTS = {
-    disc:    { x: 0.6,   y: 0.45,  scale: 1, visible: true },
-    lyrics:  { x: 0.27,  y: 0.42,  scale: 1, w: 0.42, visible: true },
-    title:   { x: 0.5,   y: 0.12,  scale: 1, visible: true },
-    cover:   { x: 0,     y: 0.72,  scale: 1, visible: true },
-    info:    { x: 0.085, y: 0.655, scale: 1, visible: true },
-    buttons: { x: 0.085, y: 0.6,   scale: 1, visible: true },
-    queue:   { x: 0.085, y: 0.77,  scale: 1, visible: true },
-    clock:   { x: 0.97,  y: 0.035, scale: 1, visible: true },
-    bars:    { x: 0.5,   y: 0.9,   scale: 1, w: 0.5, h: 0.12, visible: false },
+    disc: { x: 0.6, y: 0.45, scale: 1, visible: true },
+    lyrics: { x: 0.27, y: 0.42, scale: 1, w: 0.42, visible: true },
+    title: { x: 0.5, y: 0.12, scale: 1, visible: true },
+    cover: { x: 0, y: 0.72, scale: 1, visible: true },
+    info: { x: 0.085, y: 0.655, scale: 1, visible: true },
+    buttons: { x: 0.085, y: 0.6, scale: 1, visible: true },
+    queue: { x: 0.085, y: 0.77, scale: 1, visible: true },
+    clock: { x: 0.97, y: 0.035, scale: 1, visible: true },
+    bars: { x: 0.5, y: 0.9, scale: 1, w: 0.5, h: 0.12, visible: false },
   };
 
   // Modèles prêts à l'emploi (seules les différences avec DEFAULTS).
@@ -45,15 +45,22 @@
     minimal: {
       label: 'Minimal',
       layout: {
-        lyrics: { visible: false }, title: { visible: false }, queue: { visible: false },
-        clock: { visible: false }, disc: { x: 0.5, y: 0.45, scale: 1.2 },
+        lyrics: { visible: false },
+        title: { visible: false },
+        queue: { visible: false },
+        clock: { visible: false },
+        disc: { x: 0.5, y: 0.45, scale: 1.2 },
       },
     },
     lyricsOnly: {
       label: 'Paroles seules',
       layout: {
-        disc: { visible: false }, cover: { visible: false }, info: { visible: false },
-        buttons: { visible: false }, queue: { visible: false }, title: { visible: false },
+        disc: { visible: false },
+        cover: { visible: false },
+        info: { visible: false },
+        buttons: { visible: false },
+        queue: { visible: false },
+        title: { visible: false },
         lyrics: { x: 0.5, y: 0.45, w: 0.8, scale: 1.4 },
       },
     },
@@ -69,7 +76,8 @@
   // Ramène un élément dans des valeurs sûres (position dans l'écran, taille
   // dans les limites de l'élément).
   function clampElement(id, el) {
-    const spec = ELEMENTS[id], d = DEFAULTS[id];
+    const spec = ELEMENTS[id],
+      d = DEFAULTS[id];
     const out = {
       x: clamp(num(el && el.x, d.x), 0, 1),
       y: clamp(num(el && el.y, d.y), 0, 1),
@@ -93,7 +101,9 @@
       if (!saved) {
         el = { ...DEFAULTS[id] };
         if (id === 'disc') {
-          el.x = num(s.discX, el.x); el.y = num(s.discY, el.y); el.scale = num(s.discSize, el.scale);
+          el.x = num(s.discX, el.x);
+          el.y = num(s.discY, el.y);
+          el.scale = num(s.discSize, el.scale);
         }
         if (id === 'lyrics' && s.showLyrics === false) el.visible = false;
         if (['cover', 'info', 'buttons', 'queue'].includes(id) && s.showPanel === false) el.visible = false;

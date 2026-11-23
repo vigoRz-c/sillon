@@ -40,25 +40,33 @@ function watchControls() {
 function updateControls() {
   const { isScene, widgetBounds } = S.actions;
   const rect = S.controlsRect;
-  const wanted = isScene() && !S.editing && !S.settings.get('sceneHidden') && rect
-    && !S.alive(S.editorWin); // l'éditeur a ses propres boutons factices
+  const wanted = isScene() && !S.editing && !S.settings.get('sceneHidden') && rect && !S.alive(S.editorWin); // l'éditeur a ses propres boutons factices
   if (!wanted) {
     if (S.alive(S.controlsWin)) S.controlsWin.close();
     return;
   }
   const wb = widgetBounds();
   const bounds = {
-    x: Math.round(wb.x + rect.x), y: Math.round(wb.y + rect.y),
-    width: Math.round(rect.width), height: Math.round(rect.height),
+    x: Math.round(wb.x + rect.x),
+    y: Math.round(wb.y + rect.y),
+    width: Math.round(rect.width),
+    height: Math.round(rect.height),
   };
   if (!S.alive(S.controlsWin)) {
     const win = new BrowserWindow({
       ...bounds,
-      frame: false, transparent: true, backgroundColor: '#00000000', hasShadow: false,
+      frame: false,
+      transparent: true,
+      backgroundColor: '#00000000',
+      hasShadow: false,
       // Non activable : un clic sur un bouton ne la fait pas passer devant les
       // autres fenêtres et ne vole pas le focus.
-      resizable: false, minimizable: false, maximizable: false, skipTaskbar: true,
-      focusable: false, show: false,
+      resizable: false,
+      minimizable: false,
+      maximizable: false,
+      skipTaskbar: true,
+      focusable: false,
+      show: false,
       title: 'Sillon · boutons',
       webPreferences: { preload: S.PRELOAD, backgroundThrottling: false },
     });
@@ -70,10 +78,14 @@ function updateControls() {
       sendToBottom(win);
       placeAboveDesktop(win);
     });
-    win.webContents.on('render-process-gone', (_e, d) => diagnostic.note('boutons', `page plantée (${d.reason}) : rechargement`));
+    win.webContents.on('render-process-gone', (_e, d) =>
+      diagnostic.note('boutons', `page plantée (${d.reason}) : rechargement`),
+    );
     win.webContents.on('render-process-gone', () => setTimeout(() => S.alive(win) && win.reload(), 500));
     watchControls();
-    win.on('closed', () => { if (S.controlsWin === win) S.controlsWin = null; });
+    win.on('closed', () => {
+      if (S.controlsWin === win) S.controlsWin = null;
+    });
   } else {
     S.controlsWin.setBounds(bounds);
     sendToBottom(S.controlsWin);
