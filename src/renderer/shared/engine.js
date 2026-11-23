@@ -3,6 +3,9 @@
 (function () {
   'use strict';
 
+  const CAT = window.SillonCatalog;
+  if (!CAT) throw new Error('catalog.js doit être chargé avant engine.js');
+
   // ================= Audio =================
 
   class AudioEngine {
@@ -15,13 +18,37 @@
       this.lastBeat = 0;
       this.status = 'idle'; // idle | running | no-audio | error
       this.wave = new Float32Array(2048); // silence tant que l'audio n'est pas branché
+      this.gen = 0; // jeton de génération : un démarrage tardif d'une source périmée s'abandonne
+      this.suspended = false; // rendu en pause : contexte audio suspendu
+      this.reduceMotion = false; // animations réduites : lissage plus lent, pas de battement
+      this.pcmRest = null; // octet restant d'un morceau PCM de longueur impaire
+      this.pulse = 0; // basse lissée (pour les lueurs : jamais plus de quelques éclats par seconde)
+      this.glowLevel = 0; // niveau lissé, idem
+      this.lastFrameT = 0;
+      // Objet rendu à chaque image, réutilisé (aucune allocation par image).
+      this.out = {
+        bands: (n) => this.bands(n),
+        wave: this.wave,
+        bass: 0,
+        level: 0,
+        pulse: 0,
+        glowLevel: 0,
+        beat: false,
+      };
     }
 
     // Son du système via getDisplayMedia (loopback géré côté main). Jamais le micro.
     async startSystem() {
+      this.stop();
+      const gen = this.gen;
+      let stream = null;
       try {
-        this.stop();
-        const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+        stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+        if (gen !== this.gen) {
+          // Un autre démarrage (ou un arrêt) est passé entre-temps : on rend le flux.
+          stream.getTracks().forEach((t) => t.stop());
+          return false;
+        }
         this.stream = stream;
         stream.getVideoTracks().forEach((t) => t.stop());
         const tracks = stream.getAudioTracks();
@@ -29,15 +56,20 @@
           this.status = 'no-audio';
           return false;
         }
-        this.ctx = new AudioContext();
-        this.useNode(this.ctx.createMediaStreamSource(new MediaStream(tracks)));
+        const ctx = new AudioContext();
+        this.ctx = ctx;
+        this.useNode(ctx.createMediaStreamSource(new MediaStream(tracks)));
         tracks[0].addEventListener('ended', () => {
-          this.status = 'no-audio';
+          if (gen === this.gen) this.status = 'no-audio';
         });
+        if (this.suspended) ctx.suspend().catch(() => {});
         return true;
       } catch (e) {
         console.error('Capture audio impossible :', e);
-        this.status = 'error';
+        if (gen === this.gen) {
+          if (stream) stream.getTracks().forEach((t) => t.stop());
+          this.status = 'error';
+        }
         return false;
       }
     }
@@ -45,42 +77,77 @@
     // Son du seul lecteur suivi (Spotify, navigateur…), envoyé brut par le
     // processus principal : le chat vocal et les autres applis sont ignorés.
     async startApp(bridge) {
+      this.stop();
+      const gen = this.gen;
+      let ctx = null;
       try {
-        this.stop();
-        const ctx = new AudioContext({ sampleRate: 48000 });
+        ctx = new AudioContext({ sampleRate: 48000 });
+        this.ctx = ctx; // affecté tôt : stop() le ferme si on nous coupe en route
         await ctx.audioWorklet.addModule('../shared/pcm-worklet.js');
+        if (gen !== this.gen) {
+          ctx.close().catch(() => {});
+          return false;
+        }
         const node = new AudioWorkletNode(ctx, 'sillon-pcm', {
           numberOfInputs: 0,
           numberOfOutputs: 1,
           outputChannelCount: [1],
         });
         this.pcmNode = node;
+        this.pcmRest = null;
         if (!this.pcmHooked) {
           this.pcmHooked = true;
-          bridge.onAudioPcm((chunk) => {
-            if (!this.pcmNode) return;
-            // Copie alignée (le morceau reçu peut commencer à un octet impair).
-            const bytes = chunk.byteLength & ~1;
-            const ab = chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + bytes);
-            this.pcmNode.port.postMessage(ab, [ab]);
-          });
+          bridge.onAudioPcm((chunk) => this.pushPcm(chunk));
         }
         this.useNode(node);
         // Le graphe doit aboutir à la sortie pour tourner : gain nul, rien d'audible.
         const mute = ctx.createGain();
         mute.gain.value = 0;
         this.analyser.connect(mute).connect(ctx.destination);
-        await ctx.resume();
+        if (this.suspended) await ctx.suspend();
+        else await ctx.resume();
+        if (gen !== this.gen) {
+          ctx.close().catch(() => {});
+          return false;
+        }
         return true;
       } catch (e) {
         console.error('Capture du lecteur impossible :', e);
-        this.status = 'error';
+        if (ctx) ctx.close().catch(() => {});
+        if (gen === this.gen) {
+          if (this.ctx === ctx) this.ctx = null;
+          this.analyser = null;
+          this.pcmNode = null;
+          this.status = 'error';
+        }
         return false;
       }
     }
 
+    // Reçoit un morceau de PCM 16 bits. Le worklet attend des échantillons
+    // entiers : un éventuel octet isolé est gardé pour le morceau suivant.
+    pushPcm(chunk) {
+      if (!this.pcmNode || this.suspended) return;
+      const rest = this.pcmRest;
+      const total = chunk.byteLength + (rest === null ? 0 : 1);
+      const bytes = total & ~1;
+      if (!bytes) {
+        if (rest === null && chunk.byteLength) this.pcmRest = chunk[0];
+        return;
+      }
+      const ab = new ArrayBuffer(bytes);
+      const dst = new Uint8Array(ab);
+      let o = 0;
+      if (rest !== null) dst[o++] = rest;
+      const take = bytes - o;
+      dst.set(new Uint8Array(chunk.buffer, chunk.byteOffset, take), o);
+      this.pcmRest = take < chunk.byteLength ? chunk[take] : null;
+      this.pcmNode.port.postMessage(ab, [ab]);
+    }
+
     // Arrête la source en cours (avant d'en démarrer une autre).
     stop() {
+      this.gen++;
       if (this.stream) {
         this.stream.getTracks().forEach((t) => t.stop());
         this.stream = null;
@@ -91,6 +158,16 @@
       }
       this.analyser = null;
       this.pcmNode = null;
+      this.pcmRest = null;
+    }
+
+    // Rendu en pause (scène masquée, endormie, jeu en plein écran) : on suspend
+    // aussi le contexte audio, qui n'a plus rien à analyser.
+    setSuspended(on) {
+      this.suspended = !!on;
+      if (on) this.pcmRest = null; // l'octet restant serait recollé à un morceau périmé à la reprise
+      if (!this.ctx) return;
+      (on ? this.ctx.suspend() : this.ctx.resume()).catch(() => {});
     }
 
     // Brancher n'importe quel nœud audio (sert aussi aux tests / à la démo).
@@ -109,10 +186,18 @@
 
     // Une image d'analyse. Les visualiseurs demandent le nombre de bandes voulu.
     frame(now) {
-      const out = { bands: (n) => this.bands(n), wave: this.wave, bass: 0, level: 0, beat: false };
+      const out = this.out;
+      out.wave = this.wave;
+      out.bass = 0;
+      out.level = 0;
+      out.beat = false;
       if (!this.analyser) {
         // Pas d'audio : tout redescend doucement.
         for (const arr of this.bandsCache.values()) for (let i = 0; i < arr.length; i++) arr[i] *= 0.9;
+        this.pulse *= 0.9;
+        this.glowLevel *= 0.9;
+        out.pulse = this.pulse;
+        out.glowLevel = this.glowLevel;
         return out;
       }
       this.analyser.getByteFrequencyData(this.freq);
@@ -124,11 +209,21 @@
       for (let i = 0; i < this.wave.length; i += 4) rms += this.wave[i] * this.wave[i];
       out.level = Math.min(1, Math.sqrt(rms / (this.wave.length / 4)) * 3 * this.sensitivity);
       out.bass = Math.min(1, bass * this.sensitivity);
-      // Battement : la basse dépasse nettement sa moyenne récente.
+      // Lueurs : basse et niveau lissés (constante de temps ~200 ms), pour que
+      // la luminosité ne clignote pas au rythme des basses (WCAG 2.3.1).
+      const dt = Math.max(0, Math.min(250, now - this.lastFrameT));
+      this.lastFrameT = now;
+      const k = 1 - Math.exp(-dt / 200);
+      this.pulse += (out.bass - this.pulse) * k;
+      this.glowLevel += (out.level - this.glowLevel) * k;
+      out.pulse = this.pulse;
+      out.glowLevel = this.glowLevel;
+      // Battement : la basse dépasse nettement sa moyenne récente. Au plus ~3 par
+      // seconde (350 ms mini), et aucun en mode animations réduites.
       this.bassAvg = this.bassAvg * 0.94 + bass * 0.06;
-      if (bass > 0.35 && bass > this.bassAvg * 1.3 && now - this.lastBeat > 180) {
-        out.beat = true;
+      if (bass > 0.35 && bass > this.bassAvg * 1.3 && now - this.lastBeat > 350) {
         this.lastBeat = now;
+        out.beat = !this.reduceMotion;
       }
       return out;
     }
@@ -147,15 +242,22 @@
     bands(n) {
       let arr = this.bandsCache.get(n);
       if (!arr) {
+        // Les tailles demandées changent avec la fenêtre : on purge celles qui ne servent plus.
+        if (this.bandsCache.size >= 12) {
+          for (const [k, v] of this.bandsCache) if ((this.frameStamp || 0) - v.seen > 300) this.bandsCache.delete(k);
+        }
         arr = new Float32Array(n);
         this.bandsCache.set(n, arr);
         arr.stamp = -1;
       }
+      arr.seen = this.frameStamp || 0;
       if (!this.analyser || !this.bandsDirty || arr.stamp === this.frameStamp) return arr;
       arr.stamp = this.frameStamp;
       const hz = this.ctx.sampleRate / 2 / this.freq.length;
       const lo = Math.log(35),
         hi = Math.log(16000);
+      const up = this.reduceMotion ? 0.25 : 0.6,
+        down = this.reduceMotion ? 0.95 : 0.88;
       for (let i = 0; i < n; i++) {
         const f0 = Math.exp(lo + (hi - lo) * (i / n));
         const f1 = Math.exp(lo + (hi - lo) * ((i + 1) / n));
@@ -166,7 +268,8 @@
         // Les aigus portent moins d'énergie : on les relève un peu.
         let v = (m / 255) * (0.85 + 0.5 * (i / n)) * this.sensitivity;
         v = Math.min(1, Math.pow(v, 1.6));
-        arr[i] = v > arr[i] ? arr[i] + (v - arr[i]) * 0.6 : arr[i] * 0.88 + v * 0.12;
+        // Animations réduites : montée et descente plus lentes (barres lissées).
+        arr[i] = v > arr[i] ? arr[i] + (v - arr[i]) * up : arr[i] * down + v * (1 - down);
       }
       return arr;
     }
@@ -178,14 +281,8 @@
 
   // ================= Couleurs =================
 
-  const THEMES = {
-    spotify: ['#1db954', '#1ed760', '#b8f5cf'],
-    neon: ['#7c3aed', '#ec4899', '#22d3ee'],
-    sunset: ['#f97316', '#ef4444', '#facc15'],
-    ocean: ['#0ea5e9', '#6366f1', '#5eead4'],
-    mono: ['#e5e7eb', '#ffffff', '#cbd5e1'],
-    violet: ['#a855f7', '#ec4899', '#f0abfc'],
-  };
+  // Couleurs des jeux fixes : catalog.js (source unique).
+  const THEMES = CAT.PALETTES;
 
   function hexToRgb(h) {
     const n = parseInt(h.slice(1), 16);
@@ -298,26 +395,37 @@
       const key = color + '|' + step;
       let p = this.paths.get(key);
       if (!p) {
-        p = { path: new Path2D(), color, alpha: lo + ((1 - lo) * step) / (ALPHA_STEPS - 1) };
+        p = { path: new Path2D(), color, alpha: lo + ((1 - lo) * step) / (ALPHA_STEPS - 1), step };
         this.paths.set(key, p);
       }
       p.path.moveTo(x0, y0);
       p.path.lineTo(x1, y1);
     }
+    // La lueur n'est appliquée qu'aux deux paliers d'opacité les plus hauts
+    // (les traits les plus visibles) : c'est là que le flou coûte le plus.
     stroke(ctx, glow) {
-      for (const { path, color, alpha } of this.paths.values()) {
+      const blur = ctx.shadowBlur;
+      for (const { path, color, alpha, step } of this.paths.values()) {
         ctx.strokeStyle = color;
         ctx.globalAlpha = alpha;
-        if (glow) ctx.shadowColor = color;
+        if (glow) {
+          const on = step >= ALPHA_STEPS - 2;
+          ctx.shadowBlur = on ? blur : 0;
+          if (on) ctx.shadowColor = color;
+        }
         ctx.stroke(path);
       }
       this.paths.clear();
+      ctx.shadowBlur = blur;
       ctx.globalAlpha = 1;
     }
   }
   const batch = new StrokeBatch();
 
   const VISUALIZERS = {
+    // Disque masqué : on ne dessine rien (le moteur n'efface même pas le canvas sans décor).
+    none() {},
+
     bars(ctx, w, h, a, pal, opts) {
       const n = Math.max(16, Math.min(96, Math.floor(w / 14)));
       const bands = a.bands(n);
@@ -374,12 +482,13 @@
       const cx = opts.cx ?? w / 2,
         cy = opts.cy ?? h / 2;
       const m = Math.min(w, h);
-      const r0 = opts.radius ?? m * 0.2 * (1 + a.bass * 0.08);
+      const rm = opts.reduceMotion;
+      const r0 = opts.radius ?? m * 0.2 * (1 + (rm ? 0 : a.bass * 0.08));
       const len = opts.radius ? m * 0.16 : m * 0.2;
       ctx.lineCap = 'round';
       ctx.lineWidth = Math.max(2, ((2 * Math.PI * r0) / n) * 0.45);
       ctx.shadowBlur = opts.glow ? 16 : 0;
-      const rot = (opts.t || 0) * 0.00005;
+      const rot = rm ? 0 : (opts.t || 0) * 0.00005;
       for (let i = 0; i < n; i++) {
         const k = i < n / 2 ? i : n - 1 - i; // symétrique
         const v = bands[k];
@@ -399,10 +508,10 @@
       ctx.shadowBlur = 0;
       if (!opts.radius) {
         ctx.strokeStyle = pal[2];
-        ctx.globalAlpha = 0.35 + a.bass * 0.4;
+        ctx.globalAlpha = 0.35 + (rm ? 0 : a.pulse) * 0.25;
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(cx, cy, r0 - 6, 0, Math.PI * 2);
+        ctx.arc(cx, cy, Math.max(0, r0 - 6), 0, Math.PI * 2);
         ctx.stroke();
         ctx.globalAlpha = 1;
       }
@@ -438,7 +547,7 @@
 
     aurora(ctx, w, h, a, pal, opts) {
       const bands = a.bands(24);
-      const t = (opts.t || 0) / 1000;
+      const t = opts.reduceMotion ? 0 : (opts.t || 0) / 1000;
       ctx.globalCompositeOperation = 'lighter';
       for (let layer = 0; layer < 3; layer++) {
         const color = pal[layer];
@@ -480,6 +589,11 @@
         gap = h / rows;
       if (!blocksState.peaks || blocksState.peaks.length !== n) blocksState.peaks = new Float32Array(n);
       const peaks = blocksState.peaks;
+      // Blocs regroupés par couleur et opacité (3 couleurs x 6 paliers) : un
+      // seul tracé et un seul remplissage par groupe, au lieu d'un par bloc.
+      const groups = blocksState.groups;
+      groups.fill(null);
+      const rad = Math.min(3, bh / 3);
       for (let i = 0; i < n; i++) {
         const lit = Math.round(bands[i] * rows);
         peaks[i] = Math.max(lit, peaks[i] - 0.12);
@@ -488,17 +602,22 @@
           const y = h - (r + 1) * gap + (gap - bh) / 2;
           const on = r < lit;
           const top = Math.round(peaks[i]) === r + 1 && r >= lit - 1;
-          if (!on && !top) {
-            ctx.globalAlpha = 0.07;
-            ctx.fillStyle = pal[0];
-          } else {
-            ctx.globalAlpha = top && !on ? 0.9 : 0.55 + 0.45 * (r / rows);
-            ctx.fillStyle = r / rows > 0.75 ? pal[2] : r / rows > 0.4 ? pal[1] : pal[0];
-          }
-          ctx.beginPath();
-          ctx.roundRect(x, y, bw, bh, Math.min(3, bh / 3));
-          ctx.fill();
+          const f = r / rows;
+          const ci = !on && !top ? 0 : f > 0.75 ? 2 : f > 0.4 ? 1 : 0;
+          // Paliers : 0-3 blocs allumés (opacité 0,55 -> 1), 4 éteint, 5 crête.
+          const step = !on && !top ? 4 : top && !on ? 5 : Math.min(3, Math.floor(f * 4));
+          const gi = ci * 6 + step;
+          const p = groups[gi] || (groups[gi] = new Path2D());
+          p.roundRect(x, y, bw, bh, rad);
         }
+      }
+      for (let gi = 0; gi < groups.length; gi++) {
+        const p = groups[gi];
+        if (!p) continue;
+        const step = gi % 6;
+        ctx.globalAlpha = step === 4 ? 0.07 : step === 5 ? 0.9 : 0.55 + 0.45 * ((step + 0.5) / 4);
+        ctx.fillStyle = pal[Math.floor(gi / 6)];
+        ctx.fill(p);
       }
       ctx.globalAlpha = 1;
     },
@@ -508,10 +627,15 @@
       const cx = w / 2,
         cy = h / 2,
         m = Math.min(w, h);
-      const r = m * 0.17 * (1 + a.bass * 0.06);
+      // Lueurs pilotées par les valeurs lissées (pas de clignotement rapide), et
+      // figées en mode animations réduites.
+      const rm = opts.reduceMotion;
+      const pl = rm ? 0 : a.pulse,
+        lv = rm ? 0 : a.glowLevel;
+      const r = m * 0.17 * (1 + (rm ? 0 : a.bass * 0.06));
       const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 2.6);
-      core.addColorStop(0, withAlpha('#ffffff', 0.35 + a.level * 0.5));
-      core.addColorStop(0.3, withAlpha(pal[0], 0.35 + a.bass * 0.4));
+      core.addColorStop(0, withAlpha('#ffffff', 0.35 + lv * 0.3));
+      core.addColorStop(0.3, withAlpha(pal[0], 0.35 + pl * 0.25));
       core.addColorStop(1, withAlpha(pal[0], 0));
       ctx.fillStyle = core;
       ctx.beginPath();
@@ -523,7 +647,7 @@
       ctx.lineCap = 'round';
       ctx.lineWidth = Math.max(1, m * 0.004);
       ctx.shadowBlur = opts.glow === false ? 0 : 10;
-      const rot = (opts.t || 0) * 0.00004;
+      const rot = rm ? 0 : (opts.t || 0) * 0.00004;
       for (let i = 0; i < n; i++) {
         const half = i < n / 2 ? i : n - 1 - i;
         const v = bands[Math.min(63, Math.floor((half / (n / 2)) * 64))];
@@ -550,20 +674,27 @@
       const pal = opts.palette || basePal;
       const cx = opts.cx ?? w / 2,
         cy = opts.cy ?? h / 2;
-      const pulse = 1 + a.bass * 0.06;
-      const r = (opts.radius ?? Math.min(w, h) * 0.12) * pulse;
+      // Animations réduites : ni pulsation du disque, ni rotation, ni lueur qui bat.
+      const rm = opts.reduceMotion;
+      const pulse = rm ? 1 : 1 + a.bass * 0.06;
+      const baseR = opts.radius ?? Math.min(w, h) * 0.12;
+      const r = baseR * pulse;
       const t = opts.t || 0;
       const dt = Math.min(100, t - (discState.last || t));
       discState.last = t;
-      if (opts.spin) discState.rot += dt * 0.00012; // ~1 tour en 50 s
+      if (opts.spin && !rm) discState.rot += dt * 0.00012; // ~1 tour en 50 s
+      // Lueurs pilotées par les valeurs lissées de l'analyse (au plus quelques
+      // éclats par seconde) et d'amplitude plafonnée : WCAG 2.3.1.
+      const pl = rm ? 0 : a.pulse,
+        lv = rm ? 0 : a.glowLevel;
 
       // Intensité (réglage) : taille du halo, longueur et densité des rayons.
       const k = Math.max(0.4, Math.min(2.2, opts.intensity ?? 1.3));
 
       // Halo : respire avec le niveau sonore.
-      const haloR = r * (2.4 + 1.1 * k + a.level * 0.9 * k);
+      const haloR = r * (2.4 + 1.1 * k + lv * 0.9 * k);
       const halo = ctx.createRadialGradient(cx, cy, r * 0.6, cx, cy, haloR);
-      halo.addColorStop(0, withAlpha(opts.halo || pal[0], Math.min(0.9, (0.5 + a.bass * 0.3) * Math.sqrt(k))));
+      halo.addColorStop(0, withAlpha(opts.halo || pal[0], Math.min(0.8, (0.5 + pl * 0.2) * Math.sqrt(k))));
       halo.addColorStop(0.4, withAlpha(opts.halo || pal[0], Math.min(0.5, 0.16 * k)));
       halo.addColorStop(1, withAlpha(opts.halo || pal[0], 0));
       ctx.fillStyle = halo;
@@ -572,12 +703,13 @@
       ctx.fill();
 
       // Lueur du centre : un cœur presque blanc qui s'illumine avec le son.
+      // Animations réduites : lueur fixe, sans pulsation.
       const bloom = Math.max(0, Math.min(1.5, opts.bloom ?? 0.8));
       if (bloom > 0) {
-        const bR = r * (1.9 + a.level * 0.8);
+        const bR = r * (1.9 + lv * 0.8);
         const b = ctx.createRadialGradient(cx, cy, r * 0.9, cx, cy, bR);
-        b.addColorStop(0, withAlpha('#ffffff', Math.min(0.85, bloom * (0.3 + a.bass * 0.45))));
-        b.addColorStop(0.35, withAlpha(pal[2], Math.min(0.6, bloom * (0.18 + a.level * 0.3))));
+        b.addColorStop(0, withAlpha('#ffffff', Math.min(0.55, bloom * (0.3 + pl * 0.2))));
+        b.addColorStop(0.35, withAlpha(pal[2], Math.min(0.4, bloom * (0.18 + lv * 0.15))));
         b.addColorStop(1, withAlpha(pal[2], 0));
         ctx.fillStyle = b;
         ctx.beginPath();
@@ -598,7 +730,7 @@
       for (let i = 0; i < n; i++) {
         const half = i < n / 2 ? i : n - 1 - i;
         const v = bands[Math.min(63, Math.floor((half / (n / 2)) * 64))];
-        const wob = 0.5 + 0.5 * Math.sin(i * 1.7 + t * 0.004); // un peu de vie au repos
+        const wob = rm ? 0.5 : 0.5 + 0.5 * Math.sin(i * 1.7 + t * 0.004); // un peu de vie au repos
         const l = 3 + v * len + wob * 3 * k;
         const ang = (i / n) * Math.PI * 2 - Math.PI / 2;
         batch.add(
@@ -628,23 +760,28 @@
       }
       ctx.fill();
 
-      // Pochette ronde qui tourne.
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.clip();
-      if (opts.image && opts.image.complete && opts.image.naturalWidth) {
+      // Pochette ronde qui tourne : dessinée depuis un canvas hors écran, déjà
+      // découpé en cercle à la bonne taille (au lieu de redimensionner l'image
+      // de 500 px à chaque image).
+      const sprite = coverSprite(opts.image, baseR, opts.dpr || 1);
+      if (sprite) {
+        ctx.save();
         ctx.translate(cx, cy);
         ctx.rotate(discState.rot);
-        ctx.drawImage(opts.image, -r, -r, r * 2, r * 2);
+        ctx.drawImage(sprite, -r, -r, r * 2, r * 2);
+        ctx.restore();
       } else {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.clip();
         const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
         g.addColorStop(0, pal[1]);
         g.addColorStop(1, pal[0]);
         ctx.fillStyle = g;
         ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+        ctx.restore();
       }
-      ctx.restore();
       // Liseré sombre pour détacher la pochette des rayons.
       ctx.strokeStyle = 'rgba(0,0,0,.35)';
       ctx.lineWidth = 2;
@@ -655,16 +792,43 @@
   };
 
   const discState = { rot: 0, last: 0 };
-  const blocksState = { peaks: null };
+
+  // Pochette découpée en cercle, à la taille d'affichage (en pixels du canvas).
+  // Régénérée seulement quand l'image ou le rayon change.
+  const coverCache = { img: null, px: 0, canvas: null };
+  function coverSprite(img, radius, dpr) {
+    if (!img || !img.complete || !img.naturalWidth) return null;
+    const px = Math.max(2, Math.round(radius * 2 * dpr));
+    if (coverCache.img !== img || coverCache.px !== px || !coverCache.canvas) {
+      const c = coverCache.canvas || document.createElement('canvas');
+      c.width = c.height = px;
+      const x = c.getContext('2d');
+      x.clearRect(0, 0, px, px);
+      x.save();
+      x.beginPath();
+      x.arc(px / 2, px / 2, px / 2, 0, Math.PI * 2);
+      x.clip();
+      x.drawImage(img, 0, 0, px, px);
+      x.restore();
+      coverCache.img = img;
+      coverCache.px = px;
+      coverCache.canvas = c;
+    }
+    return coverCache.canvas;
+  }
+  const blocksState = { peaks: null, groups: new Array(18).fill(null) };
 
   // ================= Décors de la scène =================
 
   // Bord de l'écran lumineux qui pulse avec les basses.
-  function drawEdgeGlow(ctx, w, h, a, pal, strength = 1) {
+  // La luminosité suit la basse lissée (a.pulse) avec une amplitude plafonnée :
+  // pas de clignotement rapide (WCAG 2.3.1). `reduce` : bord fixe, sans pulsation.
+  function drawEdgeGlow(ctx, w, h, a, pal, strength = 1, reduce = false) {
     const s = Math.max(0, Math.min(2, strength));
     if (!s) return;
-    const thick = Math.min(w, h) * (0.035 + a.bass * 0.03);
-    const alpha = Math.min(0.9, s * (0.18 + a.bass * 0.55));
+    const p = reduce ? 0 : (a.pulse ?? a.bass);
+    const thick = Math.min(w, h) * (0.035 + p * 0.02);
+    const alpha = Math.min(0.6, s * (0.18 + p * 0.25));
     const edges = [
       [0, 0, 0, thick, 0, 0, w, thick, pal[0]],
       [0, h, 0, h - thick, 0, h - thick, w, thick, pal[1]],
@@ -684,17 +848,18 @@
   }
 
   // Anneaux qui vibrent autour de la petite pochette du panneau.
-  function drawCoverRings(ctx, cx, cy, R, a, pal) {
+  function drawCoverRings(ctx, cx, cy, R, a, pal, reduce = false) {
     const bands = a.bands(16);
     ctx.save();
     ctx.lineWidth = Math.max(1.5, R * 0.025);
     for (let i = 0; i < 3; i++) {
-      const v = (bands[i * 2] + bands[i * 2 + 1]) / 2;
+      const v = reduce ? 0.15 : (bands[i * 2] + bands[i * 2 + 1]) / 2;
       const rr = R + 7 + i * (R * 0.11) + v * R * 0.12;
       ctx.strokeStyle = pal[i % 3];
+      // Le flou de lueur n'est payé que quand l'anneau est visiblement animé.
       ctx.shadowColor = pal[i % 3];
-      ctx.shadowBlur = 12;
-      ctx.globalAlpha = Math.min(0.95, 0.2 + v * 0.9) * (1 - i * 0.22);
+      ctx.shadowBlur = v > 0.3 ? 10 : 0;
+      ctx.globalAlpha = Math.min(0.8, 0.2 + v * 0.7) * (1 - i * 0.22);
       ctx.beginPath();
       ctx.arc(cx, cy, rr, 0, Math.PI * 2);
       ctx.stroke();
@@ -710,26 +875,41 @@
       this.cache = new Map();
       this.wave = new Float32Array(1024);
       this.t = 0;
+      this.reduceMotion = false;
+      this.out = {
+        bands: (n) => this.bands(n),
+        wave: this.wave,
+        bass: 0,
+        level: 0,
+        pulse: 0,
+        glowLevel: 0,
+        beat: false,
+      };
     }
+    setSuspended() {}
     frame(now) {
       this.t = now / 1000;
       const beat = Math.pow(Math.max(0, Math.sin(this.t * Math.PI * 2 * 1.9)), 8);
       for (let i = 0; i < this.wave.length; i++) {
         this.wave[i] = Math.sin(i * 0.05 + this.t * 6) * 0.18 * (0.5 + beat) + Math.sin(i * 0.013 - this.t * 2) * 0.08;
       }
-      const self = this;
-      return {
-        bands: (n) => self.bands(n),
-        wave: this.wave,
-        bass: 0.25 + beat * 0.7,
-        level: 0.3 + beat * 0.4,
-        beat: beat > 0.9,
-      };
+      const o = this.out;
+      o.bass = 0.25 + beat * 0.7;
+      o.level = 0.3 + beat * 0.4;
+      // Valeurs de lueur adoucies : l'aperçu ne clignote pas non plus.
+      o.pulse = 0.25 + beat * 0.25;
+      o.glowLevel = 0.3 + beat * 0.15;
+      o.beat = !this.reduceMotion && beat > 0.9;
+      return o;
     }
     bands(n) {
       const t = this.t;
       const beat = Math.pow(Math.max(0, Math.sin(t * Math.PI * 2 * 1.9)), 8);
-      const arr = new Float32Array(n);
+      let arr = this.cache.get(n);
+      if (!arr) {
+        arr = new Float32Array(n);
+        this.cache.set(n, arr);
+      }
       for (let i = 0; i < n; i++) {
         const x = i / n;
         const v =
@@ -744,19 +924,36 @@
   }
 
   // "hsl(10 80% 50%)" ou "#rrggbb" -> même couleur avec une opacité.
-  function withAlpha(color, alpha) {
-    if (color.startsWith('#')) {
-      const [r, g, b] = hexToRgb(color);
-      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  // Le début de la chaîne ("rgba(r, g, b, " ou "hsl(… / ") est calculé une fois
+  // par couleur (voir prepareColor, appelé au changement de palette) : à chaque
+  // image il ne reste qu'à y accoler l'opacité.
+  const colorPrefix = new Map();
+  function prepareColor(color) {
+    let p = colorPrefix.get(color);
+    if (p === undefined) {
+      if (color.startsWith('#')) {
+        const [r, g, b] = hexToRgb(color);
+        p = `rgba(${r}, ${g}, ${b}, `;
+      } else if (color.startsWith('hsl(')) p = color.slice(0, -1) + ' / ';
+      else p = null;
+      if (colorPrefix.size > 256) colorPrefix.clear();
+      colorPrefix.set(color, p);
     }
-    if (color.startsWith('hsl(')) return color.replace(')', ` / ${alpha})`);
-    return color;
+    return p;
+  }
+  function withAlpha(color, alpha) {
+    const p = prepareColor(color);
+    return p === null ? color : p + Math.round(alpha * 1000) / 1000 + ')';
   }
 
-  const STYLE_ORDER = ['bars', 'mirror', 'blocks', 'ring', 'halo', 'wave', 'aurora'];
-  const THEME_ORDER = ['wallpaper', 'album', 'spotify', 'neon', 'sunset', 'ocean', 'violet', 'mono'];
+  // Catalogue partagé (catalog.js, chargé avant ce fichier par toutes les pages).
+  const { STYLE_ORDER, THEME_ORDER, STYLE_NAMES, THEME_NAMES } = CAT;
 
   // ================= Boucle de rendu =================
+
+  // Au-delà, le ratio de pixels est réduit (sans descendre sous 1) : une scène
+  // plein bureau en 4K coûte cher à remplir pour un gain de netteté invisible.
+  const MAX_PIXELS = 4200000;
 
   class Renderer {
     constructor(canvas, engine) {
@@ -764,46 +961,153 @@
       this.ctx = canvas.getContext('2d');
       this.engine = engine;
       this.style = 'bars';
-      this.palette = THEMES.neon;
+      this._palette = THEMES.neon;
+      prepareColor('#ffffff');
       this.fps = 60;
       this.opts = { glow: true };
       this.hooks = [];
       this.last = 0;
+      this.maxDpr = Infinity; // plafond du ratio de pixels (la scène plein bureau le met à 1)
+      this.dpr = 1;
+      this.reduceMotion = false;
+      this._paused = false;
+      this._slow = false;
+      this.raf = 0;
+      this.timer = 0;
+      this.blank = false;
+      this.frameOpts = {}; // options passées au visualiseur, réutilisées d'une image à l'autre
+      this.optsSrc = null;
       this.loop = this.loop.bind(this);
       new ResizeObserver(() => this.resize()).observe(canvas);
       this.resize();
-      requestAnimationFrame(this.loop);
+      this.schedule();
+    }
+    get palette() {
+      return this._palette;
+    }
+    // Les chaînes de couleur à opacité variable sont préparées au changement de palette.
+    set palette(pal) {
+      this._palette = pal;
+      for (const c of pal) prepareColor(c);
+    }
+    // Suspendu (jeu en plein écran, scène masquée ou endormie) : plus aucune image,
+    // et le contexte audio est suspendu avec elle.
+    get paused() {
+      return this._paused;
+    }
+    set paused(v) {
+      v = !!v;
+      if (v === this._paused) return;
+      this._paused = v;
+      this.cancel();
+      if (this.engine.setSuspended) this.engine.setSuspended(v);
+      this.last = 0;
+      this.schedule();
+    }
+    // Au ralenti (musique en pause) : quelques images par seconde, cadencées par
+    // un minuteur plutôt qu'en réveillant requestAnimationFrame à chaque image de l'écran.
+    get slow() {
+      return this._slow;
+    }
+    set slow(v) {
+      v = !!v;
+      if (v === this._slow) return;
+      this._slow = v;
+      this.cancel();
+      this.schedule();
+    }
+    setMaxDpr(v) {
+      if (v === this.maxDpr) return;
+      this.maxDpr = v;
+      this.resize();
     }
     resize() {
-      const dpr = window.devicePixelRatio || 1;
       const r = this.canvas.getBoundingClientRect();
+      let dpr = Math.min(window.devicePixelRatio || 1, this.maxDpr);
+      const area = r.width * r.height;
+      if (area > 0) dpr = Math.min(dpr, Math.max(1, Math.sqrt(MAX_PIXELS / area)));
+      this.dpr = dpr;
       this.w = r.width;
       this.h = r.height;
       this.canvas.width = Math.max(1, Math.round(r.width * dpr));
       this.canvas.height = Math.max(1, Math.round(r.height * dpr));
       this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      this.blank = false;
+    }
+    cancel() {
+      if (this.raf) cancelAnimationFrame(this.raf);
+      if (this.timer) clearTimeout(this.timer);
+      this.raf = this.timer = 0;
+    }
+    // Arme la prochaine image (une seule à la fois). Rien tant que c'est en pause.
+    schedule() {
+      if (this._paused || this.raf || this.timer) return;
+      if (this._slow) {
+        this.timer = setTimeout(() => this.loop(performance.now()), 1000 / Math.min(this.fps, 15));
+      } else this.raf = requestAnimationFrame(this.loop);
     }
     loop(now) {
-      requestAnimationFrame(this.loop);
-      // Suspendu (jeu en plein écran, scène endormie) : rien à calculer.
-      if (this.paused) return;
-      // Au ralenti (musique en pause) : quelques images par seconde suffisent.
-      const fps = this.slow ? Math.min(this.fps, 15) : this.fps;
-      if (now - this.last < 1000 / fps - 2) return;
-      this.last = now;
+      this.raf = this.timer = 0;
+      if (this._paused) return;
+      const fps = this._slow ? Math.min(this.fps, 15) : this.fps;
+      try {
+        if (now - this.last >= 1000 / fps - 2) {
+          this.last = now;
+          this.render(now);
+        }
+      } catch (e) {
+        // Une image en échec ne doit pas arrêter la boucle pour de bon.
+        console.error('Image de rendu en échec :', e);
+      } finally {
+        this.schedule();
+      }
+    }
+    render(now) {
+      const none = this.style === 'none';
+      if (none && !this.hooks.length) {
+        // Rien à dessiner : on efface une fois, puis on ne touche plus au canvas.
+        if (!this.blank) {
+          this.ctx.clearRect(0, 0, this.w, this.h);
+          this.blank = true;
+        }
+        return;
+      }
+      this.blank = false;
       this.engine.tick();
       const a = this.engine.frame(now);
       this.ctx.clearRect(0, 0, this.w, this.h);
+      const o = this.frameOpts;
+      if (this.optsSrc !== this.opts) {
+        for (const k in o) delete o[k];
+        this.optsSrc = this.opts;
+      }
+      Object.assign(o, this.opts);
+      o.t = now;
+      o.sensitivity = this.engine.sensitivity;
+      o.reduceMotion = this.reduceMotion;
+      o.dpr = this.dpr;
       const draw = VISUALIZERS[this.style] || VISUALIZERS.bars;
-      draw(this.ctx, this.w, this.h, a, this.palette, { ...this.opts, t: now, sensitivity: this.engine.sensitivity });
-      for (const fn of this.hooks) fn(a, now);
+      draw(this.ctx, this.w, this.h, a, this._palette, o);
+      // Un décor qui lève une exception n'empêche pas les suivants (signalée une fois).
+      for (const fn of this.hooks) {
+        this.ctx.save();
+        try {
+          fn(a, now);
+        } catch (e) {
+          if (!fn.failed) {
+            fn.failed = true;
+            console.error('Décor de rendu en échec :', e);
+          }
+        }
+        this.ctx.restore();
+      }
     }
   }
 
   // ================= Utilitaires morceau en cours =================
 
   function currentPosition(m) {
-    if (!m || !m.active || !m.duration) return 0;
+    if (!m || !m.active) return 0;
     let p = m.position || 0;
     if (m.anchorAt) {
       // Ancrage calculé côté principal (voir media.js) : résiste aux mesures périmées.
@@ -812,7 +1116,8 @@
       const ref = m.updated && m.updated > 0 ? m.updated : m.receivedAt;
       if (ref) p += (Date.now() - ref) / 1000;
     }
-    return Math.max(0, Math.min(m.duration, p));
+    // Durée inconnue (certains lecteurs ne la donnent pas) : pas de plafond.
+    return Math.max(0, m.duration > 0 ? Math.min(m.duration, p) : p);
   }
   const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
@@ -823,6 +1128,8 @@
     THEMES,
     STYLE_ORDER,
     THEME_ORDER,
+    STYLE_NAMES,
+    THEME_NAMES,
     paletteFromImage,
     paletteFromColor,
     currentPosition,

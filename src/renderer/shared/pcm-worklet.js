@@ -13,6 +13,8 @@ class PcmPlayer extends AudioWorkletProcessor {
     this.read = 0;
     this.write = 0;
     this.size = 0;
+    this.env = 0;
+    this.gain = 1;
     this.port.onmessage = (e) => this.push(new Int16Array(e.data));
   }
 
@@ -32,13 +34,15 @@ class PcmPlayer extends AudioWorkletProcessor {
     const rms = Math.sqrt(sum / Math.max(1, samples.length));
     if (rms > 0.001) this.env = this.env ? this.env * 0.99 + rms * 0.01 : rms; // ~1 s de mémoire
     const target = this.env ? Math.min(12, Math.max(1, 0.08 / this.env)) : 1;
-    this.gain = (this.gain || 1) + (target - (this.gain || 1)) * 0.05;
-    const g = this.gain;
+    this.gain += (target - this.gain) * 0.05;
+    const g = this.gain / 32768;
+    let w = this.write;
     for (let i = 0; i < samples.length; i++) {
-      const v = (samples[i] / 32768) * g;
-      buf[this.write] = v > 1 ? 1 : v < -1 ? -1 : v;
-      this.write = (this.write + 1) % cap;
+      const v = samples[i] * g;
+      buf[w] = v > 1 ? 1 : v < -1 ? -1 : v;
+      if (++w === cap) w = 0; // bouclage sans modulo
     }
+    this.write = w;
     this.size = Math.min(cap, this.size + samples.length);
     // Retard limité à ~80 ms : on saute ce qui dépasse.
     const max = 3840;
@@ -54,13 +58,17 @@ class PcmPlayer extends AudioWorkletProcessor {
     const out = outputs[0][0];
     const buf = this.buf,
       cap = buf.length;
+    let r = this.read,
+      size = this.size;
     for (let i = 0; i < out.length; i++) {
-      if (this.size > 0) {
-        out[i] = buf[this.read];
-        this.read = (this.read + 1) % cap;
-        this.size--;
+      if (size > 0) {
+        out[i] = buf[r];
+        if (++r === cap) r = 0;
+        size--;
       } else out[i] = 0;
     }
+    this.read = r;
+    this.size = size;
     return true;
   }
 }

@@ -4,6 +4,7 @@ const { BrowserWindow, screen } = require('electron');
 const path = require('path');
 const S = require('../app/state');
 const { sendToBottom } = require('./wallpaper');
+const { secureWindow } = require('./secure');
 
 function toggleFullscreen() {
   if (S.alive(S.fullscreen)) {
@@ -22,13 +23,12 @@ function toggleFullscreen() {
     webPreferences: { preload: S.PRELOAD, backgroundThrottling: false },
   });
   S.fullscreen = win;
+  secureWindow(win);
   win.loadFile(path.join(S.RENDERER, 'fullscreen.html'));
   win.webContents.on('did-finish-load', () => {
-    win.webContents.send('settings', S.settings.get());
-    win.webContents.send('media', S.lastMedia);
-    if (S.lastLyrics) win.webContents.send('lyrics', S.lastLyrics);
-    if (S.wallpaperSample) win.webContents.send('wallpaper', S.wallpaperSample);
+    S.replayTo(win);
     S.actions.startAudio(win);
+    setTimeout(S.actions.sampleWallpaper, 800); // la scène a pu ne plus échantillonner
   });
   win.on('closed', () => {
     if (S.fullscreen === win) S.fullscreen = null;
@@ -44,9 +44,10 @@ function openSettings() {
   // Sur l'écran du plein écran s'il est ouvert, sinon sur l'écran principal.
   const parent = S.alive(S.fullscreen) ? S.fullscreen : null;
   const display = parent ? screen.getDisplayMatching(parent.getBounds()) : screen.getPrimaryDisplay();
-  const width = 420,
-    height = 700;
+  // Menu des sections à gauche, aperçu et réglages à droite ; réduit sur un petit écran.
   const { workArea: wa } = display;
+  const width = Math.min(880, wa.width - 48),
+    height = Math.min(660, wa.height - 104);
   const win = new BrowserWindow({
     width,
     height,
@@ -64,6 +65,7 @@ function openSettings() {
     webPreferences: { preload: S.PRELOAD },
   });
   S.settingsWin = win;
+  secureWindow(win);
   win.loadFile(path.join(S.RENDERER, 'settings.html'));
   win.on('closed', () => {
     if (S.settingsWin === win) S.settingsWin = null;

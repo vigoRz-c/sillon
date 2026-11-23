@@ -19,6 +19,7 @@ const crypto = require('crypto');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { note } = require('./text-norm');
 
 // App Spotify « Sillon » (mode développement : comptes autorisés uniquement).
 const BUILTIN_CLIENT_ID = '2205461c49cc4912a8e5f913ebc36c6d';
@@ -30,6 +31,9 @@ const MODIFY = 'user-modify-playback-state';
 const ACCOUNTS = 'https://accounts.spotify.com';
 const API = 'https://api.spotify.com/v1';
 
+const escapeHtml = (t) =>
+  String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
 const b64url = (buf) => buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
 class SpotifyApi extends EventEmitter {
@@ -39,38 +43,89 @@ class SpotifyApi extends EventEmitter {
     this.getConfig = getConfig;
     this.file = path.join(app.getPath('userData'), 'spotify-token.bin');
     this.tokens = null;
-    // Lecture asynchrone des jetons (API de chiffrement d'Electron 45+).
-    this.ready = this.load().then((t) => {
-      this.tokens = t;
-    });
     this.server = null;
     this.lastError = '';
+    this.persistWarning = ''; // jetons non mémorisés (chiffrement indisponible, écriture impossible)
+    this.session = 0; // incrémenté à chaque déconnexion : une écriture en cours ne doit pas la défaire
+    this.refreshing = null; // rafraîchissement du jeton en cours, partagé par les appels concurrents
+    // Lecture asynchrone des jetons (API de chiffrement d'Electron 45+).
+    this.ready = this.load()
+      .then((t) => {
+        if (t && !this.tokens) this.tokens = t;
+      })
+      .catch((e) => this.loadFailed(e));
+  }
+
+  loadFailed(e) {
+    console.error('Jetons Spotify :', e.message);
+    note('spotify', `jetons illisibles : ${e.message}`);
+    this.setError('Jetons Spotify illisibles : reconnecte-toi');
+    return null;
   }
 
   // ----- Jetons sur disque (chiffrés par Windows quand c'est possible) -----
   async load() {
+    let raw;
     try {
-      const raw = fs.readFileSync(this.file);
+      raw = fs.readFileSync(this.file);
+    } catch (e) {
+      if (e.code === 'ENOENT') return null; // jamais connecté : normal
+      return this.loadFailed(e);
+    }
+    try {
       if (await safeStorage.isAsyncEncryptionAvailable()) {
-        const { result, shouldReEncrypt } = await safeStorage.decryptStringAsync(raw);
-        const tokens = JSON.parse(result);
-        if (shouldReEncrypt) await this.save(tokens); // clé renouvelée par Windows
-        return tokens;
+        try {
+          const { result, shouldReEncrypt } = await safeStorage.decryptStringAsync(raw);
+          const tokens = JSON.parse(result);
+          if (shouldReEncrypt) await this.save(tokens); // clé renouvelée par Windows
+          return tokens;
+        } catch (e) {
+          // Fichier en clair d'une ancienne version : relu, puis chiffré.
+          let legacy = null;
+          try {
+            legacy = JSON.parse(raw.toString('utf8'));
+          } catch {
+            /* vraiment illisible */
+          }
+          if (!legacy || !legacy.refresh) throw e;
+          await this.save(legacy);
+          return legacy;
+        }
       }
       return JSON.parse(raw.toString('utf8'));
-    } catch {
-      return null;
+    } catch (e) {
+      return this.loadFailed(e);
     }
   }
 
+  // Persiste d'abord, puis garde en mémoire. Sans chiffrement Windows, rien
+  // n'est écrit en clair : la connexion vaut pour cette session seulement.
+  // Renvoie false si une déconnexion a eu lieu entre-temps (rien n'est écrit).
   async save(tokens) {
-    this.tokens = tokens;
+    const session = this.session;
     const json = JSON.stringify(tokens);
-    const data = (await safeStorage.isAsyncEncryptionAvailable())
-      ? await safeStorage.encryptStringAsync(json)
-      : Buffer.from(json, 'utf8');
-    fs.mkdirSync(path.dirname(this.file), { recursive: true });
-    fs.writeFileSync(this.file, data);
+    try {
+      if (await safeStorage.isAsyncEncryptionAvailable()) {
+        const data = await safeStorage.encryptStringAsync(json);
+        if (session !== this.session) return false;
+        fs.mkdirSync(path.dirname(this.file), { recursive: true });
+        const tmp = `${this.file}.tmp`;
+        fs.writeFileSync(tmp, data);
+        fs.renameSync(tmp, this.file);
+        this.persistWarning = '';
+      } else {
+        this.persistWarning = 'chiffrement Windows indisponible : connexion non mémorisée';
+        this.setError(this.persistWarning);
+      }
+    } catch (e) {
+      console.error('Jetons Spotify :', e.message);
+      note('spotify', `jetons non enregistrés : ${e.message}`);
+      this.persistWarning = `Jetons Spotify non enregistrés : ${e.message}`;
+      this.setError(this.persistWarning);
+    }
+    if (session !== this.session) return false;
+    this.tokens = tokens;
+    return true;
   }
 
   // Client ID utilisé : celui de l'utilisateur, ou celui intégré à Sillon.
@@ -120,14 +175,26 @@ class SpotifyApi extends EventEmitter {
     this.emit('status', this.status());
   }
 
+  // Efface une erreur passagère, mais pas l'avertissement « connexion non mémorisée ».
+  clearError() {
+    this.setError(this.persistWarning);
+  }
+
   logout() {
+    this.session++;
+    this.persistWarning = '';
     this.tokens = null;
+    let error = '';
     try {
       fs.unlinkSync(this.file);
-    } catch {
-      /* déjà absent */
+    } catch (e) {
+      if (e.code !== 'ENOENT') {
+        console.error('Jetons Spotify :', e.message);
+        note('spotify', `jetons non effacés : ${e.message}`);
+        error = `Jetons Spotify non effacés : ${e.message}`;
+      }
     }
-    this.setError('');
+    this.setError(error);
   }
 
   // ----- Connexion (navigateur + petit serveur local pour le retour) -----
@@ -145,6 +212,7 @@ class SpotifyApi extends EventEmitter {
     const challenge = b64url(crypto.createHash('sha256').update(verifier).digest());
     const state = b64url(crypto.randomBytes(16));
 
+    let timer = null;
     const server = http.createServer(async (req, res) => {
       const url = new URL(req.url, REDIRECT_URI);
       if (url.pathname !== '/callback') {
@@ -152,15 +220,17 @@ class SpotifyApi extends EventEmitter {
         return;
       }
       const done = (ok, text) => {
+        clearTimeout(timer);
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(`<!doctype html><meta charset="utf-8"><title>Sillon</title>
 <body style="font-family:Segoe UI,sans-serif;background:#111;color:#eee;display:grid;place-items:center;height:100vh;margin:0">
-<div style="text-align:center"><h2>${ok ? 'Sillon est connecté à Spotify' : 'Connexion impossible'}</h2><p>${text}</p></div>`);
+<div style="text-align:center"><h2>${ok ? 'Sillon est connecté à Spotify' : 'Connexion impossible'}</h2><p>${escapeHtml(text)}</p></div>`);
         server.close();
         if (this.server === server) this.server = null;
       };
       if (url.searchParams.get('state') !== state) {
-        done(false, 'Réponse inattendue : relance la connexion depuis Sillon.');
+        // Une page quelconque ne doit pas pouvoir annuler la connexion : 400, le serveur reste ouvert.
+        res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' }).end('Réponse inattendue.');
         return;
       }
       const err = url.searchParams.get('error');
@@ -184,7 +254,7 @@ class SpotifyApi extends EventEmitter {
           clientId,
           scope: tok.scope || '',
         });
-        this.setError('');
+        this.clearError();
         this.emit('connected');
         done(true, 'Tu peux fermer cet onglet et revenir au bureau.');
       } catch (e) {
@@ -207,15 +277,17 @@ class SpotifyApi extends EventEmitter {
     });
     this.server = server;
     // Abandon au bout de 5 minutes sans retour.
-    setTimeout(
+    timer = setTimeout(
       () => {
         if (this.server === server) {
           server.close();
           this.server = null;
+          this.setError('Connexion Spotify expirée');
         }
       },
       5 * 60 * 1000,
     );
+    if (timer.unref) timer.unref();
   }
 
   async tokenRequest(params) {
@@ -239,6 +311,18 @@ class SpotifyApi extends EventEmitter {
     if (!t || !t.refresh) return null;
     if (!this.tokensMatch()) return null; // connecté avec l'autre option : se reconnecter
     if (t.access && Date.now() < t.expiresAt - 60000) return t.access;
+    // Un seul rafraîchissement à la fois : Spotify peut renouveler le refresh
+    // token, et le second appel recevrait invalid_grant (donc une déconnexion).
+    if (!this.refreshing) {
+      this.refreshing = this.refreshTokens(t).finally(() => {
+        this.refreshing = null;
+      });
+    }
+    return this.refreshing;
+  }
+
+  async refreshTokens(t) {
+    const session = this.session;
     try {
       const tok = await this.tokenRequest({
         grant_type: 'refresh_token',
@@ -252,10 +336,10 @@ class SpotifyApi extends EventEmitter {
         expiresAt: Date.now() + tok.expires_in * 1000,
         scope: tok.scope || t.scope || '',
       });
-      return this.tokens.access;
+      return this.tokens ? this.tokens.access : null; // null si déconnecté entre-temps
     } catch (e) {
       // Jeton révoqué ou app supprimée : il faut se reconnecter.
-      if (/invalid_grant|invalid_client/.test(e.message)) this.logout();
+      if (session === this.session && /invalid_grant|invalid_client/.test(e.message)) this.logout();
       this.setError(e.message);
       return null;
     }
@@ -281,7 +365,7 @@ class SpotifyApi extends EventEmitter {
     }
     if (res.status === 204) return null;
     if (res.status === 401 && retry) {
-      this.tokens.expiresAt = 0;
+      if (this.tokens) this.tokens = { ...this.tokens, expiresAt: 0 };
       return this.get(pathname, false);
     }
     if (res.status === 429) {
@@ -335,8 +419,24 @@ class SpotifyApi extends EventEmitter {
     return this.put(`/me/player/repeat?state=${{ List: 'context', Track: 'track' }[mode] || 'off'}`);
   }
 
+  // Reprend la lecture (sur l'appareil donné, sinon l'appareil actif).
+  play(deviceId) {
+    return this.put(`/me/player/play${deviceId ? `?device_id=${encodeURIComponent(deviceId)}` : ''}`);
+  }
+
+  // Appareil actif, sinon l'ordinateur : { id, active } (null si aucun connu).
+  async playbackDevice() {
+    const data = await this.get('/me/player/devices');
+    const list = (data && Array.isArray(data.devices) && data.devices) || [];
+    const d = list.find((x) => x.is_active) || list.find((x) => x.type === 'Computer');
+    return d && d.id ? { id: d.id, active: !!d.is_active } : null;
+  }
+
   // Les prochains morceaux : [{ title, artist, image }] (image = URL Spotify).
+  // null = pas de jeton ou rafraîchissement en échec (inconnu, à ne pas confondre
+  // avec [] : file vide).
   async queue(limit = 4) {
+    if (!(await this.accessToken())) return null;
     const data = await this.get('/me/player/queue');
     if (!data || !Array.isArray(data.queue)) return [];
     return data.queue.slice(0, limit).map((it) => {

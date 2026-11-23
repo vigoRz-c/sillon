@@ -54,6 +54,13 @@
   ]);
   const isSmall = (w, last) => !last && (SMALL.has(w.toLowerCase().replace(/[^a-z'à-ÿ]/g, '')) || w.length <= 2);
 
+  // Même morceau et mêmes lignes (seul le décalage a pu changer).
+  function sameLyrics(a, b) {
+    if (!a || !b || !a.lines || !b.lines || !a.lines.length) return false;
+    if (a.title !== b.title || a.artist !== b.artist || a.lines.length !== b.lines.length) return false;
+    return a.lines.every((l, i) => l.t === b.lines[i].t && l.text === b.lines[i].text);
+  }
+
   class LyricsView {
     constructor(el, { maxChars = 14 } = {}) {
       this.el = el;
@@ -65,6 +72,12 @@
     }
 
     set(data) {
+      // Mêmes paroles avec un autre décalage ([ / ]) : on garde la ligne affichée,
+      // sinon elle serait reconstruite et l'ancienne remonterait en fantôme.
+      if (sameLyrics(this.data, data)) {
+        this.data = data;
+        return;
+      }
       this.data = data;
       this.index = -2;
       this.fallbackKey = '';
@@ -128,7 +141,9 @@
         span.textContent = w.text;
         span._t = w.t;
         span._end = w.end ?? w.t;
+        span._p = -1; // dernier remplissage écrit (voir update)
         row.appendChild(span);
+        (node._words || (node._words = [])).push(span);
         count += len + 1;
       });
       node.appendChild(row);
@@ -144,6 +159,8 @@
       this.current = node;
       if (node) this.el.appendChild(node);
       if (!old) return;
+      // La ligne qui s'en va ne doit plus être lue par un lecteur d'écran.
+      old.setAttribute('aria-hidden', 'true');
       if (!node || old.classList.contains('fallback')) {
         old.classList.add('out');
         setTimeout(() => old.remove(), 450);
@@ -163,11 +180,16 @@
     // À appeler à chaque image.
     update(media, pos) {
       const d = this.data;
-      const has = d && d.lines && d.lines.length && media && media.active && d.title === media.title;
+      const title = (media && media.title) || '';
+      const has = d && d.lines && d.lines.length && media && media.active && (d.title || '') === title;
       if (!has) {
         // Pas de paroles : on montre le titre en grand, sans animation mot à mot.
-        const key = media && media.active && (!d || !d.pending) ? `${media.title}|${media.artist}` : '';
-        if (key !== this.fallbackKey) {
+        // Recherche en cours ou lecteur arrêté : clé vide, donc plus rien à l'écran.
+        // Paroles injoignables (d.error) : une petite note, distincte d'une absence.
+        const failed = !!(d && d.error && (!d.title || d.title === title));
+        const key = media && media.active && (!d || !d.pending) ? `${title}|${media.artist}|${failed ? 'e' : ''}` : '';
+        // Sans clé, une ligne encore affichée (celle du morceau précédent) est retirée.
+        if (key !== this.fallbackKey || (!key && this.current)) {
           this.fallbackKey = key;
           this.index = -2;
           if (!key) {
@@ -175,13 +197,22 @@
             return;
           }
           const node = this.render(
-            media.title.split(/\s+/).map((text) => ({ text, t: 0 })),
+            title
+              .split(/\s+/)
+              .filter(Boolean)
+              .map((text) => ({ text, t: 0 })),
             'fallback',
           );
           const by = document.createElement('div');
           by.className = 'lyr-artist';
           by.textContent = media.artist || '';
           node.appendChild(by);
+          if (failed) {
+            const note = document.createElement('div');
+            note.className = 'lyr-unavailable';
+            note.textContent = 'Paroles indisponibles';
+            node.appendChild(note);
+          }
           node.querySelectorAll('.lyr-word').forEach((s) => {
             s.classList.add('on', 'full');
             s.style.setProperty('--p', '100%');
@@ -201,13 +232,26 @@
         const empty = !line || !line.text || /^[♪♫\s]*$/.test(line.text);
         this.swap(empty ? null : this.render(this.words(line)));
       }
-      if (this.current) {
-        for (const span of this.current.querySelectorAll('.lyr-word:not(.full)')) {
-          if (pos + 0.1 < span._t) continue;
-          span.classList.add('on');
+      if (this.current && this.current._words) {
+        for (const span of this.current._words) {
+          if (pos + 0.1 < span._t) {
+            // Retour en arrière (seek, décalage) : le mot déjà coloré redevient éteint.
+            if (span._p >= 0) {
+              span.classList.remove('on', 'full');
+              span.style.removeProperty('--p');
+              span._p = -1;
+            }
+            continue;
+          }
+          if (span._p >= 100 && pos >= span._end) continue;
           // Remplissage karaoké : le mot se colore pendant qu'il est chanté.
           const p = span._end > span._t ? (pos - span._t) / (span._end - span._t) : 1;
           const pct = Math.max(0, Math.min(1, p)) * 100;
+          // On n'écrit dans la page que si le remplissage a bougé d'au moins 1 %.
+          if (pct < 100 && span._p >= 0 && Math.abs(pct - span._p) < 1) continue;
+          if (span._p < 0) span.classList.add('on');
+          if (pct < 100) span.classList.remove('full');
+          span._p = pct;
           span.style.setProperty('--p', `${pct.toFixed(1)}%`);
           if (pct >= 100) span.classList.add('full');
         }

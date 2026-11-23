@@ -4,6 +4,8 @@ const { BrowserWindow, screen } = require('electron');
 const path = require('path');
 const S = require('../app/state');
 const { WallpaperAttacher } = require('./wallpaper');
+const { secureWindow } = require('./secure');
+const diagnostic = require('../app/diagnostic');
 
 function defaultBounds() {
   const { workArea } = screen.getPrimaryDisplay();
@@ -73,6 +75,7 @@ function createWidget() {
     webPreferences: { preload: S.PRELOAD, backgroundThrottling: false },
   });
   S.widget = widget;
+  secureWindow(widget);
   widget.loadFile(path.join(S.RENDERER, 'widget.html'));
   S.attacher = new WallpaperAttacher(widget);
 
@@ -81,12 +84,30 @@ function createWidget() {
     S.actions.startAudio(widget);
     S.actions.startWallpaperSampling();
   });
+
+  // Page plantée : on la recharge, puis (did-finish-load) on lui rend tout
+  // son état et on relance le son. Au plus 3 plantages par minute, pour ne
+  // pas tourner en boucle.
+  let reloading = false;
+  let crashes = [];
+  widget.webContents.on('render-process-gone', (_e, d) => {
+    const now = Date.now();
+    crashes = crashes.filter((t) => now - t < 60000);
+    crashes.push(now);
+    console.error(`Page de la scène plantée (${d.reason}).`);
+    diagnostic.note('scène', `page plantée (${d.reason})${crashes.length > 3 ? ' : abandon' : ' : rechargement'}`);
+    if (crashes.length > 3) return;
+    reloading = true;
+    setTimeout(() => S.alive(widget) && widget.reload(), 500);
+  });
   widget.webContents.on('did-finish-load', () => {
-    widget.webContents.send('settings', S.settings.get());
-    widget.webContents.send('media', S.lastMedia);
-    if (S.lastLyrics) widget.webContents.send('lyrics', S.lastLyrics);
-    widget.webContents.send('queue', S.lastQueue);
-    if (S.wallpaperSample) widget.webContents.send('wallpaper', S.wallpaperSample);
+    S.replayTo(widget);
+    S.send([widget], 'editing', S.editing);
+    if (S.renderPaused) S.send([widget], 'render-pause', true);
+    if (reloading) {
+      reloading = false;
+      S.actions.startAudio(widget);
+    }
   });
 }
 
@@ -126,15 +147,18 @@ function applyMode() {
     widget.setBounds(bounds);
     widget.showInactive();
   }
-  widget.webContents.send('editing', S.editing);
+  S.send([widget], 'editing', S.editing);
   S.actions.updateControls();
 }
 
 function setEditing(on) {
-  if (!on && S.editing && S.alive(S.widget)) saveWidgetBounds(S.widget.getBounds());
+  // Si la disposition est devenue la scène pendant le placement, la fenêtre
+  // fait tout l'écran : ce ne sont pas les dimensions du bandeau.
+  if (!on && S.editing && S.alive(S.widget) && !isScene()) saveWidgetBounds(S.widget.getBounds());
   S.editing = on;
   applyMode();
   S.actions.buildTray();
+  if (S.actions.applyRest) S.actions.applyRest();
   if (!on) setTimeout(S.actions.sampleWallpaper, 800);
 }
 

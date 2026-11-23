@@ -33,6 +33,11 @@ function nudgeLyrics(delta) {
   }
 }
 
+// Paroles : nouveaux essais après une erreur réseau (10 s, puis 20 s), et durée
+// du morceau jugée différente au-delà de 2 s (la durée sert à choisir la bonne version).
+const LYRICS_RETRY_MS = [10000, 20000];
+const DURATION_GAP_S = 2;
+
 // ---------- Source ----------
 
 function startMedia() {
@@ -57,7 +62,13 @@ function startMedia() {
           }
         : { shuffleAllowed: true, repeatAllowed: true }),
     };
-    S.send([S.widget, S.fullscreen, S.controlsWin, S.editorWin], 'media', S.lastMedia);
+    S.send([S.widget, S.fullscreen, S.editorWin], 'media', S.lastMedia);
+    // La fenêtre des boutons n'utilise pas la pochette (100 à 250 Ko par message).
+    if (S.alive(S.controlsWin)) {
+      const light = { ...S.lastMedia };
+      delete light.cover;
+      S.send([S.controlsWin], 'media', light);
+    }
     S.actions.audioOnMedia(S.lastMedia);
   };
   S.actions.rebroadcast = () => {
@@ -73,6 +84,49 @@ function startMedia() {
   let trackKey = '';
   let officialCover = null;
   let lastStatus = '';
+  let lastTrayKey = null;
+  let lyricsSeq = 0; // seule la dernière recherche de paroles est prise en compte
+  let lyricsDuration = 0; // durée utilisée par la recherche en cours ou terminée
+  let lastSeenDuration = 0; // durée du dernier message (celle du morceau précédent à un changement)
+  let lyricsRetry = null;
+
+  // Cherche les paroles de m (key = morceau auquel elles sont destinées).
+  // Le titre arrive souvent avant la timeline : la durée reçue peut être celle
+  // du morceau précédent. Elle est alors suspecte (0 ou identique à la
+  // précédente) : un résultat vide n'est pas mis en cache, et la recherche est
+  // relancée si la durée change ensuite (voir plus bas).
+  const loadLyrics = (m, key, previousDuration, attempt = 0) => {
+    const seq = ++lyricsSeq;
+    clearTimeout(lyricsRetry);
+    lyricsRetry = null;
+    lyricsDuration = m.duration || 0;
+    const volatile = !m.duration || m.duration === previousDuration;
+    const current = () => seq === lyricsSeq && trackKey === key;
+    const failed = () => {
+      sendLyrics({ title: m.title, artist: m.artist, lines: [], error: true });
+      if (attempt >= LYRICS_RETRY_MS.length) return;
+      lyricsRetry = setTimeout(() => {
+        lyricsRetry = null;
+        if (current()) loadLyrics({ ...m, duration: S.lastMedia.duration }, key, previousDuration, attempt + 1);
+      }, LYRICS_RETRY_MS[attempt]);
+    };
+    lookupLyrics(m, { volatile })
+      .then((l) => {
+        if (!current()) return;
+        // error : la recherche a échoué (réseau), ce n'est pas « pas de paroles ».
+        if (l && l.error) return failed();
+        sendLyrics({
+          title: m.title,
+          artist: m.artist,
+          lines: l ? l.lines : [],
+          instrumental: !!(l && l.instrumental),
+        });
+      })
+      .catch((e) => {
+        diagnostic.note('paroles', e.message);
+        if (current()) failed();
+      });
+  };
   media.on('media', (m) => {
     // Lecture / pause : ce que Spotify autorise (aléatoire, répétition) peut changer.
     if (m.status !== lastStatus) {
@@ -88,29 +142,33 @@ function startMedia() {
       // Paroles : vides tant qu'on cherche, puis celles de LRCLIB si elles existent.
       sendLyrics({ title: m.title || '', artist: m.artist || '', lines: [], pending: !!key });
       if (key) {
-        lookupLyrics(m).then((l) => {
-          if (trackKey !== key) return;
-          sendLyrics({
-            title: m.title,
-            artist: m.artist,
-            lines: l ? l.lines : [],
-            instrumental: !!(l && l.instrumental),
-          });
-        });
-        lookupCover(m).then((cover) => {
-          if (!cover || trackKey !== key) return;
-          officialCover = cover;
-          broadcast({ ...S.lastMedia, cover });
-        });
+        loadLyrics(m, key, lastSeenDuration);
+        lookupCover(m)
+          .then((cover) => {
+            if (!cover || trackKey !== key) return;
+            officialCover = cover;
+            broadcast({ ...S.lastMedia, cover });
+          })
+          .catch((e) => diagnostic.note('pochette', e.message));
       }
     }
+    // Même morceau, mais la durée vient de changer (la timeline arrive après le titre).
+    else if (key && m.duration > 0 && Math.abs(m.duration - lyricsDuration) > DURATION_GAP_S) {
+      loadLyrics(m, key, lastSeenDuration);
+    }
+    lastSeenDuration = m.duration || 0;
     const exe = m.active ? exeForApp(m.app) : null;
     if (exe !== media.volumeExe) {
       S.appVolume = null;
       media.setVolumeTarget(exe);
     }
     broadcast(officialCover ? { ...m, cover: officialCover } : m);
-    S.actions.buildTray();
+    // Le menu de l'icône n'affiche que titre, artiste et état de lecture.
+    const trayKey = `${m.active ? m.title : ''}|${m.active ? m.artist : ''}|${m.status}|${m.active}`;
+    if (trayKey !== lastTrayKey) {
+      lastTrayKey = trayKey;
+      S.actions.buildTray();
+    }
   });
   // Volume du lecteur : on suit l'application qui joue.
   media.on('volume', (v) => {

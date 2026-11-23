@@ -4,22 +4,7 @@ const { app, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
 const S = require('../app/state');
 
-const STYLES = [
-  ['bars', 'Barres'],
-  ['mirror', 'Miroir'],
-  ['ring', 'Anneau'],
-  ['wave', 'Onde'],
-  ['aurora', 'Aurore'],
-];
-const THEMES = [
-  ['wallpaper', "Couleurs du fond d'écran"],
-  ['album', 'Couleurs de la pochette'],
-  ['spotify', 'Spotify'],
-  ['neon', 'Néon'],
-  ['sunset', 'Coucher de soleil'],
-  ['ocean', 'Océan'],
-  ['mono', 'Blanc'],
-];
+const { STYLES, THEMES } = require('../../renderer/shared/catalog');
 const LAYOUTS = [
   ['scene', 'Scène : disque, paroles et panneau sur tout le bureau'],
   ['strip', "Bandeau : barres et morceau en bas de l'écran"],
@@ -193,7 +178,7 @@ function buildTray() {
           {
             label: up.enabled
               ? `Rechercher les mises à jour (version ${up.current})`
-              : `Version ${up.current || ''} (développement)`,
+              : `Version ${up.current || ''} (${up.state === 'portable' ? 'portable' : 'développement'})`,
             enabled: !!up.enabled,
             click: A.checkUpdates,
           },

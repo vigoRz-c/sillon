@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  const { currentPosition, THEMES, VISUALIZERS, drawEdgeGlow, drawCoverRings } = window.SV;
+  const { currentPosition, fmt, THEMES, VISUALIZERS, drawEdgeGlow, drawCoverRings } = window.SV;
   const SL = window.SceneLayout;
   const $ = (id) => document.getElementById(id);
   const bridge = window.bridge;
@@ -32,6 +32,9 @@
   };
 
   const lyrics = new window.LyricsView($('lyrics'));
+  // Paroles et titre annoncés par les lecteurs d'écran (sans interrompre la lecture en cours).
+  $('lyrics').setAttribute('aria-live', 'polite');
+  $('pInfo').setAttribute('aria-live', 'polite');
 
   const app = window.SVApp.createApp($('viz'), {
     onMedia(m, coverChanged) {
@@ -46,10 +49,8 @@
         $('cover').classList.toggle('hidden', !m.cover);
         $('pCover').src = m.cover || '';
         $('pCover').classList.toggle('empty', !m.cover);
-        if (m.cover) {
-          coverImg = new Image();
-          coverImg.src = m.cover;
-        } else coverImg = null;
+        // Image décodée une seule fois par pochette (créée dans common.js).
+        coverImg = m.cover && app ? app.state.coverImg : null;
       }
       // Nouveau morceau : le titre en très grand quelques secondes.
       const title = m.active ? m.title : null;
@@ -212,11 +213,16 @@
 
   // File d'attente (si le compte Spotify est connecté dans les paramètres).
   let lastQueue = { items: [] };
+  let lastQueueKey = null;
   function renderQueue(q) {
     lastQueue = q || { items: [] };
     let items = lastQueue.items || [];
     // Dans l'éditeur, une file d'exemple pour voir la place qu'elle prend.
     if (EDIT && !items.length) items = [1, 2, 3].map((i) => ({ title: `Morceau suivant ${i}`, artist: 'Artiste' }));
+    // File identique à la précédente : on ne reconstruit ni le DOM ni la mise en page.
+    const key = items.map((it) => [it.title, it.artist, it.image || ''].join('\u0001')).join('\u0002');
+    if (key === lastQueueKey) return;
+    lastQueueKey = key;
     const list = $('pQueueList');
     list.textContent = '';
     for (const it of items) {
@@ -261,6 +267,8 @@
     scene = isScene(s);
     document.body.style.opacity = EDIT ? 1 : (s.opacity ?? 1);
     document.body.classList.toggle('scene', scene);
+    // Scène plein bureau : un pixel canvas par pixel CSS suffit (le canvas couvre tout l'écran).
+    app.renderer.setMaxDpr(scene ? 1 : Infinity);
     document.body.classList.toggle('with-now', !scene && s.showNowPlaying !== false);
     $('now').classList.toggle(
       'hidden',
@@ -278,13 +286,14 @@
 
   // Décors dessinés par-dessus le disque : bord lumineux, anneaux de la
   // pochette, barres.
+  const barsOpts = { glow: true, t: 0, reflection: false, sensitivity: 1, reduceMotion: false };
   app.renderer.hooks.push((a, now) => {
     if (!scene) return;
     const s = settings(),
       r = app.renderer,
       pal = discPalette();
-    drawEdgeGlow(r.ctx, r.w, r.h, a, pal, s.edgeGlow ?? 0.8);
-    if (s.panelRing !== false && geo.pc) drawCoverRings(r.ctx, geo.pc.x, geo.pc.y, geo.pc.R, a, pal);
+    drawEdgeGlow(r.ctx, r.w, r.h, a, pal, s.edgeGlow ?? 0.8, r.reduceMotion);
+    if (s.panelRing !== false && geo.pc) drawCoverRings(r.ctx, geo.pc.x, geo.pc.y, geo.pc.R, a, pal, r.reduceMotion);
     if (geo.bars) {
       const b = geo.bars,
         draw = VISUALIZERS[s.style] || VISUALIZERS.bars;
@@ -293,12 +302,10 @@
       r.ctx.rect(b.x, b.y, b.w, b.h);
       r.ctx.clip();
       r.ctx.translate(b.x, b.y);
-      draw(r.ctx, b.w, b.h, a, r.palette, {
-        glow: true,
-        t: now,
-        reflection: false,
-        sensitivity: app.engine.sensitivity,
-      });
+      barsOpts.t = now;
+      barsOpts.sensitivity = app.engine.sensitivity;
+      barsOpts.reduceMotion = r.reduceMotion;
+      draw(r.ctx, b.w, b.h, a, r.palette, barsOpts);
       r.ctx.restore();
     }
   });
@@ -307,7 +314,9 @@
   // touche à la page que si quelque chose a changé : sinon le navigateur
   // recalcule les styles pour rien, 60 fois par seconde.
   let lastPct = '',
-    lastMsg = null;
+    lastMsg = null,
+    lastSec = -1,
+    lastDur = -1;
   app.renderer.hooks.push(() => {
     const m = app.state.media;
     const pos = currentPosition(m);
@@ -317,9 +326,23 @@
       $('bar').style.width = pct;
       if (scene) $('pBar').style.width = pct;
     }
+    // Valeurs exposées aux lecteurs d'écran, au plus une fois par seconde.
+    const sec = Math.floor(pos);
+    if (sec !== lastSec || (m.duration || 0) !== lastDur) {
+      lastSec = sec;
+      lastDur = m.duration || 0;
+      const text = lastDur ? `${fmt(pos)} sur ${fmt(lastDur)}` : '';
+      for (const id of ['bar', 'pBar']) {
+        const pb = $(id).parentElement;
+        pb.setAttribute('aria-valuemax', String(Math.round(lastDur)));
+        pb.setAttribute('aria-valuenow', String(sec));
+        pb.setAttribute('aria-valuetext', text);
+      }
+    }
     if (scene && layout().lyrics.visible) lyrics.update(m, pos);
     const st = app.engine.status;
-    const msg = st === 'no-audio' ? 'Aucun son système détecté' : st === 'error' ? 'Capture audio refusée' : '';
+    const msg =
+      st === 'no-audio' ? 'Aucun son système détecté' : st === 'error' ? 'Erreur : capture audio refusée' : '';
     if (msg !== lastMsg) {
       lastMsg = msg;
       $('status').textContent = msg;
@@ -338,7 +361,7 @@
     const s = app.state.settings;
     const playing = app.state.media.active && app.state.media.status === 'Playing';
     if (playing) silentSince = Date.now();
-    const minutes = Number(s.sleepAfter ?? 5);
+    const minutes = Number(s.sleepAfter ?? 0);
     asleep = !playing && minutes > 0 && Date.now() - silentSince > minutes * 60000;
     document.body.classList.toggle('is-paused', !playing && s.dimOnPause !== false && !asleep);
     document.body.classList.toggle('is-asleep', asleep);
@@ -362,6 +385,8 @@
     $('done').addEventListener('click', () => bridge.editDone());
 
     const grip = $('grip');
+    grip.setAttribute('role', 'img');
+    grip.setAttribute('aria-label', 'Poignée : tirer pour redimensionner la fenêtre');
     let start = null;
     grip.addEventListener('pointerdown', (e) => {
       grip.setPointerCapture(e.pointerId);
@@ -410,7 +435,21 @@
 
   function buildEditor() {
     document.body.classList.add('layout-edit');
-    for (const id of SL.ORDER) $(NODES[id]).dataset.label = SL.ELEMENTS[id].label;
+    for (const id of SL.ORDER) {
+      const n = $(NODES[id]);
+      n.dataset.label = SL.ELEMENTS[id].label;
+      // Éléments utilisables au clavier : Tab pour y aller, Entrée ou Espace pour les choisir.
+      n.tabIndex = 0;
+      n.setAttribute('role', 'button');
+      n.setAttribute('aria-label', SL.ELEMENTS[id].label);
+      n.setAttribute('aria-pressed', String(id === selected));
+    }
+    const live = document.createElement('div');
+    live.id = 'eLive';
+    live.setAttribute('role', 'status');
+    live.setAttribute('aria-live', 'polite');
+    live.style.cssText = 'position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap';
+    document.body.appendChild(live);
     // Boutons factices : les vrais sont une fenêtre à part.
     $('pControls').innerHTML = '<i></i>'.repeat(6) + '<b></b>' + '<i></i>'.repeat(2);
     $('bigTitleText').textContent = $('bigTitleText').textContent || 'Grand titre';
@@ -419,15 +458,17 @@
 
     const bar = document.createElement('div');
     bar.id = 'editBar';
+    bar.setAttribute('role', 'toolbar');
+    bar.setAttribute('aria-label', 'Personnaliser la scène');
     bar.innerHTML = `
       <strong>Personnaliser la scène</strong>
-      <select id="ePreset" title="Partir d'un modèle">
+      <select id="ePreset" title="Partir d'un modèle" aria-label="Partir d'un modèle de disposition">
         <option value="">Modèles…</option>
         ${Object.entries(SL.PRESETS)
           .map(([k, p]) => `<option value="${k}">${p.label}</option>`)
           .join('')}
       </select>
-      <button id="eUndo" title="Annuler la dernière modification (Ctrl+Z)">↶</button>
+      <button id="eUndo" title="Annuler la dernière modification (Ctrl+Z)" aria-label="Annuler la dernière modification">↶</button>
       <button id="eReset">Réinitialiser</button>
       <span class="sp"></span>
       <button id="eCancel">Annuler</button>
@@ -436,11 +477,14 @@
 
     const side = document.createElement('div');
     side.id = 'editSide';
+    side.setAttribute('role', 'group');
+    side.setAttribute('aria-label', 'Éléments de la scène et réglages');
     document.body.appendChild(side);
 
     const frame = document.createElement('div');
     frame.id = 'selFrame';
-    frame.innerHTML = '<span class="lbl"></span><div class="handle" title="Tirer pour redimensionner"></div>';
+    frame.innerHTML =
+      '<span class="lbl"></span><div class="handle" title="Tirer pour redimensionner" role="img" aria-label="Poignée de redimensionnement (la taille se règle aussi dans la colonne de réglages)"></div>';
     document.body.appendChild(frame);
     const gx = document.createElement('div');
     gx.id = 'guideX';
@@ -472,6 +516,15 @@
     for (const id of SL.ORDER) {
       const n = $(NODES[id]);
       n.addEventListener('pointerdown', (e) => startDrag(e, id, 'move'));
+      n.addEventListener('keydown', (e) => {
+        if (e.target !== n || (e.key !== 'Enter' && e.key !== ' ')) return;
+        e.preventDefault();
+        e.stopPropagation(); // Entrée choisit l'élément, elle ne valide pas la scène
+        selected = id;
+        fillSide();
+        drawSelection();
+        announceElement(id);
+      });
     }
     frame.querySelector('.handle').addEventListener('pointerdown', (e) => {
       e.stopPropagation();
@@ -483,6 +536,23 @@
     fillSide();
   }
 
+  // Annonce aux lecteurs d'écran (regroupe les annonces rapprochées).
+  let liveTimer = null;
+  function announce(msg) {
+    clearTimeout(liveTimer);
+    liveTimer = setTimeout(() => {
+      const l = $('eLive');
+      if (l) l.textContent = msg;
+    }, 250);
+  }
+  function announceElement(id) {
+    const el = draft[id];
+    const pos = el.visible
+      ? `${Math.round(el.x * 100)} % de la largeur, ${Math.round(el.y * 100)} % de la hauteur`
+      : 'masqué';
+    announce(`${SL.ELEMENTS[id].label} : ${pos}`);
+  }
+
   let drag = null;
   function startDrag(e, id, kind) {
     if (e.button !== 0) return;
@@ -491,10 +561,10 @@
       selected = id;
       fillSide();
     }
-    snapshot();
     const el = draft[id];
     const r = $(NODES[id]).getBoundingClientRect();
-    drag = { id, kind, x0: e.clientX, y0: e.clientY, el: { ...el }, rw: r.width, rh: r.height };
+    // L'instantané d'annulation est pris au premier déplacement effectif (voir onDrag).
+    drag = { id, kind, x0: e.clientX, y0: e.clientY, el: { ...el }, rw: r.width, rh: r.height, snapped: false };
     drawSelection();
   }
 
@@ -531,7 +601,13 @@
       const k = 1 + (dx + dy) / Math.max(40, drag.rw + drag.rh);
       el.scale = Math.round(drag.el.scale * k * 100) / 100;
     }
-    draft[drag.id] = SL.clampElement(drag.id, el);
+    const next = SL.clampElement(drag.id, el);
+    // Un simple clic, sans déplacement, ne pollue pas l'historique d'annulation.
+    if (!drag.snapped && JSON.stringify(next) !== JSON.stringify(draft[drag.id])) {
+      snapshot();
+      drag.snapped = true;
+    }
+    draft[drag.id] = next;
     $('guideX').classList.toggle('on', gxOn);
     $('guideY').classList.toggle('on', gyOn);
     placeAll();
@@ -540,19 +616,32 @@
 
   function endDrag() {
     if (!drag) return;
+    announceElement(drag.id);
     drag = null;
     $('guideX').classList.remove('on');
     $('guideY').classList.remove('on');
   }
 
   function onKey(e) {
-    if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') return;
+    // Seuls les contrôles qui gèrent eux-mêmes la touche la gardent : liste, champ
+    // texte ou nombre, et flèches d'un curseur. Échap et Ctrl+Z passent toujours
+    // pour un curseur ou une case à cocher.
+    const tg = e.target;
+    if (tg.tagName === 'SELECT') return;
+    if (tg.tagName === 'INPUT') {
+      if (tg.type !== 'range' && tg.type !== 'checkbox') return;
+      if (tg.type === 'range' && e.key.startsWith('Arrow')) return;
+    }
     if (e.key === 'Escape') {
       bridge.layoutCancel();
       return;
     }
+    // Entrée et Suppr ne valent que sur la page ou un élément : pas sur un bouton.
+    const t = e.target;
+    const neutral =
+      t === document.body || t === document.documentElement || (t.classList && t.classList.contains('el'));
     if (e.key === 'Enter') {
-      $('eDone').click();
+      if (neutral) $('eDone').click();
       return;
     }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
@@ -563,9 +652,11 @@
     const el = draft[selected];
     if (!el) return;
     if (e.key === 'Delete' || e.key === 'Backspace') {
+      if (!neutral) return;
       snapshot();
       el.visible = false;
       refreshEditor();
+      announce(`${SL.ELEMENTS[selected].label} masqué`);
       return;
     }
     const step = e.shiftKey ? 10 : 1;
@@ -577,6 +668,7 @@
     el.y += mv[1] / window.innerHeight;
     draft[selected] = SL.clampElement(selected, el);
     placeAll();
+    announceElement(selected);
   }
 
   // Cadre et poignée autour de l'élément choisi.
@@ -595,7 +687,10 @@
     f.querySelector('.lbl').textContent = spec.label;
     const canResize = spec.w || spec.scale[0] !== spec.scale[1];
     f.querySelector('.handle').classList.toggle('hidden', !canResize);
-    for (const id of SL.ORDER) $(NODES[id]).classList.toggle('sel', id === selected);
+    for (const id of SL.ORDER) {
+      $(NODES[id]).classList.toggle('sel', id === selected);
+      $(NODES[id]).setAttribute('aria-pressed', String(id === selected));
+    }
   }
 
   // Colonne de réglages : liste des éléments, puis réglages de l'élément choisi.
@@ -619,23 +714,27 @@
     let extra = '';
     if (selected === 'disc') {
       extra = `<label class="er">Rayons<select data-o="discRays">${opt('discRays', 'fine', 'Fins et serrés')}${opt('discRays', 'bold', 'Épais et espacés')}</select></label>
-        <label class="er">Couleurs<select data-o="discColors">${opt('discColors', 'album', 'De la pochette')}${['violet', 'neon', 'sunset', 'ocean', 'spotify', 'mono'].map((t) => opt('discColors', t, { violet: 'Violet', neon: 'Néon', sunset: 'Coucher de soleil', ocean: 'Océan', spotify: 'Spotify', mono: 'Blanc' }[t])).join('')}</select></label>`;
+        <label class="er">Couleurs<select data-o="discColors">${opt('discColors', 'album', 'De la pochette')}${window.SillonCatalog.FIXED_THEMES.map(([t, name]) => opt('discColors', t, name)).join('')}</select></label>`;
     } else if (selected === 'cover') {
       extra = `<label class="ec"><input type="checkbox" data-o="panelRing" ${s.panelRing !== false ? 'checked' : ''}> Anneaux qui vibrent</label>`;
     } else if (selected === 'bars') {
-      extra = `<label class="er">Style<select data-o="style">${[
+      const styles = [
         ['bars', 'Barres'],
         ['mirror', 'Miroir'],
         ['blocks', 'Blocs'],
         ['wave', 'Onde'],
         ['aurora', 'Aurore'],
-      ]
+      ];
+      // Style courant absent de la liste (anneau, halo…) : on l'ajoute, sinon « Barres » s'afficherait à tort.
+      const cur = s.style;
+      if (cur && !styles.some(([v]) => v === cur)) styles.push([cur, window.SillonCatalog.STYLE_NAMES[cur] || cur]);
+      extra = `<label class="er">Style<select data-o="style">${styles
         .map(([v, l]) => opt('style', v, l))
         .join('')}</select></label>`;
     }
     side.classList.toggle('left', sideLeft);
     side.innerHTML = `
-      <div class="eh">Éléments <button id="eSwap" title="Passer la colonne de l'autre côté">⇆</button></div>
+      <div class="eh">Éléments <button id="eSwap" title="Passer la colonne de l'autre côté" aria-label="Passer la colonne de l'autre côté">⇆</button></div>
       ${SL.ORDER.map(
         (id) => `<label class="ec ${id === selected ? 'cur' : ''}" data-id="${id}">
         <input type="checkbox" data-vis="${id}" ${draft[id].visible ? 'checked' : ''}> ${SL.ELEMENTS[id].label}</label>`,
@@ -665,8 +764,14 @@
       }),
     );
     side.querySelectorAll('input[type=range][data-k]').forEach((i) => {
-      i.addEventListener('pointerdown', snapshot);
+      // Un instantané par geste (glissement ou pression de touche), pris avant la première modification.
+      let snapped = false;
+      i.addEventListener('change', () => (snapped = false));
       i.addEventListener('input', () => {
+        if (!snapped) {
+          snapshot();
+          snapped = true;
+        }
         draft[selected] = SL.clampElement(selected, { ...draft[selected], [i.dataset.k]: Number(i.value) });
         placeAll();
       });

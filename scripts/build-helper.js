@@ -14,7 +14,9 @@ const fs = require('fs');
 const os = require('os');
 
 const root = path.join(__dirname, '..');
-const manifest = path.join(root, 'native', 'sillon-helper', 'Cargo.toml');
+// cargo doit être lancé depuis le dossier du helper : c'est là que se trouve
+// .cargo/config.toml (+crt-static, sans runtime VC++ à installer chez l'utilisateur).
+const helperDir = path.join(root, 'native', 'sillon-helper');
 const exe = path.join(root, 'native', 'sillon-helper', 'target', 'release', 'sillon-helper.exe');
 const strict = process.argv.includes('--strict');
 
@@ -22,7 +24,8 @@ const strict = process.argv.includes('--strict');
 const cargoHome = process.env.CARGO_HOME || path.join(os.homedir(), '.cargo');
 const env = { ...process.env, PATH: `${path.join(cargoHome, 'bin')}${path.delimiter}${process.env.PATH}` };
 
-const r = spawnSync('cargo', ['build', '--release', '--quiet', '--manifest-path', manifest], {
+const r = spawnSync('cargo', ['build', '--release', '--locked', '--quiet'], {
+  cwd: helperDir,
   stdio: 'inherit',
   env,
   shell: false,

@@ -8,14 +8,24 @@
 
 const { app, Notification } = require('electron');
 const S = require('./state');
+const diagnostic = require('./diagnostic');
 
 const CHECK_EVERY = 4 * 3600 * 1000; // toutes les 4 heures
+const DOWNLOAD_STALL = 10 * 60 * 1000; // téléchargement sans nouvelle de progression : abandon
 
 let autoUpdater = null;
 const U = { state: 'idle', version: null, progress: 0, error: '' };
 
+// La version portable (exécutable autonome) ne passe pas par l'installateur.
+const isPortable = () => !!process.env.PORTABLE_EXECUTABLE_DIR;
+
 function status() {
-  return { ...U, current: app.getVersion(), enabled: app.isPackaged, auto: S.settings.get('autoUpdate') !== false };
+  return {
+    ...U,
+    current: app.getVersion(),
+    enabled: app.isPackaged && !isPortable(),
+    auto: S.settings.get('autoUpdate') !== false,
+  };
 }
 
 function changed() {
@@ -23,14 +33,33 @@ function changed() {
   if (S.actions.buildTray) S.actions.buildTray();
 }
 
+// Si le réseau coupe sans événement « error », l'état resterait « downloading »
+// pour toujours (et plus aucune vérification). Sans progression pendant
+// DOWNLOAD_STALL, on repasse à « idle » : la prochaine vérification réessaie.
+let stallTimer = null;
 function set(patch) {
   Object.assign(U, patch);
+  clearTimeout(stallTimer);
+  stallTimer = null;
+  if (U.state === 'downloading') {
+    stallTimer = setTimeout(() => {
+      stallTimer = null;
+      if (U.state !== 'downloading') return;
+      diagnostic.note('mise à jour', `téléchargement sans progression depuis 10 min (${U.progress} %) : abandon`);
+      set({ state: 'idle', progress: 0 });
+    }, DOWNLOAD_STALL);
+    if (stallTimer.unref) stallTimer.unref();
+  }
   changed();
 }
 
 function init() {
   if (!app.isPackaged) {
     U.state = 'dev';
+    return;
+  }
+  if (isPortable()) {
+    U.state = 'portable';
     return;
   }
   ({ autoUpdater } = require('electron-updater'));
@@ -91,4 +120,4 @@ function installNow() {
   autoUpdater.quitAndInstall(true, true);
 }
 
-module.exports = { init, check, installNow, status };
+module.exports = { init, check, installNow, status, DOWNLOAD_STALL };

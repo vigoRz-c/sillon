@@ -8,7 +8,8 @@
 const { BrowserWindow, screen, powerMonitor } = require('electron');
 const path = require('path');
 const S = require('../app/state');
-const { lockWorkstation } = require('./wallpaper');
+const { lockWorkstation, fullscreenAppRunning } = require('./wallpaper');
+const { secureWindow } = require('./secure');
 
 const veilleActive = () => S.veilleWins.some((w) => !w.isDestroyed());
 
@@ -30,13 +31,12 @@ function startVeille() {
       title: 'Sillon · veille',
       webPreferences: { preload: S.PRELOAD, backgroundThrottling: false },
     });
+    secureWindow(win);
     win.setAlwaysOnTop(true, 'screen-saver');
     if (main) {
       win.loadFile(path.join(S.RENDERER, 'fullscreen.html'), { query: { veille: '1' } });
       win.webContents.on('did-finish-load', () => {
-        win.webContents.send('settings', S.settings.get());
-        win.webContents.send('media', S.lastMedia);
-        if (S.lastLyrics) win.webContents.send('lyrics', S.lastLyrics);
+        S.replayTo(win);
         S.actions.startAudio(win);
       });
       S.fullscreen = win; // reçoit les mises à jour du morceau, des paroles et des réglages
@@ -82,7 +82,12 @@ function watchIdle() {
     if (S.alive(S.fullscreen)) return; // déjà en plein écran Sillon
     const m = S.lastMedia;
     if (S.settings.get('veilleOnlyPlaying') !== false && !(m.active && m.status === 'Playing')) return;
-    if (powerMonitor.getSystemIdleTime() >= delay * 60) startVeille();
+    if (powerMonitor.getSystemIdleTime() < delay * 60) return;
+    // Une vidéo ou un jeu en plein écran ne fait pas bouger la souris (Windows
+    // ne compte pas la vidéo comme une activité) : l'écran de veille la
+    // couvrirait, puis le premier mouvement verrouillerait le PC.
+    if (S.gamePaused || fullscreenAppRunning()) return;
+    startVeille();
   }, 5000);
   // Session verrouillée ou mise en veille par ailleurs : on range sans reverrouiller.
   const quiet = () => {

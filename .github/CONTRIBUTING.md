@@ -21,8 +21,10 @@ Une faille de sécurité ne se signale pas dans une issue publique : voir [SECUR
    ```
 3. Avant d'envoyer, vérifie que tout passe :
    ```bash
-   npm run verify   # syntaxe, ESLint et tests
+   npm run verify        # syntaxe, ESLint, Prettier, tests JavaScript, et Rust si cargo est installé
+   npm run verify:rust   # formatage, clippy (avertissements = erreurs) et tests de l'assistant natif
    ```
+   Sans Rust, `npm run verify` saute l'étape Rust avec un message ; la CI, elle, la lance toujours. Si tu modifies `native/sillon-helper`, lance `npm run verify:rust`.
 4. Ouvre une pull request en expliquant le problème réglé et comment tu as vérifié (capture d'écran bienvenue pour un changement visible). La CI relance les mêmes vérifications.
 
 ### Conventions
@@ -36,7 +38,7 @@ Une faille de sécurité ne se signale pas dans une issue publique : voir [SECUR
 
 ## Publier une version (mainteneur)
 
-Mets à jour [CHANGELOG.md](../CHANGELOG.md), puis `npm run release` (voir le README).
+Range les entrées de la section « Non publié » de [CHANGELOG.md](../CHANGELOG.md) sous le numéro de la nouvelle version (`## [x.y.z] - AAAA-MM-JJ`) : `npm run release` refuse de publier sans cette section, et l'utilise comme notes de la Release. Le script lance `npm run verify`, construit, puis pousse et publie (voir le README).
 
 ## Licence
 

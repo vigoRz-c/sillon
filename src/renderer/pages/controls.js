@@ -22,9 +22,16 @@
   const volume = window.SillonVolume($('volume'));
   bridge.onMedia((m) => {
     volume.update(m);
-    $('play').innerHTML = m && m.status === 'Playing' ? PAUSE : PLAY;
-    $('shuffle').classList.toggle('on', !!(m && m.shuffle));
-    $('repeat').classList.toggle('on', !!(m && m.repeat && m.repeat !== 'None'));
+    const playing = !!(m && m.status === 'Playing');
+    $('play').innerHTML = playing ? PAUSE : PLAY;
+    // Le nom annonce l'action possible : « Pause » pendant la lecture, « Lecture » sinon.
+    $('play').setAttribute('aria-label', playing ? 'Pause' : 'Lecture');
+    const shuffleOn = !!(m && m.shuffle);
+    const repeatOn = !!(m && m.repeat && m.repeat !== 'None');
+    $('shuffle').classList.toggle('on', shuffleOn);
+    $('repeat').classList.toggle('on', repeatOn);
+    $('shuffle').setAttribute('aria-pressed', String(shuffleOn));
+    $('repeat').setAttribute('aria-pressed', String(repeatOn));
     $('repeatOne').classList.toggle('hidden', !(m && m.repeat === 'Track'));
     // Sans compte Spotify connecté, Spotify ignore ces deux commandes : masquées.
     const can = !!(m && m.canShuffle);
@@ -33,8 +40,15 @@
     // Grisés quand Spotify les interdit pour le moment (ça change en cours de lecture).
     $('shuffle').classList.toggle('blocked', !!(m && m.shuffleAllowed === false));
     $('repeat').classList.toggle('blocked', !!(m && m.repeatAllowed === false));
-    $('shuffle').title =
+    $('shuffle').setAttribute('aria-disabled', String(!!(m && m.shuffleAllowed === false)));
+    $('repeat').setAttribute('aria-disabled', String(!!(m && m.repeatAllowed === false)));
+    const shuffleLabel =
       m && m.shuffleAllowed === false ? 'Lecture aléatoire (indisponible pour le moment)' : 'Lecture aléatoire';
-    $('repeat').title = m && m.repeatAllowed === false ? 'Répéter (indisponible pour le moment)' : 'Répéter';
+    const repeatBase = m && m.repeat === 'Track' ? 'Répéter le morceau' : 'Répéter';
+    const repeatLabel = m && m.repeatAllowed === false ? `${repeatBase} (indisponible pour le moment)` : repeatBase;
+    $('shuffle').title = shuffleLabel;
+    $('shuffle').setAttribute('aria-label', shuffleLabel);
+    $('repeat').title = repeatLabel;
+    $('repeat').setAttribute('aria-label', repeatLabel);
   });
 })();

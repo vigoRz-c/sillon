@@ -1,5 +1,9 @@
-# VÃ©rifications automatiques Ã  chaque push et pull request :
-# syntaxe, rÃ¨gles de qualitÃ© (ESLint) et tests.
+# Vérifications automatiques à chaque push et pull request : syntaxe, règles de
+# qualité (ESLint), formatage, tests JavaScript, assistant natif (Rust), audits
+# de dépendances et empaquetage (sans publication).
+#
+# Les actions sont épinglées par SHA de commit (le tag de version est en commentaire) :
+# Dependabot propose leur mise à jour (voir .github/dependabot.yml).
 name: CI
 
 on:
@@ -16,18 +20,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
-    name: VÃ©rifier (Windows)
-    runs-on: windows-latest
+  js:
+    name: JavaScript (Node ${{ matrix.node }})
+    runs-on: windows-2025
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
     env:
       # Les tests n'ont pas besoin du binaire d'Electron.
       ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: 22
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
       - name: Syntaxe
@@ -38,8 +48,102 @@ jobs:
         run: npm run format:check
       - name: Tests
         run: npm test
-      - name: Assistant natif (Rust)
+
+  rust:
+    name: Assistant natif (Rust)
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: native/sillon-helper
+      # Toutes les commandes cargo tournent dans le dossier du helper : c'est là
+      # que se trouve .cargo/config.toml (+crt-static). --locked : Cargo.lock figé.
+      - name: Formatage (cargo fmt)
+        working-directory: native/sillon-helper
+        run: cargo fmt --check
+      - name: Clippy (avertissements = erreurs)
+        working-directory: native/sillon-helper
+        run: cargo clippy --locked -- -D warnings
+      - name: Tests (cargo test)
+        working-directory: native/sillon-helper
+        run: cargo test --locked
+      - name: Compilation (release)
+        working-directory: native/sillon-helper
+        run: cargo build --release --locked
+      - name: Pas de runtime VC++ à installer (VCRUNTIME140 absent)
+        shell: pwsh
         run: |
-          cargo fmt --check --manifest-path native/sillon-helper/Cargo.toml
-          cargo clippy --release --manifest-path native/sillon-helper/Cargo.toml -- -D warnings
-          cargo build --release --manifest-path native/sillon-helper/Cargo.toml
+          $exe = 'native/sillon-helper/target/release/sillon-helper.exe'
+          if (Select-String -Path $exe -Pattern 'VCRUNTIME140' -SimpleMatch -Quiet) {
+            Write-Error "L'assistant dépend du redistribuable Visual C++ (VCRUNTIME140) : vérifie native/sillon-helper/.cargo/config.toml (+crt-static)."
+            exit 1
+          }
+          Write-Host 'OK : VCRUNTIME140 absent de sillon-helper.exe.'
+
+  audit:
+    name: Audits de dépendances
+    runs-on: windows-2025
+    timeout-minutes: 15
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: npm audit (dépendances embarquées)
+        run: npm audit --omit=dev --audit-level=high
+      - name: Installer cargo-audit
+        uses: taiki-e/install-action@fe3acb53a98b62c772db35de75ce0e4595e7ca8c # v2.90.8
+        with:
+          tool: cargo-audit
+      - name: cargo audit (assistant natif)
+        working-directory: native/sillon-helper
+        run: cargo audit
+
+  package:
+    name: Empaquetage (sans publication)
+    needs: [js, rust]
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: native/sillon-helper
+      # Electron est téléchargé ici : l'empaquetage en a besoin.
+      - run: npm ci
+      - name: Assistant natif (release)
+        run: node scripts/build-helper.js --strict
+      - name: Empaquetage Windows (dossier, sans installateur ni publication)
+        run: npx electron-builder --win --dir --publish never
+      - name: Fusibles Electron et assistant
+        shell: pwsh
+        run: |
+          $fuses = npx electron-fuses read --app dist/win-unpacked/Sillon.exe | Out-String
+          Write-Output $fuses
+          foreach ($want in 'RunAsNode is Disabled', 'EnableNodeOptionsEnvironmentVariable is Disabled',
+                            'EnableNodeCliInspectArguments is Disabled', 'OnlyLoadAppFromAsar is Enabled') {
+            if (-not $fuses.Contains($want)) {
+              Write-Error "Fusible Electron non appliqué : attendu « $want »."
+              exit 1
+            }
+          }
+          if (Select-String -Path dist/win-unpacked/resources/sillon-helper.exe -Pattern 'VCRUNTIME140' -SimpleMatch -Quiet) {
+            Write-Error 'sillon-helper.exe dépend encore de VCRUNTIME140.'
+            exit 1
+          }

@@ -7,7 +7,8 @@ const root = path.join(__dirname, '..');
 const files = [];
 (function walk(dir) {
   for (const f of fs.readdirSync(dir)) {
-    if (f === 'node_modules' || f.startsWith('.') || f === 'dist') continue;
+    // target : sorties de cargo (native/sillon-helper/target), sans JS à vérifier.
+    if (f === 'node_modules' || f === 'target' || f.startsWith('.') || f === 'dist') continue;
     const p = path.join(dir, f);
     if (fs.statSync(p).isDirectory()) walk(p);
     else if (f.endsWith('.js')) files.push(p);
