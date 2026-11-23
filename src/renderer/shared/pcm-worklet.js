@@ -1,7 +1,7 @@
 /* Lecteur de son brut pour l'analyse (AudioWorklet).
  *
  * Reçoit du processus principal des morceaux de son mono 16 bits (capture du
- * seul lecteur suivi, voir src/main/app-audio.js) et les rejoue dans le graphe
+ * seul lecteur suivi, voir src/main/audio/app-audio.js) et les rejoue dans le graphe
  * audio, où l'analyseur du visualiseur les lit. Rien n'est envoyé aux
  * haut-parleurs. On garde un tampon court pour coller au son entendu.
  */

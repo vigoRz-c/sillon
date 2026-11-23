@@ -2,7 +2,7 @@
 // mesures périmées de Spotify.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { anchor } = require('../src/main/media');
+const { anchor } = require('../src/main/media/media');
 
 const T = 1_000_000;
 const base = { active: true, title: 'A', artist: 'X' };

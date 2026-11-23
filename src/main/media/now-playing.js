@@ -1,12 +1,12 @@
 // Morceau en cours : source Windows, pochette officielle (Deezer), paroles
 // (LRCLIB) et décalage des paroles par morceau.
 
-const S = require('./state');
+const S = require('../app/state');
 const { WindowsMediaSource } = require('./media');
 const { lookupCover } = require('./cover-lookup');
 const { lookupLyrics } = require('./lyrics');
-const diagnostic = require('./diagnostic');
-const { exeForApp } = require('./app-audio');
+const diagnostic = require('../app/diagnostic');
+const { exeForApp } = require('../audio/app-audio');
 
 // ---------- Décalage des paroles (par morceau) ----------
 // Pour les titres où LRCLIB a les paroles d'une autre version. Positif : les

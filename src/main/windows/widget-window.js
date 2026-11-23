@@ -2,7 +2,7 @@
 
 const { BrowserWindow, screen } = require('electron');
 const path = require('path');
-const S = require('./state');
+const S = require('../app/state');
 const { WallpaperAttacher } = require('./wallpaper');
 
 function defaultBounds() {

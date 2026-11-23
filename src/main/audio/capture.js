@@ -1,7 +1,7 @@
 // Captures : son du système (loopback) et couleurs du fond d'écran.
 
 const { session, desktopCapturer, screen } = require('electron');
-const S = require('./state');
+const S = require('../app/state');
 
 // ---------- Son : capture de la sortie du PC ----------
 

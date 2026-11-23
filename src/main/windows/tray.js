@@ -2,7 +2,7 @@
 
 const { app, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
-const S = require('./state');
+const S = require('../app/state');
 
 const STYLES = [
   ['bars', 'Barres'], ['mirror', 'Miroir'], ['ring', 'Anneau'],

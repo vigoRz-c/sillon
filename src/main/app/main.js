@@ -17,20 +17,20 @@ const path = require('path');
 const fs = require('fs');
 const S = require('./state');
 const { Settings } = require('./settings');
-const diskCache = require('./disk-cache');
-const { fullscreenAppRunning, foregroundRect } = require('./wallpaper');
-const widgetWindow = require('./widget-window');
-const { updateControls } = require('./controls-window');
-const capture = require('./capture');
-const windows = require('./windows');
-const veille = require('./veille');
-const nowPlaying = require('./now-playing');
-const queue = require('./queue');
-const { buildTray } = require('./tray');
+const diskCache = require('../media/disk-cache');
+const { fullscreenAppRunning, foregroundRect } = require('../windows/wallpaper');
+const widgetWindow = require('../windows/widget-window');
+const { updateControls } = require('../windows/controls-window');
+const capture = require('../audio/capture');
+const windows = require('../windows/windows');
+const veille = require('../windows/veille');
+const nowPlaying = require('../media/now-playing');
+const queue = require('../media/queue');
+const { buildTray } = require('../windows/tray');
 const updater = require('./updater');
 const diagnostic = require('./diagnostic');
-const layoutEditor = require('./layout-editor');
-const appAudio = require('./app-audio');
+const layoutEditor = require('../windows/layout-editor');
+const appAudio = require('../audio/app-audio');
 
 // Mémoire graphique : par défaut, Chromium garde un gros cache sur la carte
 // graphique (~300 Mo pour la scène). Plafonné, il reste vers 180 Mo sans

@@ -1,7 +1,7 @@
 // Analyse des paroles synchronisées (LRC et "lyricsfile" de LRCLIB).
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { parseLrc, parseLyricsFile } = require('../src/main/lyrics');
+const { parseLrc, parseLyricsFile } = require('../src/main/media/lyrics');
 
 test('LRC : lignes triées, fin = début de la ligne suivante', () => {
   const lines = parseLrc('[00:10.50] Deuxième\n[00:02.10] Première\nligne sans horodatage\n[01:02.00] Troisième');

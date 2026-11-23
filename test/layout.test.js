@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const L = require('../src/renderer/scene-layout');
+const L = require('../src/renderer/shared/scene-layout');
 
 test('sans disposition enregistrée : reprise des anciens réglages', () => {
   const l = L.fromSettings({ discX: 0.65, discY: 0.38, discSize: 1.15, showLyrics: false, showPanel: false, showClock: true });

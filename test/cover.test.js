@@ -4,8 +4,8 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { norm, findCoverUrl } = require('../src/main/cover-lookup');
-const disk = require('../src/main/disk-cache');
+const { norm, findCoverUrl } = require('../src/main/media/cover-lookup');
+const disk = require('../src/main/media/disk-cache');
 
 test('norm : casse, accents, versions entre parenthèses et suffixes', () => {
   assert.equal(norm('Bohemian Rhapsody - Remastered 2011'), 'bohemian rhapsody');

@@ -11,7 +11,7 @@
 const { spawn } = require('child_process');
 const { EventEmitter } = require('events');
 const readline = require('readline');
-const { helperExe } = require('./helper');
+const { helperExe } = require('../audio/helper');
 
 // Position de lecture fiable pour synchroniser les paroles.
 //

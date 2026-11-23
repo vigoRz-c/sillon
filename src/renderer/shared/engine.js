@@ -43,7 +43,7 @@
       try {
         this.stop();
         const ctx = new AudioContext({ sampleRate: 48000 });
-        await ctx.audioWorklet.addModule('pcm-worklet.js');
+        await ctx.audioWorklet.addModule('../shared/pcm-worklet.js');
         const node = new AudioWorkletNode(ctx, 'sillon-pcm', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [1] });
         this.pcmNode = node;
         if (!this.pcmHooked) {

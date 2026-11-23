@@ -4,9 +4,9 @@
 // Spotify, une fois le compte connecté dans les paramètres. Interrogée au
 // changement de morceau et toutes les 20 s pendant la lecture.
 
-const S = require('./state');
+const S = require('../app/state');
 const { SpotifyApi } = require('./spotify-api');
-const diagnostic = require('./diagnostic');
+const diagnostic = require('../app/diagnostic');
 
 const imageCache = new Map(); // URL Spotify -> data URL (la page n'accepte que data:)
 async function imageData(url) {

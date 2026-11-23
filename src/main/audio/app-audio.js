@@ -8,8 +8,8 @@
 // la capture de tout le son du PC (getDisplayMedia + loopback).
 
 const { spawn } = require('child_process');
-const S = require('./state');
-const diagnostic = require('./diagnostic');
+const S = require('../app/state');
+const diagnostic = require('../app/diagnostic');
 const { helperExe } = require('./helper');
 
 // Session média de Windows (AppUserModelId) -> programme à écouter.

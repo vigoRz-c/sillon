@@ -7,10 +7,10 @@
 
 const { BrowserWindow } = require('electron');
 const path = require('path');
-const S = require('./state');
+const S = require('../app/state');
 const { screen } = require('electron');
 const { sendToBottom, windowAt, hwndOf, placeAboveDesktop } = require('./wallpaper');
-const diagnostic = require('./diagnostic');
+const diagnostic = require('../app/diagnostic');
 
 // Surveillance : si le bureau repasse au-dessus des boutons (verrouillage,
 // redémarrage d'Explorer…), ils deviennent invisibles et les clics tombent sur

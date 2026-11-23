@@ -7,7 +7,7 @@
 
 const { BrowserWindow, screen, powerMonitor } = require('electron');
 const path = require('path');
-const S = require('./state');
+const S = require('../app/state');
 const { lockWorkstation } = require('./wallpaper');
 
 const veilleActive = () => S.veilleWins.some((w) => !w.isDestroyed());

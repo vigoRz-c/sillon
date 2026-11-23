@@ -32,8 +32,8 @@ const S = {
   actions: {},             // fonctions partagées entre modules (voir main.js)
 };
 
-S.RENDERER = path.join(__dirname, '..', 'renderer');
-S.ASSETS = path.join(__dirname, '..', '..', 'assets');
+S.RENDERER = path.join(__dirname, '..', '..', 'renderer', 'pages');
+S.ASSETS = path.join(__dirname, '..', '..', '..', 'assets');
 S.PRELOAD = path.join(__dirname, 'preload.js');
 
 // Envoie un message aux fenêtres encore ouvertes parmi celles données.

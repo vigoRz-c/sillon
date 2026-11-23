@@ -9,8 +9,8 @@ const { BrowserWindow, nativeImage, ipcMain, screen } = require('electron');
 const { execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-const S = require('./state');
-const SceneLayout = require('../renderer/scene-layout');
+const S = require('../app/state');
+const SceneLayout = require('../../renderer/shared/scene-layout');
 
 // Chemin du fond d'écran de Windows (registre), ou sa copie interne.
 function wallpaperPath() {

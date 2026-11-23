@@ -11,7 +11,7 @@
 const path = require('path');
 const fs = require('fs');
 
-const ROOT = path.join(__dirname, '..', '..');
+const ROOT = path.join(__dirname, '..', '..', '..');
 
 function helperExe() {
   const packaged = process.resourcesPath && path.join(process.resourcesPath, 'sillon-helper.exe');

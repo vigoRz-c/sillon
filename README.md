@@ -81,47 +81,60 @@ En plein écran : **Espace** lecture/pause · **← →** morceau précédent/su
 | Besoin | Solution |
 |---|---|
 | Savoir ce qui joue | Les contrôles média de Windows (SMTC), lus par l'assistant natif `native/sillon-helper` (Rust). C'est la même source que le panneau média du volume Windows : pas de connexion à Spotify. |
-| Afficher la bonne pochette | Spotify transmet parfois à Windows une image du clip au lieu de la pochette. `src/main/cover-lookup.js` cherche sur la recherche publique de Deezer (sans compte) la pochette de l'album studio où figure le morceau, à défaut celle de l'EP ou du single : seuls l'artiste, l'album et le titre sont envoyés. Rien de fiable trouvé : on garde l'image de Windows. |
-| Paroles synchronisées | `src/main/lyrics.js` les demande à [LRCLIB](https://lrclib.net) (gratuit, sans compte), mot par mot quand c'est disponible : seuls l'artiste, le titre, l'album et la durée sont envoyés. Pas de paroles synchronisées : le titre s'affiche à la place. |
-| File d'attente | `src/main/spotify-api.js` : API Web Spotify (facultative), connexion PKCE sans secret, jetons chiffrés par Windows. Le propriétaire de l'app développeur Spotify doit être Premium (règle de Spotify depuis février 2026). |
-| Hors ligne | `src/main/disk-cache.js` garde pochettes et paroles déjà trouvées dans `%APPDATA%/Sillon/cache`. |
+| Afficher la bonne pochette | Spotify transmet parfois à Windows une image du clip au lieu de la pochette. `src/main/media/cover-lookup.js` cherche sur la recherche publique de Deezer (sans compte) la pochette de l'album studio où figure le morceau, à défaut celle de l'EP ou du single : seuls l'artiste, l'album et le titre sont envoyés. Rien de fiable trouvé : on garde l'image de Windows. |
+| Paroles synchronisées | `src/main/media/lyrics.js` les demande à [LRCLIB](https://lrclib.net) (gratuit, sans compte), mot par mot quand c'est disponible : seuls l'artiste, le titre, l'album et la durée sont envoyés. Pas de paroles synchronisées : le titre s'affiche à la place. |
+| File d'attente | `src/main/media/spotify-api.js` : API Web Spotify (facultative), connexion PKCE sans secret, jetons chiffrés par Windows. Le propriétaire de l'app développeur Spotify doit être Premium (règle de Spotify depuis février 2026). |
+| Hors ligne | `src/main/media/disk-cache.js` garde pochettes et paroles déjà trouvées dans `%APPDATA%/Sillon/cache`. |
 | Mode jeu | `SHQueryUserNotificationState` (plein écran signalé par Windows) + la fenêtre au premier plan couvre l'écran de la scène. |
 | Boutons de la scène | La scène est sous les icônes du bureau et ne reçoit pas les clics : les boutons du panneau sont une petite fenêtre à part (`controls.html`), gardée tout en bas de la pile des fenêtres. |
 | Réagir au son | Capture « loopback » de la sortie audio du PC via Electron (`getDisplayMedia` + `audio: 'loopback'`). Jamais le micro. Le son n'est ni enregistré ni envoyé nulle part. |
-| Être sur le fond d'écran | `src/main/wallpaper.js` place la fenêtre dans le `WorkerW` d'Explorer (via `koffi` + `user32.dll`), avec une variante pour Windows 11 24H2. Ré-accroche automatique si Explorer redémarre. |
-| Dessiner | Canvas 2D dans `src/renderer/engine.js`, analyse FFT en bandes logarithmiques (35 Hz → 16 kHz). |
+| Être sur le fond d'écran | `src/main/windows/wallpaper.js` place la fenêtre dans le `WorkerW` d'Explorer (via `koffi` + `user32.dll`), avec une variante pour Windows 11 24H2. Ré-accroche automatique si Explorer redémarre. |
+| Dessiner | Canvas 2D dans `src/renderer/shared/engine.js`, analyse FFT en bandes logarithmiques (35 Hz → 16 kHz). |
 
 ```
 src/
   main/
-    main.js            assemblage, réglages, IPC, démarrage
-    state.js           état partagé entre modules
-    widget-window.js   scène / bandeau sur le fond d'écran
-    controls-window.js boutons du panneau de la scène
-    windows.js         plein écran et paramètres
-    veille.js          écran de veille
-    now-playing.js     morceau en cours, pochette, paroles, décalage
-    queue.js           file d'attente (API Spotify)
-    capture.js         son du système, couleurs du fond d'écran
-    tray.js            menu de l'icône
-    wallpaper.js       accroche au fond d'écran et appels Win32
-    media.js           source "morceau en cours" + position de lecture
-    helper.js          lance l'assistant natif (sillon-helper.exe)
-    app-audio.js       son analysé : seulement le lecteur, ou tout le PC
-    cover-lookup.js    pochette officielle (Deezer)
-    lyrics.js          paroles synchronisées (LRCLIB)
-    spotify-api.js     connexion à l'API Spotify (PKCE)
-    disk-cache.js      cache disque des pochettes et paroles
-    settings.js        réglages sauvegardés (%APPDATA%/Sillon/settings.json)
-    preload.js         pont sécurisé page ↔ process principal
+    app/
+      main.js            assemblage, réglages, IPC, démarrage
+      state.js           état partagé entre modules
+      settings.js        réglages sauvegardés (%APPDATA%/Sillon/settings.json)
+      preload.js         pont sécurisé page ↔ process principal
+      diagnostic.js      rapport copiable pour les signalements
+      updater.js         mises à jour automatiques
+    windows/
+      widget-window.js   scène / bandeau sur le fond d'écran
+      controls-window.js boutons du panneau de la scène
+      windows.js         plein écran et paramètres
+      layout-editor.js   personnalisation de la scène
+      veille.js          écran de veille
+      tray.js            menu de l'icône
+      wallpaper.js       accroche au fond d'écran et appels Win32
+    media/
+      media.js           source « morceau en cours » + position de lecture
+      now-playing.js     morceau en cours, pochette, paroles, décalage
+      queue.js           file d'attente (API Spotify)
+      cover-lookup.js    pochette officielle (Deezer)
+      lyrics.js          paroles synchronisées (LRCLIB)
+      spotify-api.js     connexion à l'API Spotify (PKCE)
+      disk-cache.js      cache disque des pochettes et paroles
+    audio/
+      app-audio.js       son analysé : seulement le lecteur, ou tout le PC
+      capture.js         son du système, couleurs du fond d'écran
+      helper.js          lance l'assistant natif (sillon-helper.exe)
   renderer/
-    engine.js          audio, couleurs, visualiseurs (dont le disque)
-    common.js          logique partagée widget / plein écran
-    lyrics-view.js     paroles en karaoké
-    widget.*           la scène et le bandeau
-    controls.*         boutons du panneau
-    fullscreen.*       plein écran et écran de veille
-    settings.*         fenêtre de paramètres
+    pages/
+      widget.*           la scène et le bandeau
+      controls.*         boutons du panneau
+      fullscreen.*       plein écran et écran de veille
+      settings.*         fenêtre de paramètres
+    shared/
+      engine.js          audio, couleurs, visualiseurs (dont le disque)
+      common.js          logique partagée widget / plein écran
+      lyrics-view.js     paroles en karaoké
+      scene-layout.js    disposition de la scène (modèles, placement)
+      volume-control.js  barre de volume du lecteur
+      pcm-worklet.js     lecture du son capturé pour l'analyse
+    style.css            styles de toutes les pages
 native/
   sillon-helper/       assistant natif en Rust : morceau en cours (SMTC),
                        volume du lecteur, capture du son du seul lecteur

@@ -8,8 +8,8 @@
 const { app, screen } = require('electron');
 const os = require('os');
 const S = require('./state');
-const SceneLayout = require('../renderer/scene-layout');
-const { windowAt, hwndOf } = require('./wallpaper');
+const SceneLayout = require('../../renderer/shared/scene-layout');
+const { windowAt, hwndOf } = require('../windows/wallpaper');
 
 const LOG_MAX = 40;
 const log = [];

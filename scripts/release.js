@@ -6,7 +6,7 @@
 //
 // Étapes : vérifications, tests, numéro de version (commit + tag), push, puis
 // construction et envoi de l'installateur sur GitHub. Les Sillon installés
-// trouvent la nouvelle version tout seuls (voir src/main/updater.js).
+// trouvent la nouvelle version tout seuls (voir src/main/app/updater.js).
 // Il faut GitHub CLI (gh) connecté au compte du dépôt.
 
 const { execSync } = require('child_process');

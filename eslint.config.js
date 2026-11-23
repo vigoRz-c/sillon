@@ -17,7 +17,7 @@ module.exports = [
   },
   {
     // Partagé navigateur + tests node.
-    files: ['src/renderer/scene-layout.js'],
+    files: ['src/renderer/shared/scene-layout.js'],
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
   },
   {
