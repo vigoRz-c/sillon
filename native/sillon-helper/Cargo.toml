@@ -9,6 +9,8 @@ publish = false
 [dependencies]
 serde_json = "1"
 base64 = "0.23"
+# Même version que « windows » ci-dessous (utilisé par la macro #[implement]).
+# Dependabot l'ignore : le monter à la main avec windows.
 windows-core = "0.62"
 
 [dependencies.windows]

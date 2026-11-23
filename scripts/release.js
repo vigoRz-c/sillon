@@ -47,7 +47,8 @@ run('git push origin main --follow-tags');
 // On construit sans publier : electron-builder publie chaque cible en
 // parallèle et peut créer deux Releases pour le même tag (vu en 0.1.1).
 console.log(`\nConstruction de Sillon ${version}…`);
-fs.rmSync(path.join(root, 'dist'), { recursive: true, force: true });
+// Plusieurs essais : l'antivirus garde parfois un .exe ouvert un instant.
+fs.rmSync(path.join(root, 'dist'), { recursive: true, force: true, maxRetries: 10, retryDelay: 500 });
 run('node scripts/build-helper.js --strict'); // assistant natif (Rust)
 run('npx electron-builder --win --publish never');
 

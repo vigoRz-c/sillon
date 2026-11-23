@@ -17,3 +17,7 @@ updates:
     directory: /native/sillon-helper
     schedule:
       interval: weekly
+    # windows-core doit garder la même version que windows (voir Cargo.toml) :
+    # on le met à jour à la main, en même temps que windows.
+    ignore:
+      - dependency-name: windows-core
