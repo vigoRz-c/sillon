@@ -3,6 +3,9 @@
 (function () {
   'use strict';
 
+  const CAT = window.SillonCatalog;
+  if (!CAT) throw new Error('catalog.js doit être chargé avant engine.js');
+
   // ================= Audio =================
 
   class AudioEngine {
@@ -162,6 +165,7 @@
     // aussi le contexte audio, qui n'a plus rien à analyser.
     setSuspended(on) {
       this.suspended = !!on;
+      if (on) this.pcmRest = null; // l'octet restant serait recollé à un morceau périmé à la reprise
       if (!this.ctx) return;
       (on ? this.ctx.suspend() : this.ctx.resume()).catch(() => {});
     }
@@ -238,10 +242,15 @@
     bands(n) {
       let arr = this.bandsCache.get(n);
       if (!arr) {
+        // Les tailles demandées changent avec la fenêtre : on purge celles qui ne servent plus.
+        if (this.bandsCache.size >= 12) {
+          for (const [k, v] of this.bandsCache) if ((this.frameStamp || 0) - v.seen > 300) this.bandsCache.delete(k);
+        }
         arr = new Float32Array(n);
         this.bandsCache.set(n, arr);
         arr.stamp = -1;
       }
+      arr.seen = this.frameStamp || 0;
       if (!this.analyser || !this.bandsDirty || arr.stamp === this.frameStamp) return arr;
       arr.stamp = this.frameStamp;
       const hz = this.ctx.sampleRate / 2 / this.freq.length;
@@ -272,14 +281,8 @@
 
   // ================= Couleurs =================
 
-  const THEMES = {
-    spotify: ['#1db954', '#1ed760', '#b8f5cf'],
-    neon: ['#7c3aed', '#ec4899', '#22d3ee'],
-    sunset: ['#f97316', '#ef4444', '#facc15'],
-    ocean: ['#0ea5e9', '#6366f1', '#5eead4'],
-    mono: ['#e5e7eb', '#ffffff', '#cbd5e1'],
-    violet: ['#a855f7', '#ec4899', '#f0abfc'],
-  };
+  // Couleurs des jeux fixes : catalog.js (source unique).
+  const THEMES = CAT.PALETTES;
 
   function hexToRgb(h) {
     const n = parseInt(h.slice(1), 16);
@@ -508,7 +511,7 @@
         ctx.globalAlpha = 0.35 + (rm ? 0 : a.pulse) * 0.25;
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(cx, cy, r0 - 6, 0, Math.PI * 2);
+        ctx.arc(cx, cy, Math.max(0, r0 - 6), 0, Math.PI * 2);
         ctx.stroke();
         ctx.globalAlpha = 1;
       }
@@ -943,14 +946,8 @@
     return p === null ? color : p + Math.round(alpha * 1000) / 1000 + ')';
   }
 
-  // Catalogue partagé (catalog.js, chargé avant ce fichier) ; repli si absent (démo).
-  const CAT = window.SillonCatalog;
-  const STYLE_ORDER = CAT ? CAT.STYLE_ORDER : ['bars', 'mirror', 'blocks', 'ring', 'halo', 'wave', 'aurora'];
-  const THEME_ORDER = CAT
-    ? CAT.THEME_ORDER
-    : ['wallpaper', 'album', 'spotify', 'neon', 'sunset', 'ocean', 'violet', 'mono'];
-  const STYLE_NAMES = CAT ? CAT.STYLE_NAMES : Object.fromEntries(STYLE_ORDER.map((id) => [id, id]));
-  const THEME_NAMES = CAT ? CAT.THEME_NAMES : Object.fromEntries(THEME_ORDER.map((id) => [id, id]));
+  // Catalogue partagé (catalog.js, chargé avant ce fichier par toutes les pages).
+  const { STYLE_ORDER, THEME_ORDER, STYLE_NAMES, THEME_NAMES } = CAT;
 
   // ================= Boucle de rendu =================
 
@@ -1053,11 +1050,17 @@
       this.raf = this.timer = 0;
       if (this._paused) return;
       const fps = this._slow ? Math.min(this.fps, 15) : this.fps;
-      if (now - this.last >= 1000 / fps - 2) {
-        this.last = now;
-        this.render(now);
+      try {
+        if (now - this.last >= 1000 / fps - 2) {
+          this.last = now;
+          this.render(now);
+        }
+      } catch (e) {
+        // Une image en échec ne doit pas arrêter la boucle pour de bon.
+        console.error('Image de rendu en échec :', e);
+      } finally {
+        this.schedule();
       }
-      this.schedule();
     }
     render(now) {
       const none = this.style === 'none';
@@ -1104,7 +1107,7 @@
   // ================= Utilitaires morceau en cours =================
 
   function currentPosition(m) {
-    if (!m || !m.active || !m.duration) return 0;
+    if (!m || !m.active) return 0;
     let p = m.position || 0;
     if (m.anchorAt) {
       // Ancrage calculé côté principal (voir media.js) : résiste aux mesures périmées.
@@ -1113,7 +1116,8 @@
       const ref = m.updated && m.updated > 0 ? m.updated : m.receivedAt;
       if (ref) p += (Date.now() - ref) / 1000;
     }
-    return Math.max(0, Math.min(m.duration, p));
+    // Durée inconnue (certains lecteurs ne la donnent pas) : pas de plafond.
+    return Math.max(0, m.duration > 0 ? Math.min(m.duration, p) : p);
   }
   const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 

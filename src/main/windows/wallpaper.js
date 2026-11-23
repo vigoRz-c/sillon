@@ -129,7 +129,8 @@ class WallpaperAttacher {
     // et la fenêtre file sur un autre écran. On l'affiche d'abord, puis on la place.
     this.win.showInactive();
     this.place(bounds);
-    setTimeout(() => !this.win.isDestroyed() && this.host && this.place(bounds), 300);
+    // Les dimensions peuvent avoir changé pendant ces 300 ms : on prend les dernières.
+    setTimeout(() => !this.win.isDestroyed() && this.host && this.place(this.lastBounds), 300);
 
     // Si Explorer redémarre ou que le fond change, on se ré-accroche.
     clearInterval(this.watch);

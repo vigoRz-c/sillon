@@ -245,3 +245,17 @@ test('lookupLyrics : « pas de paroles » (404 partout) est mis en cache', async
     },
   );
 });
+
+test('lookupLyrics : durée peut-être périmée (volatile) -> résultat vide non mis en cache', async () => {
+  const media = { ...MEDIA, title: 'Durée périmée' };
+  let found = false;
+  await withLrclib(
+    () => (found ? textRes(rec({ trackName: 'Durée périmée' })) : textRes(null, 404)),
+    async () => {
+      assert.equal(await lookupLyrics(media, { volatile: true }), null);
+      found = true; // la bonne durée arrive : la recherche doit repartir au réseau
+      const r = await lookupLyrics(media);
+      assert.equal(r.lines[0].text, 'Bonjour');
+    },
+  );
+});

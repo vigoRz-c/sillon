@@ -65,15 +65,25 @@
     }
 
     range.addEventListener('input', () => set(Number(range.value)));
-    range.addEventListener('pointerdown', () => {
-      dragging = true;
-    });
-    window.addEventListener('pointerup', () => {
+    // Fin du geste, même relâché hors de la fenêtre ou interrompu : sinon le
+    // volume réel ne serait plus jamais affiché.
+    function endDrag() {
       if (dragging) {
         dragging = false;
         holdUntil = Date.now() + 1500;
       }
+    }
+    range.addEventListener('pointerdown', (e) => {
+      dragging = true;
+      try {
+        range.setPointerCapture(e.pointerId);
+      } catch {
+        // Pointeur déjà relâché : les écouteurs ci-dessous suffisent.
+      }
     });
+    window.addEventListener('pointerup', endDrag);
+    window.addEventListener('pointercancel', endDrag);
+    range.addEventListener('lostpointercapture', endDrag);
     btn.addEventListener('click', () => set(value > 0 ? 0 : restore || 50));
     root.addEventListener(
       'wheel',

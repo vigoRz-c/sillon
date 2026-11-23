@@ -1,14 +1,15 @@
-/* Fenêtre de paramètres : chaque changement est appliqué tout de suite. */
+/* Fenêtre de paramètres : chaque changement est appliqué tout de suite.
+ * Sections en onglets (menu à gauche), recherche dans tous les réglages,
+ * aperçu en direct du visualiseur et pastilles de couleurs. */
 (function () {
   'use strict';
   const $ = (id) => document.getElementById(id);
   const bridge = window.bridge;
+  const Catalog = window.SillonCatalog;
 
   const selects = [
     'layout',
-    'theme',
     'discRays',
-    'discColors',
     'mode',
     'preferApp',
     'fps',
@@ -53,7 +54,196 @@
   // Le focus arrive sur le titre à l'ouverture : le lecteur d'écran annonce la fenêtre.
   $('pageTitle').focus({ preventScroll: true });
 
-  // ----- Galerie des visualiseurs : aperçus animés -----
+  // ----- Groupes de boutons radio (styles, couleurs) -----
+  // Une seule tabulation par groupe, flèches / Début / Fin pour changer, choix appliqué tout de suite.
+  function radioGroup(buttons, choose) {
+    for (const [i, b] of buttons.entries()) {
+      b.addEventListener('click', () => choose(b));
+      b.addEventListener('keydown', (e) => {
+        const n = buttons.length;
+        const to = { ArrowRight: i + 1, ArrowDown: i + 1, ArrowLeft: i - 1, ArrowUp: i - 1, Home: 0, End: n - 1 }[
+          e.key
+        ];
+        if (to === undefined) return;
+        e.preventDefault();
+        const next = buttons[(to + n) % n];
+        next.focus();
+        choose(next);
+      });
+    }
+  }
+  function check(buttons, value, key) {
+    for (const b of buttons) {
+      const on = b.dataset[key] === value;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-checked', String(on));
+      b.tabIndex = on ? 0 : -1;
+    }
+  }
+
+  // ----- Pastilles de couleurs, rangées par familles -----
+  const FAMILIES = [
+    ['Image', ['wallpaper', 'album']],
+    ['Classiques', ['spotify', 'neon', 'sunset', 'ocean', 'violet', 'mono']],
+    ['Vifs', ['cyberpunk', 'synthwave', 'acid']],
+    ['Doux', ['pastel', 'lavender', 'peach', 'mint']],
+    ['Naturels', ['forest', 'fire', 'ice', 'desert']],
+    ['Sombres', ['gold', 'blood', 'midnight']],
+  ];
+  // Noms courts sous les pastilles « image » (le nom complet du catalogue est trop long).
+  const SHORT = { wallpaper: "Fond d'écran", album: 'Pochette' };
+
+  function buildSwatches(container, allowed) {
+    const names = Catalog.THEME_NAMES;
+    const placed = new Set(FAMILIES.flatMap(([, ids]) => ids));
+    // Un jeu ajouté au catalogue sans famille reste choisissable.
+    const extra = Catalog.THEME_ORDER.filter((id) => !placed.has(id));
+    const families = extra.length ? [...FAMILIES, ['Autres', extra]] : FAMILIES;
+    const buttons = [];
+    for (const [fi, [family, ids]] of families.entries()) {
+      const list = ids.filter((id) => allowed.has(id));
+      if (!list.length) continue;
+      const label = document.createElement('p');
+      label.className = 'family';
+      label.id = `${container.id}-f${fi}`;
+      label.textContent = family;
+      const row = document.createElement('div');
+      row.className = 'swatch-row';
+      for (const id of list) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'swatch';
+        b.setAttribute('role', 'radio');
+        b.setAttribute('aria-checked', 'false');
+        b.setAttribute('aria-describedby', label.id);
+        b.tabIndex = -1;
+        b.dataset.value = id;
+        const disc = document.createElement('span');
+        disc.className = 'disc';
+        disc.setAttribute('aria-hidden', 'true');
+        const pal = Catalog.PALETTES[id];
+        if (pal) pal.forEach((c, i) => disc.style.setProperty(`--c${i + 1}`, c));
+        else disc.classList.add(id);
+        const name = document.createElement('span');
+        name.textContent = SHORT[id] || names[id] || id;
+        b.append(disc, name);
+        row.append(b);
+        buttons.push(b);
+      }
+      container.append(label, row);
+    }
+    const key = container.dataset.setting;
+    radioGroup(buttons, (b) => bridge.setSettings({ [key]: b.dataset.value }));
+    return buttons;
+  }
+  const themeSwatches = buildSwatches($('themeSwatches'), new Set(Catalog.THEME_ORDER));
+  const discSwatches = buildSwatches(
+    $('discColorSwatches'),
+    new Set(['album', ...Catalog.FIXED_THEMES.map(([id]) => id)]),
+  );
+
+  // ----- Onglets (menu de gauche) -----
+  const tabs = [...document.querySelectorAll('[role="tab"]')];
+  const panelOf = (t) => $(t.getAttribute('aria-controls'));
+  const shown = () => tabs.filter((t) => !t.classList.contains('hidden'));
+  function selectTab(tab, focus) {
+    for (const t of tabs) {
+      const on = t === tab;
+      t.setAttribute('aria-selected', String(on));
+      t.tabIndex = on ? 0 : -1;
+      if (!searching()) panelOf(t).hidden = !on;
+    }
+    if (focus) tab.focus();
+    $('panels').scrollTop = 0;
+    paintSoon();
+  }
+  for (const t of tabs) {
+    t.addEventListener('click', () => {
+      if (searching()) clearSearch();
+      selectTab(t);
+    });
+    t.addEventListener('keydown', (e) => {
+      const list = shown();
+      const i = list.indexOf(t);
+      const to = {
+        ArrowDown: i + 1,
+        ArrowRight: i + 1,
+        ArrowUp: i - 1,
+        ArrowLeft: i - 1,
+        Home: 0,
+        End: list.length - 1,
+      }[e.key];
+      if (to === undefined) return;
+      e.preventDefault();
+      if (searching()) clearSearch();
+      selectTab(list[(to + list.length) % list.length], true);
+    });
+  }
+  const activeTab = () => tabs.find((t) => t.getAttribute('aria-selected') === 'true');
+
+  // ----- Recherche : toutes sections confondues, seulement les réglages trouvés -----
+  const items = [...document.querySelectorAll('#panels .item')];
+  const panels = tabs.map(panelOf);
+  const fold = (s) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  // Texte de chaque réglage (libellés, options, aide, mots-clés) et de sa section.
+  const haystack = new Map(
+    items.map((it) => {
+      const panel = it.closest('.panel');
+      const text = [panel.querySelector('h2').textContent, it.textContent, it.dataset.keywords || ''].join(' ');
+      return [it, fold(text.replace(/\s+/g, ' '))];
+    }),
+  );
+  const searching = () => document.body.classList.contains('searching');
+  function runSearch() {
+    const words = fold($('search').value).split(/\s+/).filter(Boolean);
+    const on = words.length > 0;
+    document.body.classList.toggle('searching', on);
+    let found = 0;
+    for (const it of items) {
+      const hit = !on || words.every((w) => haystack.get(it).includes(w));
+      it.classList.toggle('miss', !hit);
+      const tab = tabs[panels.indexOf(it.closest('.panel'))];
+      if (hit && on && !it.classList.contains('hidden') && !tab.classList.contains('hidden')) found++;
+    }
+    const current = activeTab();
+    for (const [i, p] of panels.entries()) {
+      const tabHidden = tabs[i].classList.contains('hidden');
+      const any = p.querySelector('.item:not(.miss):not(.hidden)');
+      p.hidden = on ? tabHidden || !any : tabs[i] !== current;
+      // Sous-titres (Disque, Écran de veille…) masqués si rien dessous n'est trouvé.
+      for (const h of p.querySelectorAll('h3')) {
+        let next = h.nextElementSibling,
+          visible = false;
+        while (next && next.tagName !== 'H3') {
+          if (next.classList.contains('item') && !next.classList.contains('miss')) visible = true;
+          next = next.nextElementSibling;
+        }
+        h.classList.toggle('miss', on && !visible);
+      }
+    }
+    $('searchState').textContent = !on
+      ? ''
+      : found
+        ? `${found} réglage${found > 1 ? 's' : ''} trouvé${found > 1 ? 's' : ''}.`
+        : `Aucun réglage ne correspond à « ${$('search').value.trim()} ».`;
+    if (on) $('panels').scrollTop = 0;
+    paintSoon();
+  }
+  function clearSearch() {
+    $('search').value = '';
+    runSearch();
+  }
+  $('search').addEventListener('input', runSearch);
+  // Entrée : aller au premier réglage trouvé.
+  $('search').addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || !searching()) return;
+    const first = [...document.querySelectorAll('#panels .item:not(.miss):not(.hidden)')].find((it) => it.offsetParent);
+    const target =
+      first && first.querySelector('button[tabindex="0"], input, select, button:not([tabindex="-1"]):not(.hidden)');
+    if (target) target.focus();
+  });
+
+  // ----- Aperçus animés : galerie des styles + aperçu en direct -----
   const { VISUALIZERS, THEMES, FakeAudio } = window.SV;
   const gallery = [...document.querySelectorAll('#styleGallery button')];
   let current = {};
@@ -64,24 +254,15 @@
   let needsPaint = true;
   motionQuery.addEventListener('change', () => {
     document.body.classList.toggle('reduce-motion', still());
-    needsPaint = true;
+    paintSoon();
   });
-  for (const b of gallery) b.onclick = () => bridge.setSettings({ style: b.dataset.style });
-  // Groupe de boutons radio : une seule tabulation, flèches pour changer de style.
-  for (const [i, b] of gallery.entries()) {
-    b.addEventListener('keydown', (e) => {
-      const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
-      if (!step) return;
-      e.preventDefault();
-      const next = gallery[(i + step + gallery.length) % gallery.length];
-      next.focus();
-      bridge.setSettings({ style: next.dataset.style });
-    });
-  }
-  // Légèreté : on ne dessine que les aperçus visibles, à 30 i/s, et rien
-  // pendant le défilement (sinon la fenêtre saccade). Les tailles sont lues
-  // une fois par l'observateur, pas à chaque image.
-  const previews = gallery.map((b) => ({ b, c: b.querySelector('canvas'), w: 0, h: 0, visible: false }));
+  radioGroup(gallery, (b) => bridge.setSettings({ style: b.dataset.style }));
+
+  // Légèreté : on ne dessine que les aperçus visibles (onglet ouvert, à l'écran),
+  // à 30 i/s, rien pendant le défilement (sinon la fenêtre saccade) ni quand la
+  // fenêtre est cachée. Les tailles sont lues une fois par l'observateur.
+  const live = { c: $('liveCanvas'), w: 0, h: 0, visible: false, live: true };
+  const previews = [live, ...gallery.map((b) => ({ b, c: b.querySelector('canvas'), w: 0, h: 0, visible: false }))];
   const dpr = window.devicePixelRatio || 1;
   const sizes = new ResizeObserver((entries) => {
     for (const e of entries) {
@@ -91,56 +272,81 @@
       p.c.width = Math.round(p.w * dpr);
       p.c.height = Math.round(p.h * dpr);
     }
-    needsPaint = true;
+    paintSoon();
   });
   const seen = new IntersectionObserver((entries) => {
     for (const e of entries) previews.find((x) => x.c === e.target).visible = e.isIntersecting;
-    needsPaint = true;
+    paintSoon();
   });
   for (const p of previews) {
     sizes.observe(p.c);
     seen.observe(p.c);
   }
   let scrolling = 0,
-    lastDraw = 0;
-  document.querySelector('main').addEventListener(
+    lastDraw = 0,
+    frame = 0;
+  $('panels').addEventListener(
     'scroll',
     () => {
       clearTimeout(scrolling);
       scrolling = setTimeout(() => {
         scrolling = 0;
+        paintSoon();
       }, 180);
     },
     { passive: true },
   );
-  function drawGallery(now) {
-    requestAnimationFrame(drawGallery);
-    if (scrolling || now - lastDraw < 1000 / 30 - 2) return;
-    // Aperçus figés : une seule image fixe, redessinée seulement si quelque chose a changé.
+  // Relance la boucle de dessin (elle s'arrête d'elle-même quand il n'y a rien à animer).
+  function paintSoon() {
+    needsPaint = true;
+    if (!frame && !document.hidden) frame = requestAnimationFrame(draw);
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      cancelAnimationFrame(frame);
+      frame = 0;
+    } else paintSoon();
+  });
+  // Palette de l'aperçu : « fond d'écran » et « pochette » dépendent de l'image du
+  // moment, inconnue ici ; on montre le violet de Sillon.
+  const paletteOf = (theme) => THEMES[theme] || THEMES.violet;
+  function draw(now) {
+    frame = 0;
+    if (document.hidden) return;
     const frozen = still();
-    if (frozen && !needsPaint) return;
+    const visible = previews.filter((p) => p.visible && p.w);
+    // Figé ou rien à l'écran : une seule image, puis la boucle s'arrête.
+    if ((frozen || !visible.length) && !needsPaint) return;
+    frame = requestAnimationFrame(draw);
+    if (scrolling || now - lastDraw < 1000 / 30 - 2) return;
     needsPaint = false;
     lastDraw = now;
     const t = frozen ? 1500 : now;
     const a = fake.frame(t);
-    const pal = THEMES[current.theme] || THEMES.violet;
-    for (const p of previews) {
-      if (!p.visible || !p.w) continue;
+    const pal = paletteOf(current.theme);
+    for (const p of visible) {
       const ctx = p.c.getContext('2d');
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, p.w, p.h);
-      VISUALIZERS[p.b.dataset.style](ctx, p.w, p.h, a, pal, { glow: true, t, reflection: false, sensitivity: 1 });
+      const style = p.live ? current.style || 'bars' : p.b.dataset.style;
+      const opts = { glow: true, t, reflection: false, sensitivity: p.live ? Number(current.sensitivity) || 1 : 1 };
+      VISUALIZERS[style](ctx, p.w, p.h, a, pal, opts);
     }
   }
-  requestAnimationFrame(drawGallery);
+  function showLive(s) {
+    const style = s.style || 'bars';
+    $('liveStyle').textContent = Catalog.STYLE_NAMES[style] || style;
+    $('liveTheme').textContent = Catalog.THEME_NAMES[s.theme] || '';
+    live.c.style.opacity = String(Math.max(0.2, Math.min(1, Number(s.opacity) || 1)));
+    document.body.style.setProperty('--pv1', paletteOf(s.theme)[0]);
+  }
 
   function fill(s) {
     const defaults = {
       layout: 'scene',
       sceneScreen: 'primary',
-      sleepAfter: 5,
+      sleepAfter: 0,
       discRays: 'fine',
-      discColors: 'album',
       audioSource: 'app',
     };
     for (const k of selects) if (document.activeElement !== $(k)) $(k).value = String(s[k] ?? defaults[k] ?? '');
@@ -149,14 +355,11 @@
     current = s;
     $('reduceMotion').checked = !!s.reduceMotion;
     document.body.classList.toggle('reduce-motion', still());
-    needsPaint = true;
-    const style = s.style || 'bars';
-    for (const b of gallery) {
-      const on = b.dataset.style === style;
-      b.classList.toggle('on', on);
-      b.setAttribute('aria-checked', String(on));
-      b.tabIndex = on ? 0 : -1;
-    }
+    check(gallery, s.style || 'bars', 'style');
+    check(themeSwatches, s.theme || 'wallpaper', 'value');
+    check(discSwatches, s.discColors || 'album', 'value');
+    showLive(s);
+    paintSoon();
     $('launchAtLogin').checked = !!s.launchAtLogin;
     if (document.activeElement !== $('spotifyClientId')) $('spotifyClientId').value = s.spotifyClientId || '';
     $('spotifyCustomClientId').checked = !!s.spotifyCustomClientId;
@@ -170,12 +373,16 @@
     // Scène choisie et réellement affichée (seulement sur le fond d'écran).
     const wantsScene = (s.layout || 'scene') !== 'strip';
     const scene = wantsScene && s.mode === 'wallpaper';
-    $('sceneSection').classList.toggle('hidden', !scene);
+    $('tab-scene').classList.toggle('hidden', !scene);
+    $('discColorsGroup').classList.toggle('hidden', !scene);
     $('sceneScreenRow').classList.toggle('hidden', !scene);
     $('sceneNeedsWallpaper').classList.toggle('hidden', !(wantsScene && s.mode !== 'wallpaper'));
     $('showNowPlayingRow').classList.toggle('hidden', scene);
     // La scène occupe tout le bureau : rien à déplacer.
     $('editRow').classList.toggle('hidden', scene);
+    // Onglet « Scène » ouvert alors que la scène disparaît : retour à « Disposition ».
+    if (!scene && activeTab() === $('tab-scene')) selectTab($('tab-layout'));
+    if (searching()) runSearch();
     for (const k of Object.keys(ranges)) {
       if (document.activeElement !== $(k)) $(k).value = s[k];
       showRange(k, Number(s[k]));
@@ -201,8 +408,23 @@
   $('resetBounds').onclick = () => bridge.resetBounds();
   $('veilleNow').onclick = () => bridge.startVeille();
   $('close').onclick = () => window.close();
+  // Échap : vide d'abord la recherche, puis ferme la fenêtre.
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') window.close();
+    if (e.key !== 'Escape') return;
+    if (e.target === $('search') && $('search').value) {
+      e.preventDefault();
+      clearSearch();
+      return;
+    }
+    window.close();
+  });
+  // Ctrl+F : aller à la recherche.
+  window.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && !e.altKey && e.key.toLowerCase() === 'f') {
+      e.preventDefault();
+      $('search').focus();
+      $('search').select();
+    }
   });
 
   // ----- Compte Spotify -----
@@ -273,7 +495,7 @@
   bridge.onUpdateStatus(showUpdate);
   bridge.updateStatus().then(showUpdate);
 
-  // ----- Diagnostic -----
+  // ----- Scène et diagnostic -----
   $('openLayout').onclick = () => bridge.openLayoutEditor();
   $('copyDiagnostic').onclick = async () => {
     const el = $('diagnosticState');

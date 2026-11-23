@@ -21,6 +21,8 @@ const HELPER_PROTOCOL = 1;
 const SIMPLE_COMMANDS = new Set(['playpause', 'play', 'pause', 'next', 'previous', 'shuffle', 'repeat']);
 const PREFIXED_COMMANDS = ['volume:', 'prefer:', 'volume-target:'];
 const STABLE_MS = 10000; // fonctionnement stable : le compteur de redémarrages repart de zéro
+const REPLAY_MS = 5000; // une commande de lecture perdue pendant la relance est rejouée si elle a moins de 5 s
+const PLAYBACK_COMMANDS = new Set(['playpause', 'play', 'pause', 'next', 'previous']);
 const MAX_BAD_LINES = 3; // lignes non JSON journalisées par lancement
 
 // Position de lecture fiable pour synchroniser les paroles.
@@ -71,6 +73,7 @@ class WindowsMediaSource extends EventEmitter {
     this.stopped = false;
     this.restarts = 0;
     this.timer = null;
+    this.lost = null; // dernière commande de lecture perdue : { cmd, at }
   }
 
   start() {
@@ -120,6 +123,13 @@ class WindowsMediaSource extends EventEmitter {
       if (msg.protocol !== HELPER_PROTOCOL) this.note('assistant', 'assistant périmé : relancer npm run build:helper');
       this.command(`prefer:${this.prefer || ''}`);
       if (this.volumeExe) this.command(`volume-target:${this.volumeExe}`);
+      // Un clic pendant la relance de l'assistant n'est pas perdu pour autant.
+      const lost = this.lost;
+      this.lost = null;
+      if (lost && Date.now() - lost.at < REPLAY_MS) {
+        this.note('assistant', `commande rejouée après la relance : ${lost.cmd}`);
+        this.command(lost.cmd);
+      }
     } else if (msg.type === 'volume') {
       this.emit('volume', { exe: msg.exe, volume: msg.volume });
     } else if (msg.type === 'media') {
@@ -169,6 +179,7 @@ class WindowsMediaSource extends EventEmitter {
     const proc = this.proc;
     if (!proc || !proc.stdin || !proc.stdin.writable) {
       this.note('assistant', `commande perdue (assistant absent) : ${c.slice(0, 40)}`);
+      if (PLAYBACK_COMMANDS.has(c)) this.lost = { cmd: c, at: Date.now() }; // rejouée au prochain « ready »
       return false;
     }
     try {

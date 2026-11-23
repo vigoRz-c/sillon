@@ -20,14 +20,24 @@ class SettingsStore {
     this.timer = null;
     this.dirty = false;
     this.data = { ...DEFAULTS };
+    // Fichier présent mais illisible (EBUSY, EACCES...) : les valeurs en mémoire
+    // sont celles par défaut, pas celles de l'utilisateur. Tant que c'est le cas,
+    // on n'écrit rien (écrire effacerait ses vrais réglages) ; ses changements
+    // de la session sont gardés dans `touched` et appliqués par-dessus le
+    // fichier dès qu'il redevient lisible (voir flush).
+    this.loadFailed = false;
+    this.touched = {};
     this.load();
-    // 0.1.5 : 30 images par seconde par défaut (60 était enregistré pour tout
-    // le monde, choisi ou non). Une seule fois : qui remet 60 le garde.
-    if (!this.data.fps30) {
-      if (this.data.fps === 60) this.data.fps = 30;
-      this.data.fps30 = true;
-      this.markDirty();
-    }
+    this.migrate();
+  }
+
+  // 0.1.5 : 30 images par seconde par défaut (60 était enregistré pour tout
+  // le monde, choisi ou non). Une seule fois : qui remet 60 le garde.
+  migrate() {
+    if (this.loadFailed || this.data.fps30) return;
+    if (this.data.fps === 60) this.data.fps = 30;
+    this.data.fps30 = true;
+    this.markDirty();
   }
 
   load() {
@@ -39,6 +49,7 @@ class SettingsStore {
       if (e.code !== 'ENOENT') {
         console.error('Lecture des réglages impossible :', e.message);
         this.onCorrupt(`lecture impossible (${e.code || e.message})`);
+        this.loadFailed = true;
       }
       return;
     }
@@ -83,6 +94,7 @@ class SettingsStore {
       if (same(this.data[k], v)) continue;
       this.data[k] = v;
       changed[k] = v;
+      if (this.loadFailed) this.touched[k] = v;
     }
     if (Object.keys(changed).length) this.markDirty();
     return { all: this.get(), changed };
@@ -103,7 +115,20 @@ class SettingsStore {
   flush() {
     clearTimeout(this.timer);
     this.timer = null;
-    if (!this.dirty) return;
+    if (!this.dirty && !this.loadFailed) return;
+    if (this.loadFailed) {
+      // Nouvelle lecture : si le fichier est enfin lisible, on y remet les
+      // changements de l'utilisateur ; sinon on n'écrit rien (écriture reportée
+      // à la fermeture ou au prochain changement).
+      this.loadFailed = false;
+      this.load();
+      if (this.loadFailed) return;
+      if (Object.keys(this.touched).length) this.dirty = true;
+      Object.assign(this.data, this.touched);
+      this.touched = {};
+      this.migrate();
+      if (!this.dirty) return; // rien à écrire
+    }
     const tmp = `${this.file}.tmp`;
     try {
       fs.mkdirSync(path.dirname(this.file), { recursive: true });

@@ -194,3 +194,30 @@ test('stop : plus de redémarrage', (t) => {
   t.mock.timers.tick(60_000);
   assert.equal(procs.length, 1);
 });
+
+test('commande de lecture perdue pendant la relance : rejouée au « ready » si elle a moins de 5 s', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1_000_000 });
+  const { src, procs } = setup();
+  await procs[0].say({ type: 'ready', protocol: HELPER_PROTOCOL });
+  procs[0].emit('exit', 1, null); // l'assistant tombe
+  assert.equal(src.command('play'), false); // pendant la relance : perdue
+  t.mock.timers.tick(1000); // relancé
+  assert.equal(procs.length, 2);
+  t.mock.timers.tick(2000);
+  await procs[1].say({ type: 'ready', protocol: HELPER_PROTOCOL });
+  assert.ok(procs[1].stdin.written.includes('play\n'));
+  src.stop();
+});
+
+test('commande perdue depuis plus de 5 s ou hors lecture : pas rejouée', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1_000_000 });
+  const { src, procs } = setup();
+  procs[0].emit('exit', 1, null);
+  src.command('next');
+  src.command('volume:30'); // pas une commande de lecture
+  t.mock.timers.tick(6000);
+  await procs[1].say({ type: 'ready', protocol: HELPER_PROTOCOL });
+  assert.ok(!procs[1].stdin.written.includes('next\n'));
+  assert.ok(!procs[1].stdin.written.includes('volume:30\n'));
+  src.stop();
+});

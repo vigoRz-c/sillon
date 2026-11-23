@@ -54,6 +54,13 @@
   ]);
   const isSmall = (w, last) => !last && (SMALL.has(w.toLowerCase().replace(/[^a-z'à-ÿ]/g, '')) || w.length <= 2);
 
+  // Même morceau et mêmes lignes (seul le décalage a pu changer).
+  function sameLyrics(a, b) {
+    if (!a || !b || !a.lines || !b.lines || !a.lines.length) return false;
+    if (a.title !== b.title || a.artist !== b.artist || a.lines.length !== b.lines.length) return false;
+    return a.lines.every((l, i) => l.t === b.lines[i].t && l.text === b.lines[i].text);
+  }
+
   class LyricsView {
     constructor(el, { maxChars = 14 } = {}) {
       this.el = el;
@@ -65,6 +72,12 @@
     }
 
     set(data) {
+      // Mêmes paroles avec un autre décalage ([ / ]) : on garde la ligne affichée,
+      // sinon elle serait reconstruite et l'ancienne remonterait en fantôme.
+      if (sameLyrics(this.data, data)) {
+        this.data = data;
+        return;
+      }
       this.data = data;
       this.index = -2;
       this.fallbackKey = '';
@@ -221,13 +234,23 @@
       }
       if (this.current && this.current._words) {
         for (const span of this.current._words) {
-          if (span._p >= 100 || pos + 0.1 < span._t) continue;
+          if (pos + 0.1 < span._t) {
+            // Retour en arrière (seek, décalage) : le mot déjà coloré redevient éteint.
+            if (span._p >= 0) {
+              span.classList.remove('on', 'full');
+              span.style.removeProperty('--p');
+              span._p = -1;
+            }
+            continue;
+          }
+          if (span._p >= 100 && pos >= span._end) continue;
           // Remplissage karaoké : le mot se colore pendant qu'il est chanté.
           const p = span._end > span._t ? (pos - span._t) / (span._end - span._t) : 1;
           const pct = Math.max(0, Math.min(1, p)) * 100;
           // On n'écrit dans la page que si le remplissage a bougé d'au moins 1 %.
           if (pct < 100 && span._p >= 0 && Math.abs(pct - span._p) < 1) continue;
           if (span._p < 0) span.classList.add('on');
+          if (pct < 100) span.classList.remove('full');
           span._p = pct;
           span.style.setProperty('--p', `${pct.toFixed(1)}%`);
           if (pct >= 100) span.classList.add('full');

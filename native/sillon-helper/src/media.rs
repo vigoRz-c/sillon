@@ -16,7 +16,7 @@ use std::time::{Duration, Instant};
 
 use base64::Engine;
 use serde_json::{json, Value};
-use windows::core::RuntimeType;
+use windows::core::{IUnknown, Interface, RuntimeType};
 use windows::Foundation::TypedEventHandler;
 use windows::Media::Control::{
     CurrentSessionChangedEventArgs, GlobalSystemMediaTransportControlsSession as Session,
@@ -287,6 +287,8 @@ fn read_cover(props: &Props, previous: Option<u64>) -> Option<CoverRead> {
 /// Abonnement aux événements d'une session (retiré à la destruction).
 struct Subscription {
     session: Session,
+    /// Identité de la session (voir `identity`).
+    id: usize,
     tokens: [i64; 3],
 }
 
@@ -330,6 +332,7 @@ impl Subscription {
         };
         Ok(Subscription {
             session: session.clone(),
+            id: identity(session),
             tokens: [props, playback, timeline],
         })
     }
@@ -358,8 +361,25 @@ struct State {
     volume_wanted: Option<i32>,
     last_volume: Option<i32>,
     last_volume_read: Option<Instant>,
-    /// Session dont on écoute les événements (identifiant de l'application).
-    events: Option<(String, Subscription)>,
+    /// Session dont on écoute les événements (liée à l'objet session lui-même :
+    /// une même application peut en changer, Spotify relancé, autre onglet).
+    events: Option<Subscription>,
+}
+
+/// Identité d'une session (adresse canonique de l'objet) ; 0 si elle est inconnue.
+fn identity(s: &Session) -> usize {
+    s.cast::<IUnknown>().map_or(0, |u| u.as_raw() as usize)
+}
+
+/// La session de l'application préférée passe-t-elle avant les autres ? Oui si
+/// elle joue, ou si aucune autre ne joue (sinon on afficherait « en pause »
+/// alors qu'un autre lecteur joue).
+fn prefer_preferred(preferred_playing: bool, other_playing: bool) -> bool {
+    preferred_playing || !other_playing
+}
+
+fn is_playing(s: &Session) -> bool {
+    status_name(s) == "Playing"
 }
 
 impl State {
@@ -367,14 +387,31 @@ impl State {
     fn session(&self) -> Option<Session> {
         if !self.prefer.is_empty() {
             if let Ok(list) = self.manager.GetSessions() {
+                let mut preferred = None;
+                let mut other_playing = None;
                 for s in list {
                     let id = s
                         .SourceAppUserModelId()
                         .map(|h| h.to_string().to_lowercase())
                         .unwrap_or_default();
-                    if id.contains(&self.prefer) {
-                        return Some(s);
+                    if preferred.is_none() && id.contains(&self.prefer) {
+                        preferred = Some(s);
+                    } else if other_playing.is_none() && is_playing(&s) {
+                        other_playing = Some(s);
                     }
+                }
+                if let Some(p) = preferred {
+                    if prefer_preferred(is_playing(&p), other_playing.is_some()) {
+                        return Some(p);
+                    }
+                    // Le préféré est en pause et un autre lecteur joue : on suit celui
+                    // que Windows met en avant s'il joue, sinon le premier qui joue.
+                    return self
+                        .manager
+                        .GetCurrentSession()
+                        .ok()
+                        .filter(is_playing)
+                        .or(other_playing);
                 }
             }
         }
@@ -461,12 +498,14 @@ impl State {
         }
     }
 
-    /// Écoute les événements de la session suivie (on change d'abonnement avec elle).
-    fn subscribe(&mut self, s: &Session, app: &str) {
-        if self.events.as_ref().is_some_and(|(id, _)| id == app) {
+    /// Écoute les événements de la session suivie (on change d'abonnement avec
+    /// elle, même si c'est la même application : l'objet session change).
+    fn subscribe(&mut self, s: &Session) {
+        let id = identity(s);
+        if id != 0 && self.events.as_ref().is_some_and(|sub| sub.id == id) {
             return;
         }
-        self.events = Subscription::new(s, &self.tx).ok().map(|sub| (app.to_string(), sub));
+        self.events = Subscription::new(s, &self.tx).ok();
     }
 
     /// Prochaine échéance interne (relecture de pochette, relecture du volume).
@@ -509,7 +548,7 @@ impl State {
             return;
         };
         let app = s.SourceAppUserModelId().map(|h| h.to_string()).unwrap_or_default();
-        self.subscribe(&s, &app);
+        self.subscribe(&s);
         let Ok(props) = s
             .TryGetMediaPropertiesAsync()
             .map_err(|e| e.message())
@@ -723,6 +762,14 @@ pub fn run() -> i32 {
 mod tests {
     use super::*;
     use std::io::Cursor;
+
+    #[test]
+    fn lecteur_prefere_seulement_s_il_joue_ou_si_rien_d_autre_ne_joue() {
+        assert!(prefer_preferred(true, true));
+        assert!(prefer_preferred(true, false));
+        assert!(prefer_preferred(false, false)); // tous en pause : le préféré
+        assert!(!prefer_preferred(false, true)); // un autre joue : lui
+    }
 
     #[test]
     fn commandes_simples() {

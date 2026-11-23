@@ -278,3 +278,36 @@ test('player : champs interdits par Spotify, 204 -> null', async (t) => {
   assert.equal(await api.player(), null);
   n.restore();
 });
+
+test('queue : jeton impossible à rafraîchir -> null (pas une file vide)', async (t) => {
+  const api = await makeApi(t, expired);
+  const n = net({ api: () => json({ queue: [] }), token: () => json({ error: 'server_error' }, 500) });
+  assert.equal(await api.queue(), null);
+  assert.equal(n.c.api, 0);
+  n.restore();
+});
+
+test('queue : file vraiment vide (204 ou liste vide) -> []', async (t) => {
+  const api = await makeApi(t, fresh);
+  let body = null;
+  const n = net({ api: () => (body ? json(body) : json(null, 204)), token: goodToken });
+  assert.deepEqual(await api.queue(), []);
+  body = { queue: [] };
+  assert.deepEqual(await api.queue(), []);
+  n.restore();
+});
+
+test('playbackDevice : appareil actif, sinon un ordinateur', async (t) => {
+  const api = await makeApi(t, fresh);
+  let devices = [
+    { id: 'tel', type: 'Smartphone', is_active: false },
+    { id: 'pc', type: 'Computer', is_active: false },
+  ];
+  const n = net({ api: () => json({ devices }), token: goodToken });
+  assert.deepEqual(await api.playbackDevice(), { id: 'pc', active: false });
+  devices = [{ id: 'tel', type: 'Smartphone', is_active: true }];
+  assert.deepEqual(await api.playbackDevice(), { id: 'tel', active: true });
+  devices = [];
+  assert.equal(await api.playbackDevice(), null);
+  n.restore();
+});

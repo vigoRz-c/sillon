@@ -419,8 +419,24 @@ class SpotifyApi extends EventEmitter {
     return this.put(`/me/player/repeat?state=${{ List: 'context', Track: 'track' }[mode] || 'off'}`);
   }
 
+  // Reprend la lecture (sur l'appareil donné, sinon l'appareil actif).
+  play(deviceId) {
+    return this.put(`/me/player/play${deviceId ? `?device_id=${encodeURIComponent(deviceId)}` : ''}`);
+  }
+
+  // Appareil actif, sinon l'ordinateur : { id, active } (null si aucun connu).
+  async playbackDevice() {
+    const data = await this.get('/me/player/devices');
+    const list = (data && Array.isArray(data.devices) && data.devices) || [];
+    const d = list.find((x) => x.is_active) || list.find((x) => x.type === 'Computer');
+    return d && d.id ? { id: d.id, active: !!d.is_active } : null;
+  }
+
   // Les prochains morceaux : [{ title, artist, image }] (image = URL Spotify).
+  // null = pas de jeton ou rafraîchissement en échec (inconnu, à ne pas confondre
+  // avec [] : file vide).
   async queue(limit = 4) {
+    if (!(await this.accessToken())) return null;
     const data = await this.get('/me/player/queue');
     if (!data || !Array.isArray(data.queue)) return [];
     return data.queue.slice(0, limit).map((it) => {

@@ -69,6 +69,9 @@ function updateSettings(patch) {
   if (!Object.keys(changed).length) return; // rien de nouveau : rien à renvoyer ni à reconstruire
   const has = (...keys) => keys.some((k) => k in changed);
   S.send([S.widget, S.fullscreen, S.settingsWin, S.editorWin], 'settings', all);
+  // Disposition ou mode changés pendant « Déplacer / redimensionner » : on sort
+  // du placement d'abord (la scène plein écran n'a rien à placer).
+  if (S.editing && has('layout', 'mode')) widgetWindow.setEditing(false);
   if (has('mode', 'layout', 'sceneHidden', 'sceneScreen')) {
     widgetWindow.applyMode();
     applyRest();
@@ -133,7 +136,9 @@ Object.assign(S.actions, {
 function coversSceneScreen() {
   const r = foregroundRect();
   if (!r || !S.alive(S.widget)) return false;
-  const fg = screen.screenToDipRect(null, r);
+  // Avec la fenêtre de la scène (et non null) : sur des écrans d'échelles
+  // différentes, la conversion se fait avec l'échelle de l'écran de la scène.
+  const fg = screen.screenToDipRect(S.widget, r);
   const d = screen.getDisplayMatching(widgetWindow.widgetBounds()).bounds;
   return (
     fg.x <= d.x + 2 && fg.y <= d.y + 2 && fg.x + fg.width >= d.x + d.width - 2 && fg.y + fg.height >= d.y + d.height - 2

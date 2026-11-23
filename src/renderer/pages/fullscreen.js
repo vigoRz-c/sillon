@@ -12,10 +12,9 @@
     // Annonce aux lecteurs d'écran comment quitter la veille.
     $('veilleStatus').textContent = 'Écran de veille : appuie sur une touche pour quitter';
   }
-  let coverImg = null;
   // Animations réduites : réglage Sillon (classe posée par common.js) ou réglage Windows.
-  const reduceMotion = () =>
-    document.body.classList.contains('reduce-motion') || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reduceQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const reduceMotion = () => document.body.classList.contains('reduce-motion') || reduceQuery.matches;
 
   // En plein écran, le visualiseur et les couleurs se changent ici sans toucher au widget.
   let localStyle = null;
@@ -37,10 +36,7 @@
       // Musique en pause : le fond cesse de dériver.
       document.body.classList.toggle('paused', !playing);
       if (coverChanged) {
-        if (m.cover) {
-          coverImg = new Image();
-          coverImg.src = m.cover;
-        } else coverImg = null;
+        // La pochette décodée vient de common.js (app.state.coverImg), pas d'un second décodage.
         $('cover').src = m.cover || '';
         $('roomImg').src = m.cover || '';
         $('cover').classList.toggle('hidden', !m.cover);
@@ -106,7 +102,7 @@
       cx: w / 2,
       cy: h / 2,
       radius: radius || Math.min(w, h) * 0.17,
-      image: coverImg,
+      image: st.coverImg,
       intensity: st.settings.discIntensity ?? 1.3,
       spin: st.media.status === 'Playing',
       halo: (st.albumPalette && st.albumPalette[0]) || app.renderer.palette[0],
@@ -247,16 +243,26 @@
     window.addEventListener('blur', leave);
   }
 
-  // Un contrôle qui a le focus garde ses touches (Espace sur un bouton, flèches
-  // sur un curseur ou une liste) : les raccourcis ne s'appliquent qu'ailleurs.
-  const isControl = (el) => !!el && /^(BUTTON|INPUT|SELECT|TEXTAREA|A)$/.test(el.tagName);
+  // Un contrôle qui a le focus ne garde que les touches qu'il gère lui-même :
+  // Espace et Entrée sur un bouton, flèches sur un curseur ou une liste. Après un
+  // clic sur un bouton, V, C, [, ] et les flèches continuent donc de marcher.
+  function keepsKey(el, e) {
+    if (!el) return false;
+    const tag = el.tagName;
+    const arrows = e.key.startsWith('Arrow');
+    if (tag === 'BUTTON') return e.code === 'Space' || e.key === 'Enter';
+    if (tag === 'A') return e.key === 'Enter';
+    if (tag === 'SELECT' || tag === 'TEXTAREA') return arrows || e.code === 'Space';
+    if (tag === 'INPUT') return el.type === 'range' ? arrows || e.code === 'Space' : true;
+    return false;
+  }
   window.addEventListener('keydown', (e) => {
     if (VEILLE) return;
     if (e.key === 'Escape') {
       if (bridge) bridge.closeFullscreen();
       return;
     }
-    if (e.ctrlKey || e.altKey || e.metaKey || isControl(e.target)) return;
+    if (e.ctrlKey || e.altKey || e.metaKey || keepsKey(e.target, e)) return;
     const s = app.state.settings;
     if (e.code === 'Space') {
       e.preventDefault();

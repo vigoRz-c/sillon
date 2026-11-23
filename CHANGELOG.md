@@ -6,7 +6,26 @@ Toutes les évolutions notables de Sillon. Format inspiré de [Keep a Changelog]
 
 Correctifs issus de l'audit complet de la version 0.2.0 (voir `AUDIT.md`).
 
+### Ajouté
+- 14 nouveaux jeux de couleurs pour le visualiseur et le disque : Cyberpunk, Synthwave, Acide, Pastel, Lavande, Pêche, Menthe, Forêt, Braise, Glace, Désert, Or et noir, Rouge sang, Minuit. Toutes les listes (paramètres, éditeur de la scène, menu de l'icône, raccourci C du plein écran) viennent du même catalogue.
+
+### Modifié
+- La scène ne se masque plus d'elle-même sans musique par défaut (« Masquer la scène sans musique après » : Jamais). Avant, elle s'endormait au bout de 5 minutes, même quand un jeu ou un programme sans contrôles média faisait du son. Les installations existantes gardent leur réglage.
+- Nouvelle fenêtre des paramètres : plus large, avec un menu à gauche (Disposition, Scène, Visualiseur, Couleurs, Son, Comportement, Spotify, Avancé), un aperçu animé du visualiseur avec le style et les couleurs choisis, et une recherche dans tous les réglages (accents et majuscules ignorés, Ctrl+F). Les couleurs se choisissent sur des pastilles rangées par famille (Image, Classiques, Vifs, Doux, Naturels, Sombres), utilisables au clavier.
+
 ### Corrigé
+- Écran de veille : il ne se lance plus pendant une vidéo ou un jeu en plein écran (il verrouillait ensuite le PC).
+- Lecture / pause : Sillon envoie « lecture » ou « pause » selon l'état connu au lieu d'une bascule, avec repli sur l'API Spotify si Spotify ignore la commande. Une commande envoyée pendant le redémarrage de l'assistant est rejouée.
+- Lecteur suivi en priorité : il ne masque plus un autre lecteur qui joue pendant qu'il est en pause. Les événements média suivent la bonne session après un redémarrage de Spotify.
+- Son du lecteur : un échec passager ne bascule plus pour toujours sur tout le son du PC ; un lecteur introuvable n'est plus relancé toutes les 3 secondes ; l'assistant de capture s'arrête avec Sillon.
+- Réglages : un fichier momentanément illisible (antivirus, synchronisation) n'est plus écrasé par les valeurs par défaut.
+- Paroles : recherche relancée quand la durée du morceau arrive en retard, nouvel essai après une coupure réseau, mots remis à zéro après un retour en arrière, plus de ligne en double après un décalage, plus de paroles figées quand le lecteur ne donne pas la durée.
+- Spotify : un jeton qui ne se renouvelle pas n'est plus masqué par une file d'attente vide.
+- Plein écran : les raccourcis (V, C, flèches, [ ]) marchent encore après un clic sur un bouton.
+- Rendu : une erreur dans un visualiseur ne fige plus l'animation ; l'Anneau ne plante plus dans une très petite fenêtre.
+- Éditeur de la scène : Échap et Ctrl+Z marchent après avoir réglé un curseur ; un simple clic n'encombre plus l'historique d'annulation ; la liste « Style » des barres montre le bon choix.
+- Bandeau : changer de disposition pendant son placement ne lui donne plus la taille de l'écran entier.
+- Divers : couleurs de la pochette remises à zéro si l'image est illisible, curseur de volume qui ne reste plus bloqué, mise à jour qui ne reste plus bloquée en « téléchargement », mode jeu correct sur deux écrans d'échelles différentes.
 - Assistant natif : cargo est lancé depuis le dossier du helper, si bien que `.cargo/config.toml` (liaison statique du runtime C) est enfin appliqué. Sur un PC sans le redistribuable Visual C++, l'assistant démarre et la capture par application et les infos média fonctionnent.
 - Disque masqué : des barres ne s'affichent plus en plein écran.
 - Paroles : celles du morceau précédent ne restent plus à l'écran pendant une recherche ni après l'arrêt du lecteur.

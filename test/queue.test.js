@@ -277,3 +277,63 @@ test('refreshPlayer : appels simultanés = une seule requête', async (t) => {
   await Promise.all([queue.refreshPlayer(), queue.refreshPlayer(), queue.refreshPlayer()]);
   assert.equal(spotify.calls.player, 1);
 });
+
+test('refreshQueue : jeton indisponible (queue = null) -> erreur non effacée, file gardée', async (t) => {
+  const { spotify, sent } = setup(t, fakeSpotify({ queue: async () => null }));
+  S.lastQueue = { items: [{ title: 'Ancien', artist: 'X', image: null }], connected: true };
+  await queue.refreshQueue();
+  assert.equal(spotify.calls.clearError, 0);
+  assert.ok(!sent.some(([ch]) => ch === 'queue'));
+  assert.equal(S.lastQueue.items.length, 1);
+});
+
+test('refreshQueue : vraie réussite -> erreur effacée', async (t) => {
+  const { spotify } = setup(t);
+  spotify.errors.push('ancienne erreur');
+  await queue.refreshQueue();
+  assert.equal(spotify.calls.clearError, 1);
+});
+
+test('mediaCommand : playpause devient play (en pause) ou pause (en lecture)', async (t) => {
+  setup(t);
+  S.lastMedia = { ...S.lastMedia, status: 'Paused' };
+  await queue.mediaCommand('playpause');
+  S.lastMedia = { ...S.lastMedia, status: 'Playing' };
+  await queue.mediaCommand('playpause');
+  S.lastMedia = { active: false, status: 'Stopped' };
+  await queue.mediaCommand('playpause');
+  assert.deepEqual(S.media.commands, ['play', 'pause', 'play']);
+});
+
+test('mediaCommand : play ignoré par Spotify -> API Spotify sur l’ordinateur', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const played = [];
+  setup(
+    t,
+    fakeSpotify({
+      playbackDevice: async () => ({ id: 'pc', active: false }),
+      play: async (id) => played.push(id),
+    }),
+  );
+  S.lastMedia = { ...S.lastMedia, status: 'Paused' };
+  await queue.mediaCommand('playpause');
+  t.mock.timers.tick(1500); // toujours en pause : on relance via l'API
+  for (let i = 0; i < 5; i++) await tick(); // laisse finir la chaîne
+  assert.deepEqual(played, ['pc']);
+  assert.ok(notes.some((n) => n.includes('API Spotify')));
+});
+
+test('mediaCommand : play réussi (lecture reprise) ou autre lecteur -> pas d’appel à l’API', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const played = [];
+  setup(t, fakeSpotify({ playbackDevice: async () => null, play: async (id) => played.push(id) }));
+  S.lastMedia = { ...S.lastMedia, status: 'Paused' };
+  await queue.mediaCommand('play');
+  S.lastMedia = { ...S.lastMedia, status: 'Playing' }; // Windows a bien repris
+  t.mock.timers.tick(1500);
+  S.lastMedia = { ...S.lastMedia, app: 'Chrome', status: 'Paused' };
+  await queue.mediaCommand('play');
+  t.mock.timers.tick(1500); // navigateur : pas de Spotify
+  for (let i = 0; i < 5; i++) await tick();
+  assert.deepEqual(played, []);
+});

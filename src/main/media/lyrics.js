@@ -129,7 +129,10 @@ async function findLyrics({ title, artist, album, duration }) {
   return toResult(hit);
 }
 
-async function lookupLyrics(media) {
+// options.volatile : la durée du morceau est peut-être périmée (celle du morceau
+// précédent, la timeline arrive après le titre) : un résultat vide n'est alors
+// pas mémorisé, il serait faux pour ce morceau.
+async function lookupLyrics(media, { volatile = false } = {}) {
   const key = `${norm(firstArtist(media.artist))}|${norm(media.title)}|${Math.round((media.duration || 0) / 5)}`;
   if (cache.has(key)) return cache.get(key);
   const stored = disk.get('lyrics', key);
@@ -145,6 +148,7 @@ async function lookupLyrics(media) {
     note('paroles', e.message);
     return { error: true }; // erreur réseau : pas mis en cache, distinct de « pas de paroles »
   }
+  if (volatile && !result) return result;
   if (cache.size > 200) cache.delete(cache.keys().next().value);
   cache.set(key, result);
   disk.set('lyrics', key, result);

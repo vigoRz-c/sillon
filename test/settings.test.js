@@ -140,3 +140,34 @@ test('sanitize : clés héritées de Object.prototype ignorées sans exception',
   assert.deepEqual(sanitize(patch), {});
   assert.equal({}.polluted, undefined);
 });
+
+test('store : fichier illisible (autre que ENOENT) -> ni migration ni écriture par défaut', (t) => {
+  const dir = tmpDir();
+  const file = path.join(dir, 'settings.json');
+  fs.writeFileSync(file, JSON.stringify({ fps: 60, theme: 'violet' }));
+  const real = fs.readFileSync;
+  let locked = true;
+  t.mock.method(fs, 'readFileSync', (f, ...rest) => {
+    if (f === file && locked) throw Object.assign(new Error('occupé'), { code: 'EBUSY' });
+    return real.call(fs, f, ...rest);
+  });
+  const msgs = [];
+  const s = new SettingsStore(file, { onCorrupt: (m) => msgs.push(m), delay: 5 });
+  assert.strictEqual(msgs.length, 1);
+  assert.strictEqual(s.get('fps30'), DEFAULTS.fps30); // pas de migration
+  s.flush();
+  assert.strictEqual(JSON.parse(real.call(fs, file, 'utf8')).theme, 'violet'); // fichier intact
+  // Changement de l'utilisateur pendant que le fichier est verrouillé : rien d'écrit.
+  s.set({ style: 'blocks' });
+  s.flush();
+  assert.strictEqual(JSON.parse(real.call(fs, file, 'utf8')).theme, 'violet');
+  assert.strictEqual(JSON.parse(real.call(fs, file, 'utf8')).style, undefined);
+  // Le fichier redevient lisible : réglages d'origine conservés + changement appliqué + migration.
+  locked = false;
+  s.flush();
+  const out = JSON.parse(real.call(fs, file, 'utf8'));
+  assert.strictEqual(out.theme, 'violet');
+  assert.strictEqual(out.style, 'blocks');
+  assert.strictEqual(out.fps, 30);
+  assert.strictEqual(out.fps30, true);
+});

@@ -5,301 +5,498 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'" />
     <title>Sillon · réglages</title>
     <link rel="stylesheet" href="../style.css" />
+    <link rel="stylesheet" href="settings.css" />
   </head>
   <body class="settings">
-    <header>
-      <h1 id="pageTitle" tabindex="-1">Paramètres</h1>
+    <header class="top">
+      <div class="brand">
+        <svg class="mark" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" />
+          <circle cx="12" cy="12" r="6.5" />
+          <circle cx="12" cy="12" r="2" />
+        </svg>
+        <h1 id="pageTitle" tabindex="-1">Paramètres</h1>
+      </div>
+      <div class="search" role="search">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="11" cy="11" r="6" />
+          <path d="M16 16l4 4" />
+        </svg>
+        <input
+          id="search"
+          type="search"
+          placeholder="Rechercher un réglage"
+          aria-label="Rechercher un réglage"
+          aria-describedby="searchState"
+          autocomplete="off"
+          spellcheck="false"
+        />
+      </div>
       <button id="close" class="icon" type="button" title="Fermer (Échap)" aria-label="Fermer les paramètres">
-        &#10005;
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
       </button>
     </header>
 
-    <main>
-      <section>
-        <h2>Disposition</h2>
-        <label class="row"
-          >Affichage
-          <select id="layout">
-            <option value="scene">Scène sur tout le bureau</option>
-            <option value="strip">Bandeau en bas de l'écran</option>
-          </select>
-        </label>
-        <label class="row"
-          >Position
-          <select id="mode">
-            <option value="wallpaper">Sur le fond d'écran</option>
-            <option value="top">Toujours au premier plan</option>
-            <option value="normal">Fenêtre normale</option>
-          </select>
-        </label>
-        <p id="sceneNeedsWallpaper" class="help hidden">
-          La scène ne s'affiche que « Sur le fond d'écran » : dans les autres positions, Sillon montre le bandeau.
-        </p>
-        <label id="sceneScreenRow" class="row"
-          >Écran de la scène
-          <select id="sceneScreen">
-            <option value="primary">Écran principal</option>
-            <option value="secondary">Autre écran</option>
-          </select>
-        </label>
-        <div id="editRow" class="row buttons">
-          <button id="edit">Déplacer / redimensionner le bandeau…</button>
-          <button id="resetBounds">Position par défaut</button>
-        </div>
-      </section>
+    <nav class="side" aria-label="Sections des paramètres">
+      <div id="tabs" role="tablist" aria-orientation="vertical" aria-label="Sections des paramètres">
+        <button id="tab-layout" role="tab" type="button" aria-controls="panel-layout" aria-selected="true">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="16" rx="2" />
+            <path d="M3 15h18" />
+          </svg>
+          Disposition
+        </button>
+        <button id="tab-scene" role="tab" type="button" aria-controls="panel-scene" aria-selected="false" tabindex="-1">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <circle cx="12" cy="12" r="2.5" />
+          </svg>
+          Scène
+        </button>
+        <button id="tab-viz" role="tab" type="button" aria-controls="panel-viz" aria-selected="false" tabindex="-1">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V11M10 20V4M15 20v-8M20 20V8" /></svg>
+          Visualiseur
+        </button>
+        <button
+          id="tab-colors"
+          role="tab"
+          type="button"
+          aria-controls="panel-colors"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="8.5" cy="9" r="4.5" />
+            <circle cx="15.5" cy="9" r="4.5" />
+            <circle cx="12" cy="15.5" r="4.5" />
+          </svg>
+          Couleurs
+        </button>
+        <button id="tab-sound" role="tab" type="button" aria-controls="panel-sound" aria-selected="false" tabindex="-1">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 9v6h4l5 4V5L8 9z" />
+            <path d="M16.5 8.5a5 5 0 0 1 0 7" />
+          </svg>
+          Son
+        </button>
+        <button
+          id="tab-behavior"
+          role="tab"
+          type="button"
+          aria-controls="panel-behavior"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v5l3 2" />
+          </svg>
+          Comportement
+        </button>
+        <button
+          id="tab-spotify"
+          role="tab"
+          type="button"
+          aria-controls="panel-spotify"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M7.5 9.6c3-1 6.4-.7 9 .8M8 12.7c2.5-.7 5.1-.4 7.2.8M8.6 15.6c1.9-.5 3.8-.3 5.5.6" />
+          </svg>
+          Spotify
+        </button>
+        <button
+          id="tab-advanced"
+          role="tab"
+          type="button"
+          aria-controls="panel-advanced"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 7h10M18 7h2M4 17h4M12 17h8" />
+            <circle cx="16" cy="7" r="2" />
+            <circle cx="10" cy="17" r="2" />
+          </svg>
+          Avancé
+        </button>
+      </div>
+    </nav>
 
-      <section id="sceneSection">
-        <h2>Scène</h2>
-        <div class="row col">
-          <p class="help">
+    <main>
+      <!-- Aperçu en direct : style et couleurs choisis, sur un rythme d'exemple. -->
+      <figure class="live" id="live">
+        <canvas id="liveCanvas" aria-hidden="true"></canvas>
+        <figcaption>
+          <span class="live-tag">Aperçu</span>
+          <strong id="liveStyle">Barres</strong>
+          <span id="liveTheme"></span>
+        </figcaption>
+      </figure>
+
+      <p id="searchState" class="search-state" role="status" aria-live="polite"></p>
+
+      <div id="panels">
+        <section id="panel-layout" class="panel" role="tabpanel" aria-labelledby="tab-layout">
+          <h2>Disposition</h2>
+          <p class="lede">Où et comment Sillon s'affiche sur le bureau.</p>
+          <div class="item">
+            <label class="row"
+              >Affichage
+              <select id="layout">
+                <option value="scene">Scène sur tout le bureau</option>
+                <option value="strip">Bandeau en bas de l'écran</option>
+              </select>
+            </label>
+          </div>
+          <div class="item" data-keywords="fond premier plan fenêtre">
+            <label class="row"
+              >Position
+              <select id="mode">
+                <option value="wallpaper">Sur le fond d'écran</option>
+                <option value="top">Toujours au premier plan</option>
+                <option value="normal">Fenêtre normale</option>
+              </select>
+            </label>
+            <p id="sceneNeedsWallpaper" class="help hidden">
+              La scène ne s'affiche que « Sur le fond d'écran » : dans les autres positions, Sillon montre le bandeau.
+            </p>
+          </div>
+          <div id="sceneScreenRow" class="item" data-keywords="moniteur second">
+            <label class="row"
+              >Écran de la scène
+              <select id="sceneScreen">
+                <option value="primary">Écran principal</option>
+                <option value="secondary">Autre écran</option>
+              </select>
+            </label>
+          </div>
+          <div id="editRow" class="item" data-keywords="bandeau taille position déplacer">
+            <div class="row buttons">
+              <button id="edit" type="button">Déplacer / redimensionner le bandeau…</button>
+              <button id="resetBounds" type="button">Position par défaut</button>
+            </div>
+          </div>
+        </section>
+
+        <section id="panel-scene" class="panel" role="tabpanel" aria-labelledby="tab-scene" hidden>
+          <h2>Scène</h2>
+          <p class="lede">
             Disque, paroles, grand titre, pochette, « En lecture », boutons, « À suivre », horloge, barres : place
             chaque élément à la main, change sa taille, affiche ou masque-le.
           </p>
-          <button id="openLayout" class="primary">Personnaliser la scène…</button>
-        </div>
-        <label class="row"
-          >Intensité du disque <output id="discIntensityOut" aria-hidden="true"></output>
-          <input id="discIntensity" type="range" min="0.5" max="2" step="0.1" />
-        </label>
-        <label class="row"
-          >Rayons du disque
-          <select id="discRays">
-            <option value="fine">Fins et serrés</option>
-            <option value="bold">Épais et espacés</option>
-          </select>
-        </label>
-        <label class="row"
-          >Couleurs du disque
-          <select id="discColors">
-            <option value="album">Couleurs de la pochette</option>
-            <option value="violet">Violet</option>
-            <option value="neon">Néon</option>
-            <option value="sunset">Coucher de soleil</option>
-            <option value="ocean">Océan</option>
-            <option value="spotify">Spotify</option>
-            <option value="mono">Blanc</option>
-          </select>
-        </label>
-        <label class="row"
-          >Lueur au centre du disque <output id="discBloomOut" aria-hidden="true"></output>
-          <input id="discBloom" type="range" min="0" max="1.5" step="0.1" />
-        </label>
-        <label class="row"
-          >Bord de l'écran lumineux <output id="edgeGlowOut" aria-hidden="true"></output>
-          <input id="edgeGlow" type="range" min="0" max="2" step="0.1" />
-        </label>
-      </section>
+          <div class="item" data-keywords="disposition éléments personnaliser horloge paroles pochette">
+            <div class="row buttons">
+              <button id="openLayout" type="button" class="primary">Personnaliser la scène…</button>
+            </div>
+          </div>
+          <h3>Disque</h3>
+          <div class="item">
+            <label class="row"
+              >Intensité du disque <output id="discIntensityOut" aria-hidden="true"></output>
+              <input id="discIntensity" type="range" min="0.5" max="2" step="0.1" />
+            </label>
+          </div>
+          <div class="item">
+            <label class="row"
+              >Rayons du disque
+              <select id="discRays">
+                <option value="fine">Fins et serrés</option>
+                <option value="bold">Épais et espacés</option>
+              </select>
+            </label>
+          </div>
+          <div class="item">
+            <label class="row"
+              >Lueur au centre du disque <output id="discBloomOut" aria-hidden="true"></output>
+              <input id="discBloom" type="range" min="0" max="1.5" step="0.1" />
+            </label>
+          </div>
+          <div class="item" data-keywords="lueur halo">
+            <label class="row"
+              >Bord de l'écran lumineux <output id="edgeGlowOut" aria-hidden="true"></output>
+              <input id="edgeGlow" type="range" min="0" max="2" step="0.1" />
+            </label>
+          </div>
+          <p class="help">Les couleurs du disque se choisissent dans l'onglet Couleurs.</p>
+        </section>
 
-      <section>
-        <h2>Visualiseur</h2>
-        <div class="row col">
-          <p class="help">
+        <section id="panel-viz" class="panel" role="tabpanel" aria-labelledby="tab-viz" hidden>
+          <h2>Visualiseur</h2>
+          <p class="lede">
             Pour le bandeau, le plein écran et l'élément « Barres » de la scène. Aperçus animés sur un rythme d'exemple
             : clique pour choisir.
           </p>
-          <div id="styleGallery" class="gallery" role="radiogroup" aria-label="Style du visualiseur">
-            <button type="button" role="radio" aria-checked="false" data-style="bars">
-              <canvas aria-hidden="true"></canvas><span>Barres</span>
-            </button>
-            <button type="button" role="radio" aria-checked="false" data-style="mirror">
-              <canvas aria-hidden="true"></canvas><span>Miroir</span>
-            </button>
-            <button type="button" role="radio" aria-checked="false" data-style="blocks">
-              <canvas aria-hidden="true"></canvas><span>Blocs</span>
-            </button>
-            <button type="button" role="radio" aria-checked="false" data-style="ring">
-              <canvas aria-hidden="true"></canvas><span>Anneau</span>
-            </button>
-            <button type="button" role="radio" aria-checked="false" data-style="halo">
-              <canvas aria-hidden="true"></canvas><span>Halo</span>
-            </button>
-            <button type="button" role="radio" aria-checked="false" data-style="wave">
-              <canvas aria-hidden="true"></canvas><span>Onde</span>
-            </button>
-            <button type="button" role="radio" aria-checked="false" data-style="aurora">
-              <canvas aria-hidden="true"></canvas><span>Aurore</span>
-            </button>
+          <div class="item" data-keywords="style barres miroir blocs anneau halo onde aurore">
+            <div id="styleGallery" class="gallery" role="radiogroup" aria-label="Style du visualiseur">
+              <button type="button" role="radio" aria-checked="false" data-style="bars">
+                <canvas aria-hidden="true"></canvas><span>Barres</span>
+              </button>
+              <button type="button" role="radio" aria-checked="false" data-style="mirror">
+                <canvas aria-hidden="true"></canvas><span>Miroir</span>
+              </button>
+              <button type="button" role="radio" aria-checked="false" data-style="blocks">
+                <canvas aria-hidden="true"></canvas><span>Blocs</span>
+              </button>
+              <button type="button" role="radio" aria-checked="false" data-style="ring">
+                <canvas aria-hidden="true"></canvas><span>Anneau</span>
+              </button>
+              <button type="button" role="radio" aria-checked="false" data-style="halo">
+                <canvas aria-hidden="true"></canvas><span>Halo</span>
+              </button>
+              <button type="button" role="radio" aria-checked="false" data-style="wave">
+                <canvas aria-hidden="true"></canvas><span>Onde</span>
+              </button>
+              <button type="button" role="radio" aria-checked="false" data-style="aurora">
+                <canvas aria-hidden="true"></canvas><span>Aurore</span>
+              </button>
+            </div>
           </div>
-        </div>
-        <label class="row"
-          >Couleurs
-          <select id="theme">
-            <option value="wallpaper">Couleurs du fond d'écran</option>
-            <option value="album">Couleurs de la pochette</option>
-            <option value="spotify">Spotify</option>
-            <option value="neon">Néon</option>
-            <option value="sunset">Coucher de soleil</option>
-            <option value="ocean">Océan</option>
-            <option value="violet">Violet</option>
-            <option value="mono">Blanc</option>
-          </select>
-        </label>
-        <label id="showNowPlayingRow" class="row"
-          >Morceau en cours sous le bandeau
-          <input id="showNowPlaying" type="checkbox" />
-        </label>
-        <label class="row"
-          >Paroles en plein écran
-          <input id="showLyrics" type="checkbox" />
-        </label>
-        <label class="row"
-          >Son analysé
-          <select id="audioSource">
-            <option value="app">Seulement le lecteur (Spotify…)</option>
-            <option value="system">Tout le son du PC</option>
-          </select>
-        </label>
-        <p class="help">
-          « Seulement le lecteur » ignore le chat vocal (Discord, TeamSpeak), les notifications et les jeux. Windows 10
-          récent ou 11 ; sinon Sillon écoute tout le PC.
-        </p>
-        <label class="row"
-          >Sensibilité <output id="sensitivityOut" aria-hidden="true"></output>
-          <input id="sensitivity" type="range" min="0.4" max="2.5" step="0.1" />
-        </label>
-        <label class="row"
-          >Opacité <output id="opacityOut" aria-hidden="true"></output>
-          <input id="opacity" type="range" min="0.2" max="1" step="0.05" />
-        </label>
-        <label class="row"
-          >Images par seconde
-          <select id="fps">
-            <option value="30">30</option>
-            <option value="60">60</option>
-          </select>
-        </label>
-      </section>
+          <h3>Affichage</h3>
+          <div id="showNowPlayingRow" class="item" data-keywords="titre artiste">
+            <label class="row"
+              >Morceau en cours sous le bandeau
+              <input id="showNowPlaying" type="checkbox" />
+            </label>
+          </div>
+          <div class="item">
+            <label class="row"
+              >Paroles en plein écran
+              <input id="showLyrics" type="checkbox" />
+            </label>
+          </div>
+          <div class="item" data-keywords="transparence">
+            <label class="row"
+              >Opacité <output id="opacityOut" aria-hidden="true"></output>
+              <input id="opacity" type="range" min="0.2" max="1" step="0.05" />
+            </label>
+          </div>
+          <div class="item" data-keywords="fps fluidité performance">
+            <label class="row"
+              >Images par seconde
+              <select id="fps">
+                <option value="30">30</option>
+                <option value="60">60</option>
+              </select>
+            </label>
+          </div>
+        </section>
 
-      <section>
-        <h2>Comportement</h2>
-        <label class="row"
-          >Mode jeu : s'arrêter pendant un jeu ou une vidéo en plein écran
-          <input id="gameMode" type="checkbox" />
-        </label>
-        <label class="row"
-          >Atténuer quand la musique est en pause
-          <input id="dimOnPause" type="checkbox" />
-        </label>
-        <label class="row"
-          >Réduire les animations et les lueurs
-          <input id="reduceMotion" type="checkbox" aria-describedby="reduceMotionHelp" />
-        </label>
-        <p id="reduceMotionHelp" class="help">
-          Supprime la dérive du fond, les ondes et les pulsations au rythme des basses. Sillon respecte aussi le réglage
-          « Effets d'animation » de Windows.
-        </p>
-        <label class="row"
-          >Masquer la scène sans musique après
-          <select id="sleepAfter">
-            <option value="0">Jamais</option>
-            <option value="2">2 minutes</option>
-            <option value="5">5 minutes</option>
-            <option value="10">10 minutes</option>
-            <option value="30">30 minutes</option>
-          </select>
-        </label>
-      </section>
-
-      <section>
-        <h2>Compte Spotify (file d'attente)</h2>
-        <p class="help">
-          Facultatif : affiche les morceaux à venir (élément « À suivre ») et active les boutons aléatoire et
-          répétition. Connecte-toi avec ton compte Spotify.
-        </p>
-        <div class="row buttons">
-          <button id="spotifyLogin">Se connecter à Spotify</button>
-          <button id="spotifyLogout" class="hidden">Se déconnecter</button>
-        </div>
-        <div id="spotifyState" class="state" role="status" aria-live="polite"></div>
-
-        <label class="row"
-          >Utiliser mon propre Client ID (avancé)
-          <input id="spotifyCustomClientId" type="checkbox" />
-        </label>
-        <p id="builtinHelp" class="help">
-          L'app Spotify intégrée à Sillon n'accepte que 5 comptes (règle de Spotify), ajoutés par son propriétaire. Si
-          ton compte n'en fait pas partie, coche l'option ci-dessus et crée ta propre app.
-        </p>
-        <div id="customClient" class="hidden">
-          <p class="help">
-            Crée une app gratuite sur le
-            <button type="button" id="dashboard" class="link">tableau de bord Spotify</button>
-            (ton compte doit être Premium), coche « Web API » et ajoute cette adresse de retour (Redirect URI) :
+        <section id="panel-colors" class="panel" role="tabpanel" aria-labelledby="tab-colors" hidden>
+          <h2>Couleurs</h2>
+          <p class="lede">
+            Le jeu de couleurs du visualiseur. « Fond d'écran » et « Pochette » suivent l'image du moment.
           </p>
-          <div class="row copy-row">
-            <code id="redirectUri">http://127.0.0.1:43821/callback</code>
-            <button id="copyRedirect">Copier</button>
+          <div class="item" data-keywords="thème palette jeu de couleurs">
+            <div
+              id="themeSwatches"
+              class="swatches"
+              role="radiogroup"
+              aria-label="Couleurs du visualiseur"
+              data-setting="theme"
+            ></div>
           </div>
-          <label class="row"
-            >Client ID
-            <input id="spotifyClientId" type="text" spellcheck="false" autocomplete="off" placeholder="32 caractères" />
-          </label>
-        </div>
-      </section>
+          <div id="discColorsGroup" class="item" data-keywords="disque scène thème palette">
+            <h3 id="discColorsTitle">Couleurs du disque de la scène</h3>
+            <div
+              id="discColorSwatches"
+              class="swatches small"
+              role="radiogroup"
+              aria-labelledby="discColorsTitle"
+              data-setting="discColors"
+            ></div>
+          </div>
+        </section>
 
-      <section>
-        <h2>Écran de veille</h2>
-        <label class="row"
-          >Après une inactivité de
-          <select id="veilleDelay">
-            <option value="0">Jamais</option>
-            <option value="1">1 minute</option>
-            <option value="2">2 minutes</option>
-            <option value="5">5 minutes</option>
-            <option value="10">10 minutes</option>
-            <option value="15">15 minutes</option>
-            <option value="30">30 minutes</option>
-          </select>
-        </label>
-        <label class="row"
-          >Seulement pendant la lecture
-          <input id="veilleOnlyPlaying" type="checkbox" />
-        </label>
-        <label class="row"
-          >Verrouiller la session en sortant
-          <input id="veilleLock" type="checkbox" />
-        </label>
-        <div class="row buttons">
-          <button id="veilleNow">Lancer maintenant (Ctrl+Alt+L)</button>
-        </div>
-      </section>
+        <section id="panel-sound" class="panel" role="tabpanel" aria-labelledby="tab-sound" hidden>
+          <h2>Son</h2>
+          <p class="lede">Ce que Sillon écoute, et avec quelle sensibilité.</p>
+          <div class="item" data-keywords="audio source discord jeux capture">
+            <label class="row"
+              >Son analysé
+              <select id="audioSource">
+                <option value="app">Seulement le lecteur (Spotify…)</option>
+                <option value="system">Tout le son du PC</option>
+              </select>
+            </label>
+            <p class="help">
+              « Seulement le lecteur » ignore le chat vocal (Discord, TeamSpeak), les notifications et les jeux. Windows
+              10 récent ou 11 ; sinon Sillon écoute tout le PC.
+            </p>
+          </div>
+          <div class="item" data-keywords="volume réactivité">
+            <label class="row"
+              >Sensibilité <output id="sensitivityOut" aria-hidden="true"></output>
+              <input id="sensitivity" type="range" min="0.4" max="2.5" step="0.1" />
+            </label>
+          </div>
+          <div class="item" data-keywords="lecteur youtube vlc priorité">
+            <label class="row"
+              >Suivre en priorité
+              <select id="preferApp">
+                <option value="spotify">Spotify</option>
+                <option value="">Le lecteur actif (YouTube, VLC…)</option>
+              </select>
+            </label>
+          </div>
+        </section>
 
-      <section>
-        <h2>Général</h2>
-        <label class="row"
-          >Suivre en priorité
-          <select id="preferApp">
-            <option value="spotify">Spotify</option>
-            <option value="">Le lecteur actif (YouTube, VLC…)</option>
-          </select>
-        </label>
-        <label class="row"
-          >Mises à jour automatiques
-          <input id="autoUpdate" type="checkbox" />
-        </label>
-        <div class="row buttons">
-          <button id="checkUpdates">Rechercher les mises à jour</button>
-          <button id="installUpdate" class="hidden">Redémarrer et mettre à jour</button>
-        </div>
-        <div id="updateState" class="state" role="status" aria-live="polite"></div>
-        <label class="row"
-          >Lancer au démarrage de Windows
-          <input id="launchAtLogin" type="checkbox" />
-        </label>
-      </section>
+        <section id="panel-behavior" class="panel" role="tabpanel" aria-labelledby="tab-behavior" hidden>
+          <h2>Comportement</h2>
+          <p class="lede">Quand Sillon se met en retrait, et comment il bouge.</p>
+          <div class="item" data-keywords="jeu vidéo plein écran">
+            <label class="row"
+              >Mode jeu : s'arrêter pendant un jeu ou une vidéo en plein écran
+              <input id="gameMode" type="checkbox" />
+            </label>
+          </div>
+          <div class="item">
+            <label class="row"
+              >Atténuer quand la musique est en pause
+              <input id="dimOnPause" type="checkbox" />
+            </label>
+          </div>
+          <div class="item" data-keywords="animations mouvement accessibilité">
+            <label class="row"
+              >Réduire les animations et les lueurs
+              <input id="reduceMotion" type="checkbox" aria-describedby="reduceMotionHelp" />
+            </label>
+            <p id="reduceMotionHelp" class="help">
+              Supprime la dérive du fond, les ondes et les pulsations au rythme des basses. Sillon respecte aussi le
+              réglage « Effets d'animation » de Windows.
+            </p>
+          </div>
+          <div class="item" data-keywords="veille masquer silence">
+            <label class="row"
+              >Masquer la scène sans musique après
+              <select id="sleepAfter">
+                <option value="0">Jamais</option>
+                <option value="2">2 minutes</option>
+                <option value="5">5 minutes</option>
+                <option value="10">10 minutes</option>
+                <option value="30">30 minutes</option>
+              </select>
+            </label>
+          </div>
+          <div class="item" data-keywords="démarrage windows">
+            <label class="row"
+              >Lancer au démarrage de Windows
+              <input id="launchAtLogin" type="checkbox" />
+            </label>
+          </div>
+          <h3>Écran de veille</h3>
+          <div class="item" data-keywords="écran de veille inactivité">
+            <label class="row"
+              >Écran de veille après une inactivité de
+              <select id="veilleDelay">
+                <option value="0">Jamais</option>
+                <option value="1">1 minute</option>
+                <option value="2">2 minutes</option>
+                <option value="5">5 minutes</option>
+                <option value="10">10 minutes</option>
+                <option value="15">15 minutes</option>
+                <option value="30">30 minutes</option>
+              </select>
+            </label>
+          </div>
+          <div class="item" data-keywords="écran de veille">
+            <label class="row"
+              >Veille seulement pendant la lecture
+              <input id="veilleOnlyPlaying" type="checkbox" />
+            </label>
+          </div>
+          <div class="item" data-keywords="écran de veille verrou">
+            <label class="row"
+              >Verrouiller la session en sortant de la veille
+              <input id="veilleLock" type="checkbox" />
+            </label>
+          </div>
+          <div class="item" data-keywords="écran de veille raccourci">
+            <div class="row buttons">
+              <button id="veilleNow" type="button">Lancer la veille maintenant (Ctrl+Alt+L)</button>
+            </div>
+          </div>
+        </section>
 
-      <section>
-        <h2>Diagnostic</h2>
-        <p class="help">
-          En cas de souci : clique d'abord sur les boutons qui ne marchent pas, puis copie le diagnostic (ici, ou depuis
-          le menu de l'icône Sillon après Windows + D pour dégager le bureau) et colle-le à la personne qui t'aide. Il
-          ne contient ni mot de passe ni jeton.
-        </p>
-        <div class="row buttons">
-          <button id="copyDiagnostic">Copier le diagnostic</button>
-        </div>
-        <div id="diagnosticState" class="state" role="status" aria-live="polite"></div>
-      </section>
+        <section id="panel-spotify" class="panel" role="tabpanel" aria-labelledby="tab-spotify" hidden>
+          <h2>Compte Spotify</h2>
+          <p class="lede">
+            Facultatif : affiche les morceaux à venir (élément « À suivre ») et active les boutons aléatoire et
+            répétition. Connecte-toi avec ton compte Spotify.
+          </p>
+          <div class="item" data-keywords="connexion compte file d'attente">
+            <div class="row buttons">
+              <button id="spotifyLogin" type="button" class="primary">Se connecter à Spotify</button>
+              <button id="spotifyLogout" type="button" class="hidden">Se déconnecter</button>
+            </div>
+            <div id="spotifyState" class="state" role="status" aria-live="polite"></div>
+          </div>
+          <div class="item" data-keywords="client id développeur">
+            <label class="row"
+              >Utiliser mon propre Client ID (avancé)
+              <input id="spotifyCustomClientId" type="checkbox" />
+            </label>
+            <p id="builtinHelp" class="help">
+              L'app Spotify intégrée à Sillon n'accepte que 5 comptes (règle de Spotify), ajoutés par son propriétaire.
+              Si ton compte n'en fait pas partie, coche l'option ci-dessus et crée ta propre app.
+            </p>
+            <div id="customClient" class="hidden">
+              <p class="help">
+                Crée une app gratuite sur le
+                <button type="button" id="dashboard" class="link">tableau de bord Spotify</button>
+                (ton compte doit être Premium), coche « Web API » et ajoute cette adresse de retour (Redirect URI) :
+              </p>
+              <div class="row copy-row">
+                <code id="redirectUri">http://127.0.0.1:43821/callback</code>
+                <button id="copyRedirect" type="button">Copier</button>
+              </div>
+              <label class="row"
+                >Client ID
+                <input
+                  id="spotifyClientId"
+                  type="text"
+                  spellcheck="false"
+                  autocomplete="off"
+                  placeholder="32 caractères"
+                />
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <section id="panel-advanced" class="panel" role="tabpanel" aria-labelledby="tab-advanced" hidden>
+          <h2>Avancé</h2>
+          <p class="lede">Mises à jour et aide au dépannage.</p>
+          <h3>Mises à jour</h3>
+          <div class="item" data-keywords="version">
+            <label class="row"
+              >Mises à jour automatiques
+              <input id="autoUpdate" type="checkbox" />
+            </label>
+          </div>
+          <div class="item" data-keywords="version mise à jour">
+            <div class="row buttons">
+              <button id="checkUpdates" type="button">Rechercher les mises à jour</button>
+              <button id="installUpdate" type="button" class="primary hidden">Redémarrer et mettre à jour</button>
+            </div>
+            <div id="updateState" class="state" role="status" aria-live="polite"></div>
+          </div>
+          <h3>Diagnostic</h3>
+          <div class="item" data-keywords="problème bug aide dépannage">
+            <p class="help">
+              En cas de souci : clique d'abord sur les boutons qui ne marchent pas, puis copie le diagnostic (ici, ou
+              depuis le menu de l'icône Sillon après Windows + D pour dégager le bureau) et colle-le à la personne qui
+              t'aide. Il ne contient ni mot de passe ni jeton.
+            </p>
+            <div class="row buttons">
+              <button id="copyDiagnostic" type="button">Copier le diagnostic</button>
+            </div>
+            <div id="diagnosticState" class="state" role="status" aria-live="polite"></div>
+          </div>
+        </section>
+      </div>
     </main>
 
     <script src="../shared/catalog.js"></script>

@@ -44,9 +44,10 @@ function openSettings() {
   // Sur l'écran du plein écran s'il est ouvert, sinon sur l'écran principal.
   const parent = S.alive(S.fullscreen) ? S.fullscreen : null;
   const display = parent ? screen.getDisplayMatching(parent.getBounds()) : screen.getPrimaryDisplay();
-  const width = 420,
-    height = 700;
+  // Menu des sections à gauche, aperçu et réglages à droite ; réduit sur un petit écran.
   const { workArea: wa } = display;
+  const width = Math.min(880, wa.width - 48),
+    height = Math.min(660, wa.height - 104);
   const win = new BrowserWindow({
     width,
     height,

@@ -7,6 +7,7 @@
 const S = require('../app/state');
 const { SpotifyApi } = require('./spotify-api');
 const diagnostic = require('../app/diagnostic');
+const { exeForApp } = require('../audio/app-ids');
 const { fetchImageDataUrl } = require('./text-norm');
 
 // Pochettes de Spotify : i.scdn.co et autres hôtes du CDN, rien d'autre.
@@ -109,12 +110,43 @@ async function spotifyCommand(cmd) {
   }
 }
 
+// Spotify ignore parfois la bascule SMTC (« accepté » mais reste en pause) :
+// on envoie « play » ou « pause » explicitement, selon l'état connu.
+function explicitPlayPause(cmd) {
+  if (cmd !== 'playpause') return cmd;
+  return S.lastMedia && S.lastMedia.status === 'Playing' ? 'pause' : 'play';
+}
+
+// Après un « play » accepté, si Spotify est toujours en pause, on passe par
+// son API (sur l'ordinateur si aucun appareil n'est actif).
+const PLAY_CHECK_MS = 1500;
+function checkPlayResumed() {
+  const spotify = S.spotify;
+  const m = S.lastMedia;
+  if (!spotify || !spotify.canControl() || !m || !m.active || m.status === 'Playing') return;
+  if (exeForApp(m.app) !== 'Spotify.exe') return;
+  commandChain = commandChain
+    .then(async () => {
+      try {
+        const device = await spotify.playbackDevice();
+        await spotify.play(device && !device.active ? device.id : undefined);
+        diagnostic.note('spotify', `play → toujours en pause après Windows, repris par l'API Spotify`);
+      } catch (e) {
+        diagnostic.note('spotify', `play (API) → ${e.message}`);
+        notePause(e);
+      }
+    })
+    .catch(() => {});
+}
+
 // Toutes les commandes de lecture passent par ici (boutons, plein écran, icône).
 // Lecture, précédent, suivant : Windows. Aléatoire, répétition : API Spotify,
 // car l'app Spotify ignore ces deux commandes venant de Windows.
 function mediaCommand(cmd) {
   if (cmd !== 'shuffle' && cmd !== 'repeat') {
-    if (S.media) S.media.command(cmd);
+    const sent = explicitPlayPause(cmd);
+    if (S.media) S.media.command(sent);
+    if (sent === 'play') setTimeout(checkPlayResumed, PLAY_CHECK_MS);
     return Promise.resolve();
   }
   commandChain = commandChain.then(() => spotifyCommand(cmd)).catch(() => {});
@@ -153,6 +185,9 @@ async function refreshQueue() {
   refreshPlayer();
   try {
     const items = await spotify.queue(4);
+    // null : jeton absent ou rafraîchissement en échec, pas une file vide. On
+    // garde la file affichée et l'erreur (l'effacer cacherait le problème).
+    if (!items) return;
     const withImages = await Promise.all(items.map(async (it) => ({ ...it, image: await imageData(it.image) })));
     // Le morceau a changé, ou la session est fermée, pendant la requête : résultat périmé.
     if (S.spotify === spotify && spotify.status().connected && currentTrack() === track) {

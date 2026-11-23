@@ -361,7 +361,7 @@
     const s = app.state.settings;
     const playing = app.state.media.active && app.state.media.status === 'Playing';
     if (playing) silentSince = Date.now();
-    const minutes = Number(s.sleepAfter ?? 5);
+    const minutes = Number(s.sleepAfter ?? 0);
     asleep = !playing && minutes > 0 && Date.now() - silentSince > minutes * 60000;
     document.body.classList.toggle('is-paused', !playing && s.dimOnPause !== false && !asleep);
     document.body.classList.toggle('is-asleep', asleep);
@@ -561,10 +561,10 @@
       selected = id;
       fillSide();
     }
-    snapshot();
     const el = draft[id];
     const r = $(NODES[id]).getBoundingClientRect();
-    drag = { id, kind, x0: e.clientX, y0: e.clientY, el: { ...el }, rw: r.width, rh: r.height };
+    // L'instantané d'annulation est pris au premier déplacement effectif (voir onDrag).
+    drag = { id, kind, x0: e.clientX, y0: e.clientY, el: { ...el }, rw: r.width, rh: r.height, snapped: false };
     drawSelection();
   }
 
@@ -601,7 +601,13 @@
       const k = 1 + (dx + dy) / Math.max(40, drag.rw + drag.rh);
       el.scale = Math.round(drag.el.scale * k * 100) / 100;
     }
-    draft[drag.id] = SL.clampElement(drag.id, el);
+    const next = SL.clampElement(drag.id, el);
+    // Un simple clic, sans déplacement, ne pollue pas l'historique d'annulation.
+    if (!drag.snapped && JSON.stringify(next) !== JSON.stringify(draft[drag.id])) {
+      snapshot();
+      drag.snapped = true;
+    }
+    draft[drag.id] = next;
     $('guideX').classList.toggle('on', gxOn);
     $('guideY').classList.toggle('on', gyOn);
     placeAll();
@@ -617,7 +623,15 @@
   }
 
   function onKey(e) {
-    if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') return;
+    // Seuls les contrôles qui gèrent eux-mêmes la touche la gardent : liste, champ
+    // texte ou nombre, et flèches d'un curseur. Échap et Ctrl+Z passent toujours
+    // pour un curseur ou une case à cocher.
+    const tg = e.target;
+    if (tg.tagName === 'SELECT') return;
+    if (tg.tagName === 'INPUT') {
+      if (tg.type !== 'range' && tg.type !== 'checkbox') return;
+      if (tg.type === 'range' && e.key.startsWith('Arrow')) return;
+    }
     if (e.key === 'Escape') {
       bridge.layoutCancel();
       return;
@@ -700,17 +714,21 @@
     let extra = '';
     if (selected === 'disc') {
       extra = `<label class="er">Rayons<select data-o="discRays">${opt('discRays', 'fine', 'Fins et serrés')}${opt('discRays', 'bold', 'Épais et espacés')}</select></label>
-        <label class="er">Couleurs<select data-o="discColors">${opt('discColors', 'album', 'De la pochette')}${['violet', 'neon', 'sunset', 'ocean', 'spotify', 'mono'].map((t) => opt('discColors', t, { violet: 'Violet', neon: 'Néon', sunset: 'Coucher de soleil', ocean: 'Océan', spotify: 'Spotify', mono: 'Blanc' }[t])).join('')}</select></label>`;
+        <label class="er">Couleurs<select data-o="discColors">${opt('discColors', 'album', 'De la pochette')}${window.SillonCatalog.FIXED_THEMES.map(([t, name]) => opt('discColors', t, name)).join('')}</select></label>`;
     } else if (selected === 'cover') {
       extra = `<label class="ec"><input type="checkbox" data-o="panelRing" ${s.panelRing !== false ? 'checked' : ''}> Anneaux qui vibrent</label>`;
     } else if (selected === 'bars') {
-      extra = `<label class="er">Style<select data-o="style">${[
+      const styles = [
         ['bars', 'Barres'],
         ['mirror', 'Miroir'],
         ['blocks', 'Blocs'],
         ['wave', 'Onde'],
         ['aurora', 'Aurore'],
-      ]
+      ];
+      // Style courant absent de la liste (anneau, halo…) : on l'ajoute, sinon « Barres » s'afficherait à tort.
+      const cur = s.style;
+      if (cur && !styles.some(([v]) => v === cur)) styles.push([cur, window.SillonCatalog.STYLE_NAMES[cur] || cur]);
+      extra = `<label class="er">Style<select data-o="style">${styles
         .map(([v, l]) => opt('style', v, l))
         .join('')}</select></label>`;
     }
@@ -746,8 +764,14 @@
       }),
     );
     side.querySelectorAll('input[type=range][data-k]').forEach((i) => {
-      i.addEventListener('pointerdown', snapshot);
+      // Un instantané par geste (glissement ou pression de touche), pris avant la première modification.
+      let snapped = false;
+      i.addEventListener('change', () => (snapped = false));
       i.addEventListener('input', () => {
+        if (!snapped) {
+          snapshot();
+          snapped = true;
+        }
         draft[selected] = SL.clampElement(selected, { ...draft[selected], [i.dataset.k]: Number(i.value) });
         placeAll();
       });

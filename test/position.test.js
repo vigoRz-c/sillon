@@ -96,3 +96,30 @@ test('nouveau morceau avec la même heure : on ne garde pas l’ancrage', () => 
   step({ ...base, newTrack: true, title: 'B', status: 'Playing', position: 0, updated: T }, T + 500);
   assert.equal(state.anchorAt, T + 500);
 });
+
+// ---- currentPosition (côté interface) : engine.js chargé dans un contexte vide ----
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+
+function loadEngine() {
+  const window = { SillonCatalog: require('../src/renderer/shared/catalog.js') };
+  const ctx = vm.createContext({ window, console });
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../src/renderer/shared/engine.js'), 'utf8'), ctx);
+  return window.SV;
+}
+const { currentPosition } = loadEngine();
+
+test('currentPosition : lecteur sans durée connue, la position avance quand même', () => {
+  const m = { active: true, status: 'Paused', position: 42, duration: 0 };
+  near(currentPosition(m), 42, 0.001);
+  const playing = { active: true, status: 'Playing', anchorPos: 10, anchorAt: Date.now() - 3000, duration: 0 };
+  near(currentPosition(playing), 13, 0.2);
+});
+
+test('currentPosition : inactif → 0 ; plafonnée par la durée quand elle est connue', () => {
+  assert.equal(currentPosition({ active: false, position: 9, duration: 100 }), 0);
+  assert.equal(currentPosition(null), 0);
+  assert.equal(currentPosition({ active: true, status: 'Paused', position: 500, duration: 100 }), 100);
+  assert.equal(currentPosition({ active: true, status: 'Paused', position: -5, duration: 100 }), 0);
+});

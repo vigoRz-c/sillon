@@ -60,6 +60,13 @@
             state.albumPalette = paletteFromImage(img);
             applyPalette();
           };
+          // Image invalide : on n'hérite pas de la palette du morceau précédent.
+          img.onerror = () => {
+            if (state.coverImg !== img) return;
+            state.coverImg = null;
+            state.albumPalette = null;
+            applyPalette();
+          };
           img.src = m.cover;
         } else {
           state.coverImg = null;

@@ -15,7 +15,7 @@ const DEFAULTS = {
   sceneScreen: 'primary', // primary | secondary
   gameMode: true, // s'arrêter pendant un jeu / une vidéo en plein écran
   dimOnPause: true, // scène atténuée quand la musique est en pause
-  sleepAfter: 5, // minutes sans musique avant de masquer la scène (0 = jamais)
+  sleepAfter: 0, // minutes sans musique avant de masquer la scène (0 = jamais, par défaut)
   lyricsOffsets: {}, // décalage des paroles par morceau ("artiste|titre" -> secondes)
   discIntensity: 1.3, // halo et rayons du disque (0,5 à 2)
   discX: 0.6, // anciens réglages de position et taille du disque (voir showPanel)
@@ -55,7 +55,7 @@ const ENUMS = {
   sceneScreen: ['primary', 'secondary'],
   audioSource: ['app', 'system'],
   discRays: ['fine', 'bold'],
-  discColors: ['album', ...Catalog.THEME_ORDER.filter((t) => t !== 'wallpaper' && t !== 'album')],
+  discColors: ['album', ...Catalog.FIXED_THEMES.map(([id]) => id)],
 };
 
 // Bornes [min, max] des réglages numériques.

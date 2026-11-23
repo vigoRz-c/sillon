@@ -5,7 +5,8 @@
 //! n'analyser que le lecteur suivi et ignorer le chat vocal, les notifications
 //! et les jeux.
 
-use std::io::Write;
+use std::io::{Read, Write};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -201,6 +202,24 @@ fn valid_exe_name(exe: &str) -> bool {
         && exe.chars().all(|c| c.is_alphanumeric() || "._- ".contains(c))
 }
 
+/// Fil qui lit l'entrée jusqu'à sa fin, puis lève `gone` et réveille la boucle de capture.
+fn watch_parent(gone: Arc<AtomicBool>, wake: Arc<OwnedHandle>) {
+    std::thread::spawn(move || {
+        wait_end_of_input(std::io::stdin().lock());
+        gone.store(true, Ordering::Relaxed);
+        // SAFETY: la poignée reste valide tant que l'Arc existe.
+        unsafe {
+            let _ = SetEvent(wake.0);
+        }
+    });
+}
+
+/// Lit et jette tout ce qui arrive, jusqu'à la fin du flux (ou une erreur).
+fn wait_end_of_input<R: Read>(mut input: R) {
+    let mut sink = [0u8; 64];
+    while matches!(input.read(&mut sink), Ok(n) if n > 0) {}
+}
+
 pub fn run(exe: &str) -> i32 {
     if !valid_exe_name(exe) {
         return fail(4, "nom de programme refusé");
@@ -238,12 +257,17 @@ pub fn run(exe: &str) -> i32 {
             Ok(c) => c,
             Err(e) => return fail(2, &e.message()),
         };
-        let Ok(ready) = OwnedHandle::event() else {
+        let Ok(ready) = OwnedHandle::event().map(Arc::new) else {
             return fail(2, "événement");
         };
         if client.SetEventHandle(ready.0).is_err() || client.Start().is_err() {
             return fail(2, "démarrage refusé");
         }
+
+        // Sillon est le seul à écrire sur notre entrée (un tuyau, jamais rien dessus) :
+        // sa fin signifie que Sillon est fermé ou mort, on s'arrête sans rester orphelin.
+        let parent_gone = Arc::new(AtomicBool::new(false));
+        watch_parent(Arc::clone(&parent_gone), Arc::clone(&ready));
 
         let target = process::Watch::new(pid);
         if target.is_none() {
@@ -255,6 +279,9 @@ pub fn run(exe: &str) -> i32 {
         let code = loop {
             if WaitForSingleObject(ready.0, 100) == WAIT_FAILED {
                 break fail(7, "périphérique audio perdu : attente impossible");
+            }
+            if parent_gone.load(Ordering::Relaxed) {
+                break 0; // Sillon a disparu : fin normale
             }
             buf.clear();
             if let Err(e) = drain(&capture, &mut buf) {
@@ -322,6 +349,17 @@ mod tests {
         let mut buf = Vec::new();
         push_mono(&mut buf, Some(&[10, 20]), 2);
         assert_eq!(samples_of(&buf), vec![15, 0]);
+    }
+
+    #[test]
+    fn fin_de_l_entree_detectee() {
+        // Des octets puis la fin : la lecture se termine (sinon ce test ne finirait pas).
+        wait_end_of_input(std::io::Cursor::new(
+            b"du bruit
+encore"
+                .to_vec(),
+        ));
+        wait_end_of_input(std::io::empty());
     }
 
     #[test]

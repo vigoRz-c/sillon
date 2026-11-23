@@ -23,9 +23,19 @@ const { retryDelay, createPcmAssembler, appendCapped } = require('./audio-utils'
 const FLUSH_MS = 30; // regroupement des envois de son (le worklet tolère 80 ms)
 const MAX_STDERR = 4096; // on ne garde que la fin des messages d'erreur de l'assistant
 const MAX_FAILURES = 5; // échecs de suite avant de se rabattre sur tout le son du PC
+const MAX_UNSUPPORTED = 3; // codes 2 (capture impossible) de suite avant de conclure que Windows ne sait pas
+const MAX_ABSENT = 5; // codes 3/4 de suite alors que le lecteur est annoncé actif (exe annoncé ≠ processus réel)
 
 // État exposé au diagnostic.
-const state = { mode: 'system', exe: null, reason: '', unsupported: false, failures: 0 };
+const state = {
+  mode: 'system',
+  exe: null,
+  reason: '',
+  unsupported: false,
+  failures: 0,
+  unsupportedCodes: 0,
+  absent: 0,
+};
 let proc = null;
 let restartTimer = null;
 let fallback = false; // trop d'échecs : tout le son du PC jusqu'au prochain changement de lecteur
@@ -63,7 +73,12 @@ function flushPcm() {
 }
 
 function onPcm(data) {
-  if (state.failures) state.failures = 0; // l'assistant fonctionne
+  // L'assistant fonctionne : tous les compteurs d'échecs repartent de zéro.
+  if (state.failures || state.unsupportedCodes || state.absent) {
+    state.failures = 0;
+    state.unsupportedCodes = 0;
+    state.absent = 0;
+  }
   const aligned = assembler.push(data); // jamais d'échantillon 16 bits coupé en deux
   if (!aligned.length) return;
   pending.push(aligned);
@@ -99,7 +114,11 @@ function targetActive(exe) {
 function startHelper(exe) {
   const changed = state.exe !== exe;
   stopHelper();
-  if (changed) state.failures = 0;
+  if (changed) {
+    state.failures = 0;
+    state.unsupportedCodes = 0;
+    state.absent = 0;
+  }
   state.exe = exe;
   const p = spawn(helperExe(), ['capture', exe], { windowsHide: true });
   proc = p;
@@ -122,10 +141,27 @@ function startHelper(exe) {
     resetPcm();
     const msg = (/ERR \d+ (.*)/.exec(err) || [])[1] || `arrêt (code ${code})`;
     if (code === 2) {
-      // Windows ne sait pas faire : on écoute tout le PC.
-      state.unsupported = true;
-      diagnostic.note('son', `capture par application impossible (${msg}) : tout le son du PC`);
-      useSystem(`capture par application impossible : ${msg}`);
+      // Un seul code 2 peut être passager (lecteur en train de démarrer) : on
+      // n'abandonne la capture par application qu'au 3e de suite.
+      state.unsupportedCodes += 1;
+      if (state.unsupportedCodes >= MAX_UNSUPPORTED) {
+        // Windows ne sait pas faire : on écoute tout le PC.
+        state.unsupported = true;
+        diagnostic.note('son', `capture par application impossible (${msg}) : tout le son du PC`);
+        useSystem(`capture par application impossible : ${msg}`);
+        return;
+      }
+      state.reason = msg;
+      diagnostic.note(
+        'son',
+        `capture par application impossible (${msg}) : essai ${state.unsupportedCodes}/${MAX_UNSUPPORTED}`,
+      );
+      if (targetActive(exe) && activeListeners().length) {
+        restartTimer = setTimeout(() => {
+          restartTimer = null;
+          refresh();
+        }, retryDelay(state.unsupportedCodes));
+      }
       return;
     }
     state.reason = msg;
@@ -147,6 +183,16 @@ function startHelper(exe) {
     if (!normal) {
       diagnostic.note('son', `assistant de capture arrêté (code ${code}) : ${msg}`);
       state.failures += 1;
+    } else if (targetActive(exe)) {
+      // Windows annonce le lecteur actif mais son processus est introuvable
+      // (l'exécutable annoncé n'est pas le vrai) : la boucle ne s'arrêterait jamais.
+      state.absent += 1;
+      if (state.absent >= MAX_ABSENT) {
+        fallback = true;
+        diagnostic.note('son', `lecteur annoncé actif mais introuvable (${msg}) : tout le son du PC`);
+        useSystem(`lecteur introuvable pour la capture (${exe}) : ${msg}`);
+        return;
+      }
     }
     if (state.failures >= MAX_FAILURES) {
       fallback = true;
@@ -254,13 +300,21 @@ function onActivityChanged() {
 
 // Le lecteur a changé (Spotify -> navigateur…), ou démarre / s'arrête.
 let lastKey = null;
+let lastApp = '';
 function onMedia(m) {
   if (!listeners.size || !m) return;
   const key = `${!!m.active}|${m.app || ''}`;
   if (key === lastKey) return;
   lastKey = key;
+  // Lecteur différent : Windows peut savoir capturer celui-ci même s'il n'a pas su pour l'autre.
+  if ((m.app || '') !== lastApp) {
+    lastApp = m.app || '';
+    state.unsupported = false;
+  }
   // Nouveau lecteur ou lecteur revenu : on repart sans attendre les délais.
   state.failures = 0;
+  state.unsupportedCodes = 0;
+  state.absent = 0;
   fallback = false;
   clearTimeout(restartTimer);
   restartTimer = null;
@@ -270,6 +324,8 @@ function onSettingChanged() {
   state.unsupported = false;
   fallback = false;
   state.failures = 0;
+  state.unsupportedCodes = 0;
+  state.absent = 0;
   if (listeners.size) refresh();
 }
 

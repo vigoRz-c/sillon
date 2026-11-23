@@ -26,7 +26,7 @@
     sceneScreen: 'primary',
     gameMode: true,
     dimOnPause: true,
-    sleepAfter: 5,
+    sleepAfter: 0,
     lyricsOffsets: {},
     discIntensity: 1.3,
     discRays: 'fine',

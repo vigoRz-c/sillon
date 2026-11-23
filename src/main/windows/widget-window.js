@@ -152,7 +152,9 @@ function applyMode() {
 }
 
 function setEditing(on) {
-  if (!on && S.editing && S.alive(S.widget)) saveWidgetBounds(S.widget.getBounds());
+  // Si la disposition est devenue la scène pendant le placement, la fenêtre
+  // fait tout l'écran : ce ne sont pas les dimensions du bandeau.
+  if (!on && S.editing && S.alive(S.widget) && !isScene()) saveWidgetBounds(S.widget.getBounds());
   S.editing = on;
   applyMode();
   S.actions.buildTray();
