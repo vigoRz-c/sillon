@@ -1,24 +1,21 @@
 (function () {
   'use strict';
-  const { currentPosition, fmt, STYLE_ORDER, THEME_ORDER } = window.SV;
+  const { currentPosition, fmt } = window.SV;
+  const { STYLE_ORDER, THEME_ORDER, STYLE_NAMES, THEME_NAMES } = window.SillonCatalog;
   const $ = (id) => document.getElementById(id);
   const bridge = window.bridge;
   // Écran de veille : même page, sans commandes, avec le disque au centre.
   // Toute action (souris, clavier, perte du focus) la ferme.
   const VEILLE = new URLSearchParams(location.search).has('veille');
-  if (VEILLE) document.body.classList.add('veille');
+  if (VEILLE) {
+    document.body.classList.add('veille');
+    // Annonce aux lecteurs d'écran comment quitter la veille.
+    $('veilleStatus').textContent = 'Écran de veille : appuie sur une touche pour quitter';
+  }
   let coverImg = null;
-
-  const STYLE_NAMES = { bars: 'Barres', mirror: 'Miroir', ring: 'Anneau', wave: 'Onde', aurora: 'Aurore' };
-  const THEME_NAMES = {
-    wallpaper: "Couleurs du fond d'écran",
-    album: 'Couleurs de la pochette',
-    spotify: 'Spotify',
-    neon: 'Néon',
-    sunset: 'Coucher de soleil',
-    ocean: 'Océan',
-    mono: 'Blanc',
-  };
+  // Animations réduites : réglage Sillon (classe posée par common.js) ou réglage Windows.
+  const reduceMotion = () =>
+    document.body.classList.contains('reduce-motion') || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // En plein écran, le visualiseur et les couleurs se changent ici sans toucher au widget.
   let localStyle = null;
@@ -34,7 +31,11 @@
       volume.update(m);
       $('title').textContent = m.active ? m.title || '' : 'Rien en lecture';
       $('artist').textContent = m.active ? [m.artist, m.album].filter(Boolean).join(' · ') : '';
-      $('play').innerHTML = m.status === 'Playing' ? '&#10074;&#10074;' : '&#9654;';
+      const playing = m.status === 'Playing';
+      $('play').innerHTML = playing ? '&#10074;&#10074;' : '&#9654;';
+      $('play').setAttribute('aria-label', playing ? 'Pause' : 'Lecture');
+      // Musique en pause : le fond cesse de dériver.
+      document.body.classList.toggle('paused', !playing);
       if (coverChanged) {
         if (m.cover) {
           coverImg = new Image();
@@ -134,12 +135,21 @@
   window.addEventListener('resize', sizeRipples);
 
   let coverPulse = 0;
+  let hadRipples = false;
+  let lastPct = '';
+  let lastTime = '';
+  let lastSecond = -1;
+  const bar = $('bar');
+  const progress = bar.parentElement;
   app.renderer.hooks.push((a) => {
     const w = window.innerWidth,
       h = window.innerHeight;
     const base = Math.min(w, h) * 0.17;
-    if (a.beat && app.state.media.active) ripples.push({ r: base, alpha: 0.5 });
-    rctx.clearRect(0, 0, w, h);
+    const still = reduceMotion();
+    // Pas d'ondes ni de pulsation si les animations sont réduites.
+    if (a.beat && app.state.media.active && !still) ripples.push({ r: base, alpha: 0.5 });
+    if (hadRipples || ripples.length) rctx.clearRect(0, 0, w, h);
+    hadRipples = ripples.length > 0;
     rctx.strokeStyle = app.renderer.palette[2];
     for (let i = ripples.length - 1; i >= 0; i--) {
       const p = ripples[i];
@@ -156,14 +166,37 @@
       rctx.stroke();
     }
     rctx.globalAlpha = 1;
-    coverPulse = coverPulse * 0.85 + a.bass * 0.15;
+    coverPulse = still ? 0 : coverPulse * 0.85 + a.bass * 0.15;
     $('cover').style.transform = `translate(-50%, -50%) scale(${1 + coverPulse * 0.04})`;
 
     const m = app.state.media;
     const pos = currentPosition(m);
     if (VEILLE) veilleOpts();
-    $('bar').style.width = m.duration ? `${(pos / m.duration) * 100}%` : '0%';
-    $('time').textContent = m.duration ? `${fmt(pos)} / ${fmt(m.duration)}` : '';
+    // On n'écrit dans le DOM que si la valeur affichée a changé.
+    const pct = m.duration ? `${Math.round((pos / m.duration) * 1000) / 10}%` : '0%';
+    if (pct !== lastPct) {
+      lastPct = pct;
+      bar.style.width = pct;
+    }
+    const time = m.duration ? `${fmt(pos)} / ${fmt(m.duration)}` : '';
+    if (time !== lastTime) {
+      lastTime = time;
+      $('time').textContent = time;
+    }
+    // Barre de position annoncée aux lecteurs d'écran : une mise à jour par seconde au plus.
+    const sec = m.duration ? Math.floor(pos) : -1;
+    if (sec !== lastSecond) {
+      lastSecond = sec;
+      if (m.duration) {
+        progress.setAttribute('aria-valuemax', String(Math.round(m.duration)));
+        progress.setAttribute('aria-valuenow', String(sec));
+        progress.setAttribute('aria-valuetext', `${fmt(pos)} sur ${fmt(m.duration)}`);
+      } else {
+        progress.setAttribute('aria-valuemax', '0');
+        progress.setAttribute('aria-valuenow', '0');
+        progress.removeAttribute('aria-valuetext');
+      }
+    }
     const showLyrics = app.state.settings.showLyrics !== false;
     $('lyrics').classList.toggle('hidden', !showLyrics);
     if (showLyrics) lyrics.update(m, pos);
@@ -214,8 +247,16 @@
     window.addEventListener('blur', leave);
   }
 
+  // Un contrôle qui a le focus garde ses touches (Espace sur un bouton, flèches
+  // sur un curseur ou une liste) : les raccourcis ne s'appliquent qu'ailleurs.
+  const isControl = (el) => !!el && /^(BUTTON|INPUT|SELECT|TEXTAREA|A)$/.test(el.tagName);
   window.addEventListener('keydown', (e) => {
     if (VEILLE) return;
+    if (e.key === 'Escape') {
+      if (bridge) bridge.closeFullscreen();
+      return;
+    }
+    if (e.ctrlKey || e.altKey || e.metaKey || isControl(e.target)) return;
     const s = app.state.settings;
     if (e.code === 'Space') {
       e.preventDefault();
@@ -237,8 +278,6 @@
       const d = e.key === ']' ? 0.25 : -0.25;
       bridge && bridge.nudgeLyrics(d);
       toast(`Paroles ${d > 0 ? 'plus tôt' : 'plus tard'} (${d > 0 ? '+' : '−'}0,25 s)`);
-    } else if (e.key === 'Escape') {
-      if (bridge) bridge.closeFullscreen();
     }
   });
 
@@ -250,6 +289,9 @@
     idle = setTimeout(() => document.body.classList.add('idle'), 2500);
   }
   window.addEventListener('mousemove', wake);
+  // Clavier ou lecteur d'écran : les boutons doivent réapparaître avec le focus.
+  window.addEventListener('keydown', wake);
+  window.addEventListener('focusin', wake);
   wake();
   layout();
 })();

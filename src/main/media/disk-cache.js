@@ -8,14 +8,20 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { note } = require('./text-norm');
 
 const MISS_TTL = 7 * 24 * 3600 * 1000; // 7 jours pour un "rien trouvé"
 const MAX_FILES = 600; // par espace
+const PRUNE_EVERY = 50; // écritures entre deux nettoyages
 
 let root = null;
+let writeErrorLogged = false;
+const writes = {}; // espace -> écritures depuis le dernier nettoyage
 
 function init(dir) {
   root = dir;
+  writeErrorLogged = false;
+  for (const k of Object.keys(writes)) delete writes[k];
   for (const ns of ['covers', 'lyrics']) prune(ns);
 }
 
@@ -25,8 +31,16 @@ const fileFor = (ns, key) => path.join(root, ns, `${crypto.createHash('sha1').up
 function get(ns, key) {
   if (!root) return undefined;
   try {
-    const entry = JSON.parse(fs.readFileSync(fileFor(ns, key), 'utf8'));
+    const file = fileFor(ns, key);
+    const entry = JSON.parse(fs.readFileSync(file, 'utf8'));
     if (entry.value == null && Date.now() - entry.at > MISS_TTL) return undefined;
+    // Lue = récente : le nettoyage garde les entrées les plus écoutées.
+    try {
+      const now = new Date();
+      fs.utimesSync(file, now, now);
+    } catch {
+      /* simple optimisation */
+    }
     return entry.value;
   } catch {
     return undefined;
@@ -40,23 +54,49 @@ function set(ns, key, value) {
     fs.mkdirSync(path.dirname(f), { recursive: true });
     fs.writeFileSync(f, JSON.stringify({ at: Date.now(), key, value: value ?? null }));
   } catch (e) {
-    console.error('Cache :', e.message);
+    if (!writeErrorLogged) {
+      writeErrorLogged = true; // une seule fois : le disque plein ne doit pas saturer le journal
+      console.error('Cache :', e.message);
+      note('cache', e.message);
+    }
+    return;
+  }
+  writes[ns] = (writes[ns] || 0) + 1;
+  if (writes[ns] >= PRUNE_EVERY) {
+    writes[ns] = 0;
+    prune(ns);
   }
 }
 
-// Garde les MAX_FILES entrées les plus récentes.
+// Garde les MAX_FILES entrées les plus récentes (écriture ou lecture).
 function prune(ns) {
+  if (!root) return;
+  let dir, names;
   try {
-    const dir = path.join(root, ns);
-    const files = fs.readdirSync(dir).map((f) => ({ f, t: fs.statSync(path.join(dir, f)).mtimeMs }));
-    if (files.length <= MAX_FILES) return;
-    files
-      .sort((a, b) => b.t - a.t)
-      .slice(MAX_FILES)
-      .forEach(({ f }) => fs.unlinkSync(path.join(dir, f)));
+    dir = path.join(root, ns);
+    names = fs.readdirSync(dir);
   } catch {
-    /* dossier absent : rien à faire */
+    return; // dossier absent : rien à faire
   }
+  if (names.length <= MAX_FILES) return;
+  const files = [];
+  for (const f of names) {
+    try {
+      files.push({ f, t: fs.statSync(path.join(dir, f)).mtimeMs });
+    } catch (e) {
+      if (e.code !== 'ENOENT') console.error('Cache :', e.message);
+    }
+  }
+  files
+    .sort((a, b) => b.t - a.t)
+    .slice(MAX_FILES)
+    .forEach(({ f }) => {
+      try {
+        fs.unlinkSync(path.join(dir, f));
+      } catch (e) {
+        if (e.code !== 'ENOENT') console.error('Cache :', e.message);
+      }
+    });
 }
 
-module.exports = { init, get, set };
+module.exports = { init, get, set, prune, MAX_FILES };

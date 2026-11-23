@@ -74,3 +74,112 @@ test('cache disque : valeur relue, "rien trouvé" gardé aussi', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// ---------- lookupCover : erreurs réseau, « rien trouvé », image ----------
+const { mock } = require('node:test');
+const { lookupCover, toDataUrl } = require('../src/main/media/cover-lookup');
+
+const jsonRes = (body, ok = true, status = 200) => ({ ok, status, json: async () => body });
+const imgRes = (type, bytes, extra = {}) => ({
+  ok: true,
+  status: 200,
+  headers: { get: (h) => ({ 'content-type': type, ...extra })[h.toLowerCase()] ?? null },
+  arrayBuffer: async () => new Uint8Array(bytes).buffer,
+});
+
+// Deezer simulé : "route" décide de la réponse selon le chemin.
+function withDeezer(route, fn) {
+  const calls = [];
+  const m = mock.method(global, 'fetch', async (url) => {
+    const u = new URL(url);
+    calls.push(u.hostname + u.pathname);
+    return route(u);
+  });
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sillon-cover-'));
+  disk.init(dir);
+  return Promise.resolve(fn(calls)).finally(() => {
+    m.mock.restore();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+}
+
+const found = (u) => {
+  if (u.pathname.startsWith('/album/'))
+    return jsonRes({ ...ALBUMS[1], cover_big: 'https://cdn-images.dzcdn.net/x.jpg' });
+  if (u.pathname === '/search') return jsonRes({ data: [track('Break Stuff', 1)] });
+  if (u.hostname.endsWith('dzcdn.net')) return imgRes('image/jpeg', [1, 2, 3]);
+  return jsonRes({ data: [] });
+};
+
+test('lookupCover : tous les getAlbum échouent -> rien en cache (ni mémoire ni disque)', async () => {
+  const media = { title: 'Break Stuff', artist: 'Limp Bizkit', album: 'Break Stuff X1' };
+  await withDeezer(
+    (u) => (u.pathname.startsWith('/album/') ? jsonRes({}, false, 429) : found(u)),
+    async (calls) => {
+      assert.equal(await lookupCover(media), null);
+      const n = calls.length;
+      assert.equal(await lookupCover(media), null);
+      assert.ok(calls.length > n, 'la deuxième tentative doit refaire des requêtes');
+    },
+  );
+});
+
+test('lookupCover : erreur réseau sur la recherche -> non mis en cache', async () => {
+  const media = { title: 'Break Stuff', artist: 'Limp Bizkit', album: 'Net Error' };
+  let fail = true;
+  await withDeezer(
+    (u) => {
+      if (fail) throw new Error('réseau coupé');
+      return found(u);
+    },
+    async () => {
+      assert.equal(await lookupCover(media), null);
+      fail = false;
+      const cover = await lookupCover(media);
+      assert.match(cover, /^data:image\/jpeg;base64,/);
+    },
+  );
+});
+
+test('lookupCover : « rien trouvé » (requêtes abouties) est mis en cache', async () => {
+  const media = { title: 'Inconnu', artist: 'Personne', album: 'Nulle part' };
+  await withDeezer(
+    () => jsonRes({ data: [] }),
+    async (calls) => {
+      assert.equal(await lookupCover(media), null);
+      const n = calls.length;
+      assert.ok(n > 0);
+      assert.equal(await lookupCover(media), null);
+      assert.equal(calls.length, n, 'pas de nouvelle requête : le résultat vide est en cache');
+      assert.equal(disk.get('covers', 'personne|nulle part|inconnu'), null);
+    },
+  );
+});
+
+test('toDataUrl : refuse HTTP, hôte inconnu, mauvais type, image trop grosse', async () => {
+  const m = mock.method(global, 'fetch', async () => imgRes('image/png', [1]));
+  try {
+    await assert.rejects(toDataUrl('http://cdn-images.dzcdn.net/a.jpg'), /HTTPS/);
+    await assert.rejects(toDataUrl('https://evil.example.com/a.jpg'), /hôte/);
+    await assert.rejects(toDataUrl('https://dzcdn.net.evil.com/a.jpg'), /hôte/);
+    await assert.rejects(toDataUrl('pas une url'), /invalide/);
+    assert.equal(m.mock.callCount(), 0);
+    const ok = await toDataUrl('https://e-cdns-images.dzcdn.net/a.png');
+    assert.equal(ok, 'data:image/png;base64,AQ==');
+    m.mock.restore();
+
+    const t = mock.method(global, 'fetch', async () => imgRes('text/html', [1]));
+    await assert.rejects(toDataUrl('https://cdn-images.dzcdn.net/a.jpg'), /type/);
+    t.mock.restore();
+
+    const big = mock.method(global, 'fetch', async () => imgRes('image/jpeg', [1], { 'content-length': '3000000' }));
+    await assert.rejects(toDataUrl('https://cdn-images.dzcdn.net/a.jpg'), /grosse/);
+    big.mock.restore();
+
+    const real = mock.method(global, 'fetch', async () => imgRes('image/webp', new Array(2 * 1024 * 1024 + 1).fill(0)));
+    await assert.rejects(toDataUrl('https://cdn-images.dzcdn.net/a.jpg'), /grosse/);
+    real.mock.restore();
+  } finally {
+    mock.restoreAll();
+  }
+});

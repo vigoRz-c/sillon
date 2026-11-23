@@ -7,48 +7,76 @@
 const S = require('../app/state');
 const { SpotifyApi } = require('./spotify-api');
 const diagnostic = require('../app/diagnostic');
+const { fetchImageDataUrl } = require('./text-norm');
+
+// Pochettes de Spotify : i.scdn.co et autres hôtes du CDN, rien d'autre.
+const IMAGE_HOSTS = /^([a-z0-9-]+\.)*(scdn\.co|spotifycdn\.com)$/i;
 
 const imageCache = new Map(); // URL Spotify -> data URL (la page n'accepte que data:)
 async function imageData(url) {
   if (!url) return null;
   if (imageCache.has(url)) return imageCache.get(url);
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
-    if (!res.ok) return null;
-    const data = `data:${res.headers.get('content-type') || 'image/jpeg'};base64,${Buffer.from(await res.arrayBuffer()).toString('base64')}`;
+    const data = await fetchImageDataUrl(url, IMAGE_HOSTS, 6000);
     if (imageCache.size > 100) imageCache.delete(imageCache.keys().next().value);
     imageCache.set(url, data);
     return data;
-  } catch {
+  } catch (e) {
+    diagnostic.note('spotify', `image de la file : ${e.message}`);
     return null;
   }
 }
 
+// Pause commune aux deux requêtes (player, queue) après un 429 de Spotify.
+let pauseUntil = 0;
+const notePause = (e) => {
+  if (e && e.retryAfter) pauseUntil = Date.now() + e.retryAfter * 1000;
+};
+
+// Après des erreurs répétées, on espace les relectures de l'état du lecteur
+// (2 s, 4 s, 8 s... jusqu'à 60 s) au lieu de marteler l'API.
+let playerFailures = 0;
+let playerRetryAt = 0;
+let playerInflight = null;
+
 // État aléatoire / répétition lu dans l'API (celui de Windows n'est pas fiable).
-async function refreshPlayer() {
+function refreshPlayer() {
   const spotify = S.spotify;
   if (!spotify || !spotify.canControl()) {
     S.playerState = null;
     S.actions.rebroadcast();
-    return;
+    return Promise.resolve();
   }
-  try {
-    S.playerState = await spotify.player();
-  } catch {
-    S.playerState = null;
-  }
-  S.actions.rebroadcast();
+  if (Date.now() < pauseUntil || Date.now() < playerRetryAt) return Promise.resolve();
+  if (playerInflight) return playerInflight;
+  playerInflight = (async () => {
+    try {
+      S.playerState = await spotify.player();
+      playerFailures = 0;
+      playerRetryAt = 0;
+    } catch (e) {
+      notePause(e);
+      playerFailures++;
+      playerRetryAt = Date.now() + Math.min(60000, 2000 * 2 ** (playerFailures - 1));
+      diagnostic.note('spotify', `état du lecteur : ${e.message}`);
+      S.playerState = null;
+    } finally {
+      playerInflight = null;
+    }
+    S.actions.rebroadcast();
+  })();
+  return playerInflight;
 }
 
-// Toutes les commandes de lecture passent par ici (boutons, plein écran, icône).
-// Lecture, précédent, suivant : Windows. Aléatoire, répétition : API Spotify,
-// car l'app Spotify ignore ces deux commandes venant de Windows.
-async function mediaCommand(cmd) {
+const NEXT_REPEAT = { None: 'List', List: 'Track', Track: 'None' };
+const nextRepeat = (mode) => NEXT_REPEAT[mode] || 'List';
+
+// Les commandes aléatoire / répétition sont traitées l'une après l'autre : deux
+// clics rapides = deux bascules, chacune calculée sur l'état à jour.
+let commandChain = Promise.resolve();
+
+async function spotifyCommand(cmd) {
   const spotify = S.spotify;
-  if (cmd !== 'shuffle' && cmd !== 'repeat') {
-    if (S.media) S.media.command(cmd);
-    return;
-  }
   if (!spotify || !spotify.canControl()) {
     diagnostic.note('spotify', `${cmd} ignoré : compte Spotify non connecté`);
     return;
@@ -64,7 +92,7 @@ async function mediaCommand(cmd) {
       await spotify.setShuffle(!cur.shuffle);
       S.playerState = { ...cur, shuffle: !cur.shuffle };
     } else {
-      const next = { None: 'List', List: 'Track', Track: 'None' }[cur.repeat] || 'List';
+      const next = nextRepeat(cur.repeat);
       await spotify.setRepeat(next);
       S.playerState = { ...cur, repeat: next };
     }
@@ -76,37 +104,73 @@ async function mediaCommand(cmd) {
     setTimeout(refreshPlayer, 1500);
   } catch (e) {
     diagnostic.note('spotify', `${cmd} → ${e.message}`);
-    if (e.retryAfter) pauseUntil = Date.now() + e.retryAfter * 1000;
+    notePause(e);
     refreshPlayer();
   }
 }
 
+// Toutes les commandes de lecture passent par ici (boutons, plein écran, icône).
+// Lecture, précédent, suivant : Windows. Aléatoire, répétition : API Spotify,
+// car l'app Spotify ignore ces deux commandes venant de Windows.
+function mediaCommand(cmd) {
+  if (cmd !== 'shuffle' && cmd !== 'repeat') {
+    if (S.media) S.media.command(cmd);
+    return Promise.resolve();
+  }
+  commandChain = commandChain.then(() => spotifyCommand(cmd)).catch(() => {});
+  return commandChain;
+}
+
 function sendQueue(q) {
+  // Rien à renvoyer si la file n'a pas changé (les images sont lourdes).
+  if (JSON.stringify(q) === JSON.stringify(S.lastQueue)) return;
   S.lastQueue = q;
   S.send([S.widget, S.editorWin], 'queue', q);
 }
 
+// Identifie le morceau en cours : un résultat obtenu pour un autre est périmé.
+const currentTrack = () => {
+  const m = S.lastMedia || {};
+  return m.active ? `${m.app}|${m.title}|${m.artist}|${m.album}` : '';
+};
+
 let busy = false;
-let pauseUntil = 0;
+let dirty = false;
 async function refreshQueue() {
   const spotify = S.spotify;
-  if (!spotify || busy || Date.now() < pauseUntil) return;
+  if (!spotify || Date.now() < pauseUntil) return;
+  if (busy) {
+    dirty = true; // une demande est arrivée pendant la requête : on relance à la fin
+    return;
+  }
   if (!spotify.status().connected) {
     if (S.lastQueue.connected || S.lastQueue.items.length) sendQueue({ items: [], connected: false });
     return;
   }
   busy = true;
+  dirty = false;
+  const track = currentTrack();
   refreshPlayer();
   try {
     const items = await spotify.queue(4);
     const withImages = await Promise.all(items.map(async (it) => ({ ...it, image: await imageData(it.image) })));
-    sendQueue({ items: withImages, connected: true });
-    if (spotify.status().error) spotify.setError('');
+    // Le morceau a changé, ou la session est fermée, pendant la requête : résultat périmé.
+    if (S.spotify === spotify && spotify.status().connected && currentTrack() === track) {
+      sendQueue({ items: withImages, connected: true });
+      if (spotify.status().error) spotify.clearError();
+    } else {
+      dirty = true;
+    }
   } catch (e) {
-    if (e.retryAfter) pauseUntil = Date.now() + e.retryAfter * 1000;
+    notePause(e);
+    diagnostic.note('spotify', `file d'attente : ${e.message}`);
     spotify.setError(e.message);
   } finally {
     busy = false;
+  }
+  if (dirty) {
+    dirty = false;
+    await refreshQueue();
   }
 }
 
@@ -137,4 +201,16 @@ function startSpotify() {
   });
 }
 
-module.exports = { refreshQueue, refreshPlayer, startSpotify, mediaCommand };
+// Remise à zéro de l'état interne (tests).
+function resetForTests() {
+  pauseUntil = 0;
+  playerFailures = 0;
+  playerRetryAt = 0;
+  playerInflight = null;
+  busy = false;
+  dirty = false;
+  commandChain = Promise.resolve();
+  imageCache.clear();
+}
+
+module.exports = { refreshQueue, refreshPlayer, startSpotify, mediaCommand, nextRepeat, resetForTests };

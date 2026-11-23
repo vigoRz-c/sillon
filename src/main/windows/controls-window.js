@@ -11,6 +11,7 @@ const S = require('../app/state');
 const { screen } = require('electron');
 const { sendToBottom, windowAt, hwndOf, placeAboveDesktop } = require('./wallpaper');
 const diagnostic = require('../app/diagnostic');
+const { secureWindow } = require('./secure');
 
 // Surveillance : si le bureau repasse au-dessus des boutons (verrouillage,
 // redémarrage d'Explorer…), ils deviennent invisibles et les clics tombent sur
@@ -42,7 +43,11 @@ function updateControls() {
   const rect = S.controlsRect;
   const wanted = isScene() && !S.editing && !S.settings.get('sceneHidden') && rect && !S.alive(S.editorWin); // l'éditeur a ses propres boutons factices
   if (!wanted) {
-    if (S.alive(S.controlsWin)) S.controlsWin.close();
+    // destroy() plutôt que close() : la fenêtre disparaît tout de suite, une
+    // demande rapide de recréation ne retombe pas sur une fenêtre à moitié fermée.
+    const old = S.controlsWin;
+    S.controlsWin = null;
+    if (S.alive(old)) old.destroy();
     return;
   }
   const wb = widgetBounds();
@@ -71,9 +76,11 @@ function updateControls() {
       webPreferences: { preload: S.PRELOAD, backgroundThrottling: false },
     });
     S.controlsWin = win;
+    secureWindow(win);
     win.loadFile(path.join(S.RENDERER, 'controls.html'));
     win.webContents.on('did-finish-load', () => {
-      win.webContents.send('media', S.lastMedia);
+      if (!S.alive(win)) return;
+      S.send([win], 'media', S.lastMedia);
       win.showInactive();
       sendToBottom(win);
       placeAboveDesktop(win);

@@ -12,6 +12,7 @@
       albumPalette: null,
       wallpaperPalette: null,
       theme: 'wallpaper',
+      coverImg: null, // pochette décodée une seule fois, partagée avec les pages
     };
 
     function applyPalette() {
@@ -25,6 +26,11 @@
       if (onPalette) onPalette(pal);
     }
 
+    // La préférence du système peut changer en cours de route.
+    const reduceQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+    if (reduceQuery && reduceQuery.addEventListener)
+      reduceQuery.addEventListener('change', () => applySettings(state.settings));
+
     function applySettings(raw) {
       state.settings = raw;
       const s = transformSettings ? transformSettings(raw) : raw;
@@ -32,6 +38,11 @@
       renderer.fps = s.fps || 30;
       engine.sensitivity = s.sensitivity || 1;
       state.theme = s.theme || 'wallpaper';
+      // Animations réduites : réglage explicite ou préférence du système.
+      const reduce = !!(raw.reduceMotion || (reduceQuery && reduceQuery.matches));
+      document.body.classList.toggle('reduce-motion', reduce);
+      renderer.reduceMotion = reduce;
+      engine.reduceMotion = reduce;
       applyPalette();
       if (onSettings) onSettings(s);
     }
@@ -41,13 +52,17 @@
       state.media = m;
       if (coverChanged) {
         if (m.cover) {
+          // Une seule image par pochette : la palette et le disque s'en servent.
           const img = new Image();
+          state.coverImg = img;
           img.onload = () => {
+            if (state.coverImg !== img) return; // pochette déjà remplacée
             state.albumPalette = paletteFromImage(img);
             applyPalette();
           };
           img.src = m.cover;
         } else {
+          state.coverImg = null;
           state.albumPalette = null;
           applyPalette();
         }
@@ -70,19 +85,14 @@
           };
           img.src = url;
         });
+      // Le processus principal choisit la source : tout le son du PC ou le seul lecteur suivi.
+      if (bridge.onAudioStart)
+        bridge.onAudioStart((kind) => (kind === 'app' ? engine.startApp(bridge) : engine.startSystem()));
       bridge.getSettings().then(applySettings);
     }
 
-    // Appelé par le process principal avec un "geste utilisateur" simulé.
-    window.sillon = {
-      startAudio: () => engine.startSystem(),
-      startAppAudio: () => engine.startApp(window.bridge),
-      engine,
-      renderer,
-      state,
-      applySettings,
-      applyMedia,
-    };
+    // Seul le moteur reste exposé (la démo y branche un son simulé).
+    window.sillon = { engine };
     return { engine, renderer, state, applySettings, applyMedia, applyPalette };
   }
 

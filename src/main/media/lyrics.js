@@ -2,37 +2,24 @@
 //
 // Seuls l'artiste, le titre, l'album et la durée sont envoyés. Résultat :
 //   { lines: [{ t, end, text, words: [{ t, text }] | null }], instrumental }
-// en secondes, ou null si aucune parole synchronisée n'existe pour ce titre.
+// en secondes, null si aucune parole synchronisée n'existe pour ce titre, ou
+// { error: true } si la recherche a échoué (réseau : rien n'est mis en cache).
 // Quand LRCLIB a le minutage mot à mot (champ "lyricsfile"), on l'utilise.
 
 const API = 'https://lrclib.net/api';
 const disk = require('./disk-cache');
+const { cleanTitle, norm, firstArtist, note, readCapped } = require('./text-norm');
 const HEADERS = { 'User-Agent': 'Sillon/0.1' };
 const cache = new Map();
 
-// "Bohemian Rhapsody - Remastered 2011" -> "Bohemian Rhapsody"
-const cleanTitle = (s) =>
-  String(s || '')
-    .replace(/\s*[([].*?[)\]]/g, '')
-    .replace(/\s+-\s+.*$/, '')
-    .trim();
-const firstArtist = (s) =>
-  String(s || '')
-    .split(/,|&| feat\.? | ft\.? /i)[0]
-    .trim();
-const norm = (s) =>
-  cleanTitle(s)
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
+const MAX_BODY = 512 * 1024; // une réponse LRCLIB plus grosse est suspecte
 
 async function getJson(path) {
   const res = await fetch(API + path, { headers: HEADERS, signal: AbortSignal.timeout(6000) });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`LRCLIB ${res.status}`);
-  return res.json();
+  const buf = await readCapped(res, MAX_BODY, 'LRCLIB : réponse trop volumineuse');
+  return JSON.parse(buf.toString('utf8'));
 }
 
 // "[01:02.44] texte" (plusieurs horodatages possibles par ligne)
@@ -46,7 +33,15 @@ function parseLrc(lrc) {
   }
   lines.sort((a, b) => a.t - b.t);
   lines.forEach((l, i) => {
-    l.end = lines[i + 1] ? lines[i + 1].t : l.t + 5;
+    // Une ligne suivie d'un long instrumental ne doit pas rester affichée
+    // jusqu'à la suivante : durée plausible selon le nombre de mots (4 à 8 s).
+    const words = l.text ? l.text.split(/\s+/).length : 0;
+    const reasonable = Math.min(8, Math.max(4, 2 + words * 0.6));
+    const next = lines[i + 1] ? lines[i + 1].t : Infinity;
+    if (!l.text)
+      l.end = next === Infinity ? l.t + 5 : next; // ligne vide : jusqu'à la suivante
+    else if (next === Infinity) l.end = l.t + 5;
+    else l.end = Math.min(next, l.t + reasonable);
   });
   return lines;
 }
@@ -80,11 +75,11 @@ function parseLyricsFile(text) {
     if (/^[A-Za-z_]/.test(raw)) break; // clé de premier niveau : fin du bloc "lines"
     let m;
     if ((m = raw.match(/^- text:\s*(.*)$/))) {
-      line = { text: yamlValue(m[1]), t: 0, end: 0, words: [] };
+      line = { text: yamlValue(m[1]), t: null, end: 0, words: [] };
       word = null;
       lines.push(line);
     } else if (line && (m = raw.match(/^ {2}- text:\s*(.*)$/))) {
-      word = { text: yamlValue(m[1]), t: 0 };
+      word = { text: yamlValue(m[1]), t: null };
       line.words.push(word);
     } else if (line && (m = raw.match(/^ {4}start_ms:\s*(\d+)/)) && word) {
       word.t = Number(m[1]) / 1000;
@@ -94,11 +89,14 @@ function parseLyricsFile(text) {
       line.end = Number(m[1]) / 1000;
     }
   }
-  const ok = lines.length && lines.every((l) => l.t >= 0 && l.words.every((w) => w.text));
+  // Une ligne sans start_ms rend le fichier inexploitable : retour au LRC.
+  const ok = lines.length && lines.every((l) => l.t !== null && l.t >= 0 && l.words.every((w) => w.text));
   if (!ok) return null;
+  lines.sort((a, b) => a.t - b.t);
   for (const l of lines) {
+    // Mot sans horaire : celui de la ligne.
+    l.words = l.words.map((w) => ({ text: w.text.trim(), t: w.t === null ? l.t : w.t })).filter((w) => w.text);
     if (!l.words.length) l.words = null;
-    else l.words = l.words.map((w) => ({ ...w, text: w.text.trim() })).filter((w) => w.text);
     if (!l.end) l.end = l.t + 5;
   }
   return lines;
@@ -144,7 +142,8 @@ async function lookupLyrics(media) {
     result = await findLyrics(media);
   } catch (e) {
     console.error('Paroles :', e.message);
-    return null; // erreur réseau : pas mis en cache
+    note('paroles', e.message);
+    return { error: true }; // erreur réseau : pas mis en cache, distinct de « pas de paroles »
   }
   if (cache.size > 200) cache.delete(cache.keys().next().value);
   cache.set(key, result);
@@ -152,4 +151,4 @@ async function lookupLyrics(media) {
   return result;
 }
 
-module.exports = { lookupLyrics, parseLrc, parseLyricsFile };
+module.exports = { lookupLyrics, findLyrics, parseLrc, parseLyricsFile };

@@ -20,6 +20,92 @@ body {
 .hidden {
   display: none !important;
 }
+/* Texte réservé aux lecteurs d'écran. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Focus clavier visible partout : double anneau (clair + sombre), lisible sur tout fond. */
+:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px #000;
+}
+/* Ces contrôles dessinent leur propre anneau (pouce du curseur). */
+.vol-range:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+h1:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Animations réduites : réglage Sillon (classe posée par common.js / settings.js) ou réglage Windows. */
+body.reduce-motion #room img,
+body.reduce-motion .lyr-line,
+body.reduce-motion .lyr-word,
+body.reduce-motion .big-title > span,
+body.reduce-motion .toast,
+body.reduce-motion .progress > div,
+body.reduce-motion #glow,
+body.reduce-motion #shade,
+body.reduce-motion .p-cover,
+body.reduce-motion .now img {
+  animation: none !important;
+  transition: none !important;
+}
+body.reduce-motion .lyr-word {
+  filter: none;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  #room img,
+  .lyr-line,
+  .lyr-word,
+  .big-title > span,
+  .toast,
+  .progress > div,
+  #glow,
+  #shade,
+  .p-cover,
+  .now img {
+    animation: none !important;
+    transition: none !important;
+  }
+  .lyr-word {
+    filter: none;
+    transform: none;
+  }
+}
+
+/* Contraste forcé de Windows : couleurs système, bordures visibles. */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 2px solid Highlight;
+    box-shadow: none;
+  }
+  button,
+  select,
+  input {
+    border: 1px solid ButtonText;
+  }
+  .gallery button.on {
+    outline: 3px solid Highlight;
+  }
+  body .lyr-word.on {
+    -webkit-background-clip: border-box;
+    background-clip: border-box;
+    color: CanvasText;
+    background: none;
+  }
+}
 
 /* ================= Widget ================= */
 
@@ -63,7 +149,10 @@ body.widget #viz {
   gap: 12px;
   width: min(460px, 90%);
   padding: 8px 14px 8px 8px;
-  /* Pas de boîte : le texte flotte sur le fond d'écran, lisible grâce à une ombre douce. */
+  /* Voile sombre discret derrière le texte : contraste garanti sur tout fond d'écran. */
+  background: rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(6px);
+  border-radius: 14px;
   text-shadow:
     0 1px 2px rgba(0, 0, 0, 0.45),
     0 0 18px rgba(0, 0, 0, 0.35);
@@ -91,7 +180,7 @@ body.widget #viz {
 }
 .artist {
   font-size: 12px;
-  opacity: 0.7;
+  opacity: 0.85;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -101,7 +190,7 @@ body.widget #viz {
   height: 2px;
   margin-top: 7px;
   border-radius: 2px;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.3);
   overflow: hidden;
 }
 .progress > div {
@@ -120,8 +209,8 @@ body.widget #viz {
   font-size: 11px;
   padding: 4px 10px;
   border-radius: 99px;
-  background: rgba(0, 0, 0, 0.45);
-  color: #fca5a5;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fecaca;
 }
 
 /* ----- Mode placement ----- */
@@ -150,13 +239,15 @@ body.editing::after {
   font-size: 12px;
   padding: 4px 10px;
   border-radius: 99px;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.75);
 }
 .edit button {
   -webkit-app-region: no-drag;
   position: absolute;
   top: 8px;
   right: 10px;
+  min-width: 24px;
+  min-height: 24px;
   padding: 6px 14px;
   border-radius: 99px;
   border: 0;
@@ -171,8 +262,8 @@ body.editing::after {
   position: absolute;
   right: 2px;
   bottom: 2px;
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   cursor: nwse-resize;
   background: linear-gradient(
     135deg,
@@ -205,6 +296,10 @@ body.fullscreen.idle {
   object-fit: cover;
   filter: blur(70px) saturate(1.4) brightness(0.6);
   animation: drift 40s ease-in-out infinite alternate;
+}
+/* Musique en pause : le fond s'immobilise (classe posée par fullscreen.js). */
+body.paused #room img {
+  animation-play-state: paused;
 }
 @keyframes drift {
   from {
@@ -254,6 +349,11 @@ body.fullscreen:not(.ring-mode) .big-cover {
   top: 40px;
   left: 48px;
   max-width: 60%;
+  padding: 10px 18px;
+  border-radius: 16px;
+  /* Voile sombre local : le titre reste lisible sur une pochette claire. */
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
 }
 .fs-meta .title {
   font-size: 34px;
@@ -302,7 +402,7 @@ body.fullscreen:not(.ring-mode) .big-cover {
 }
 .time {
   font-size: 12px;
-  opacity: 0.7;
+  opacity: 0.85;
   min-width: 80px;
   font-variant-numeric: tabular-nums;
 }
@@ -310,13 +410,23 @@ body.fullscreen:not(.ring-mode) .big-cover {
   position: absolute;
   right: 24px;
   bottom: 14px;
-  font-size: 11px;
-  opacity: 0.35;
+  max-width: max(220px, 26vw);
+  text-align: right;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 4px 10px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.4);
+  opacity: 0.8;
   transition: opacity 0.6s;
 }
 body.idle .controls,
 body.idle .keys {
   opacity: 0;
+}
+/* Le focus clavier garde les boutons visibles même au repos. */
+body.idle .controls:focus-within {
+  opacity: 1;
 }
 
 .toast {
@@ -325,7 +435,7 @@ body.idle .keys {
   right: 48px;
   padding: 8px 16px;
   border-radius: 99px;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.7);
   font-size: 14px;
   opacity: 0;
   transition: opacity 0.3s;
@@ -350,7 +460,7 @@ body.idle .keys {
   font-size: 22px;
   line-height: 1;
   cursor: pointer;
-  opacity: 0.35;
+  opacity: 0.75;
   transition:
     opacity 0.3s,
     background 0.3s,
@@ -362,6 +472,16 @@ body.idle .keys {
   background: rgba(255, 255, 255, 0.18);
   transform: rotate(30deg);
 }
+body.reduce-motion .settings-btn:hover,
+body.reduce-motion .settings-btn:focus-visible {
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-btn:hover,
+  .settings-btn:focus-visible {
+    transform: none;
+  }
+}
 body.fullscreen .toast {
   right: 84px;
 }
@@ -371,7 +491,7 @@ body.fullscreen .toast {
 body.settings {
   background: rgba(18, 18, 24, 0.92);
   color: #f3f4f6;
-  font-size: 13px;
+  font-size: 0.8125rem;
   display: flex;
   flex-direction: column;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -386,7 +506,7 @@ body.settings header {
   -webkit-app-region: drag;
 }
 body.settings h1 {
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 600;
 }
 body.settings main {
@@ -399,11 +519,11 @@ body.settings section {
   border-top: 1px solid rgba(255, 255, 255, 0.07);
 }
 body.settings h2 {
-  font-size: 11px;
+  font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  opacity: 0.5;
+  opacity: 0.8;
   margin-bottom: 8px;
 }
 body.settings .row {
@@ -416,16 +536,18 @@ body.settings .row {
 }
 body.settings output {
   margin-left: auto;
-  opacity: 0.6;
+  opacity: 0.85;
   font-variant-numeric: tabular-nums;
 }
 body.settings input[type='range'] {
   width: 100%;
+  min-height: 24px;
   accent-color: var(--accent);
 }
 body.settings input[type='checkbox'] {
-  width: 16px;
-  height: 16px;
+  width: 24px;
+  height: 24px;
+  flex: none;
   accent-color: var(--accent);
 }
 body.settings select,
@@ -476,9 +598,9 @@ body.settings .row.col {
   background: rgba(0, 0, 0, 0.35);
 }
 .gallery span {
-  font-size: 11px;
+  font-size: 0.75rem;
   font-weight: 600;
-  opacity: 0.85;
+  opacity: 0.9;
 }
 body.settings button {
   cursor: pointer;
@@ -497,17 +619,29 @@ body.settings .icon {
   border-radius: 50%;
 }
 body.settings .help {
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.45;
-  opacity: 0.75;
+  opacity: 0.85;
   margin-bottom: 6px;
 }
-body.settings .help a {
-  color: var(--accent);
+/* Bouton qui ouvre une page externe : présenté comme un lien. */
+body.settings button.link {
+  display: inline;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  color: color-mix(in srgb, var(--accent) 60%, #fff);
+  text-decoration: underline;
+  cursor: pointer;
+}
+body.settings button.link:hover {
+  background: none;
+  text-decoration-thickness: 2px;
 }
 body.settings code {
   font-family: Consolas, monospace;
-  font-size: 12px;
+  font-size: 0.75rem;
   background: rgba(255, 255, 255, 0.07);
   padding: 5px 8px;
   border-radius: 6px;
@@ -524,8 +658,8 @@ body.settings input[type='text'] {
   font-family: Consolas, monospace;
 }
 body.settings .state {
-  font-size: 12px;
-  opacity: 0.8;
+  font-size: 0.75rem;
+  opacity: 0.9;
   padding-top: 4px;
 }
 body.settings .state.ok {
@@ -548,8 +682,12 @@ body.settings button.primary:hover {
   background: var(--accent);
 }
 body.settings button:disabled {
-  opacity: 0.45;
+  opacity: 0.55;
   cursor: default;
+}
+body.reduce-motion.settings .gallery button,
+body.reduce-motion.settings button {
+  transition: none;
 }
 
 /* ================= Scène (disque, paroles, panneau) ================= */
@@ -625,6 +763,21 @@ body.scene .el-ghost {
   text-align: center;
   pointer-events: none;
 }
+/* Voile sombre diffus derrière les paroles (seulement quand il y en a). */
+.lyrics:not(:empty) {
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.12) 70%, transparent);
+}
+/* Service de paroles injoignable : message discret, distinct d'un morceau sans paroles. */
+.lyr-unavailable {
+  font-family: var(--font);
+  font-size: calc(var(--lyr-size) * 0.3);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: #fff;
+  opacity: 0.8;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
 body.scene .lyrics {
   height: calc(var(--lyr-size) * 3.2);
 }
@@ -651,7 +804,7 @@ body.scene .lyrics {
 }
 /* Ligne précédente : remonte au-dessus, réduite et pâle. */
 .lyr-line.ghost {
-  opacity: 0.3;
+  opacity: 0.6;
   transform: translateY(calc(-50% + var(--gy, -60px))) scale(0.6);
 }
 .lyr-line.ghost.out {
@@ -683,7 +836,7 @@ body.scene .lyrics {
   filter: none;
   /* Karaoké : la partie chantée en blanc plein, le reste en blanc pâle. */
   color: transparent;
-  background: linear-gradient(90deg, #fff var(--p, 0%), rgba(255, 255, 255, 0.45) var(--p, 0%));
+  background: linear-gradient(90deg, #fff var(--p, 0%), rgba(255, 255, 255, 0.72) var(--p, 0%));
   -webkit-background-clip: text;
   background-clip: text;
 }
@@ -696,7 +849,7 @@ body.scene .lyrics {
   font-weight: 600;
   font-size: calc(var(--lyr-size) * 0.32);
   letter-spacing: 0.12em;
-  opacity: 0.75;
+  opacity: 0.85;
 }
 
 /* Horloge */
@@ -720,7 +873,7 @@ body.scene .lyrics {
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  opacity: 0.6;
+  opacity: 0.8;
 }
 
 /* Panneau « en lecture » : pochette, infos, boutons et file d'attente, placés
@@ -739,6 +892,11 @@ body.scene .lyrics {
 .p-info,
 .p-queue {
   width: 260px;
+  padding: 8px 12px;
+  border-radius: 14px;
+  /* Voile sombre discret : le texte reste lisible sur le fond d'écran. */
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(6px);
   text-shadow:
     0 1px 3px rgba(0, 0, 0, 0.5),
     0 0 16px rgba(0, 0, 0, 0.35);
@@ -748,12 +906,12 @@ body.scene .lyrics {
   height: 34px;
 }
 .p-label {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--accent);
-  filter: brightness(1.3);
+  /* Éclaircie vers le blanc : lisible quelle que soit la couleur d'accent. */
+  color: color-mix(in srgb, var(--accent) 55%, #fff);
 }
 .p-title {
   font-weight: 700;
@@ -765,7 +923,7 @@ body.scene .lyrics {
 }
 .p-artist {
   font-size: 12px;
-  opacity: 0.75;
+  opacity: 0.85;
   margin-top: 2px;
   white-space: nowrap;
   overflow: hidden;
@@ -781,7 +939,6 @@ body.scene .lyrics {
 /* File d'attente */
 .p-queue .p-label {
   margin-bottom: 6px;
-  opacity: 0.85;
 }
 .q-row {
   display: flex;
@@ -813,7 +970,7 @@ body.scene .lyrics {
 }
 .q-artist {
   font-size: 11px;
-  opacity: 0.7;
+  opacity: 0.85;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -839,14 +996,28 @@ body.widget.is-paused .clock {
 body.widget.is-asleep > * {
   opacity: 0 !important;
 }
+/* Les éléments sont maintenant dans <main> : c'est lui qui s'estompe. */
+body.widget > main {
+  transition: opacity 1.5s ease;
+}
+body.reduce-motion.widget > main {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  body.widget > main {
+    transition: none;
+  }
+}
 
 /* ================= Boutons du panneau (fenêtre à part) ================= */
 
 body.ctrl-win {
+  padding: 1px;
+}
+body.ctrl-win main {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 1px;
 }
 body.ctrl-win button {
   position: relative;
@@ -875,16 +1046,37 @@ body.ctrl-win button:active {
   transform: scale(0.95);
 }
 body.ctrl-win button.toggle {
-  opacity: 0.55;
+  opacity: 0.75;
 }
 body.ctrl-win button.toggle.on {
   opacity: 1;
   color: #1ed760;
   border-color: rgba(30, 215, 96, 0.55);
 }
-body.ctrl-win button.toggle.blocked {
-  opacity: 0.2;
+body.ctrl-win button.toggle.blocked,
+body.ctrl-win button[aria-disabled='true'] {
+  opacity: 0.45;
   cursor: default;
+}
+body.reduce-motion.ctrl-win button,
+body.reduce-motion .vol-range::-webkit-slider-thumb {
+  transition: none;
+}
+body.reduce-motion.ctrl-win button:hover,
+body.reduce-motion.ctrl-win button:active,
+body.reduce-motion .vol:hover .vol-range::-webkit-slider-thumb {
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  body.ctrl-win button,
+  .vol-range::-webkit-slider-thumb {
+    transition: none;
+  }
+  body.ctrl-win button:hover,
+  body.ctrl-win button:active,
+  .vol:hover .vol-range::-webkit-slider-thumb {
+    transform: none;
+  }
 }
 /* Volume du lecteur (boutons de la scène et plein écran) */
 .vol {
@@ -896,34 +1088,51 @@ body.ctrl-win button.toggle.blocked {
 .vol.hidden {
   display: none;
 }
+/* Zone cliquable de 24 px de haut ; la piste (4 px) et le pouce (18 px) sont dessinés dedans. */
 .vol-range {
   -webkit-appearance: none;
   appearance: none;
   width: 72px;
-  height: 4px;
+  height: 24px;
   margin: 0;
   cursor: pointer;
+  background: transparent;
+}
+.vol-range::-webkit-slider-runnable-track {
+  height: 4px;
   border-radius: 2px;
-  outline: none;
-  background: linear-gradient(to right, #fff var(--v, 50%), rgba(255, 255, 255, 0.25) var(--v, 50%));
+  background: linear-gradient(to right, #fff var(--v, 50%), rgba(255, 255, 255, 0.4) var(--v, 50%));
 }
 .vol-range::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 12px;
-  height: 12px;
+  width: 18px;
+  height: 18px;
+  margin-top: -7px;
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
   transition: transform 0.15s;
 }
 .vol:hover .vol-range::-webkit-slider-thumb {
-  transform: scale(1.2);
+  transform: scale(1.1);
+}
+/* Anneau de focus sur le pouce : clair + sombre. */
+.vol-range:focus-visible::-webkit-slider-thumb {
+  box-shadow:
+    0 0 0 2px #000,
+    0 0 0 4px #fff;
+}
+@media (forced-colors: active) {
+  .vol-range:focus-visible::-webkit-slider-thumb {
+    outline: 2px solid Highlight;
+    box-shadow: none;
+  }
 }
 body.ctrl-win .badge {
   position: absolute;
   right: 3px;
   bottom: 2px;
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 800;
 }
 
@@ -972,8 +1181,17 @@ body.layout-edit .lyrics {
 body.layout-edit .el:hover {
   outline-color: rgba(255, 255, 255, 0.75);
 }
+/* Élément sélectionné : contour plein, en plus du cadre #selFrame. */
 body.layout-edit .el.sel {
-  outline: none;
+  outline: 2px solid #c084fc;
+  outline-offset: 2px;
+}
+/* Focus clavier : double anneau clair + sombre, distinct du contour pointillé. */
+body.layout-edit .el:focus-visible,
+body.layout-edit .lyrics:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px #000;
 }
 body.layout-edit .el-ghost {
   border-radius: 50%;
@@ -1035,10 +1253,10 @@ body.layout-edit #pControls b {
 }
 #selFrame .handle {
   position: absolute;
-  right: -7px;
-  bottom: -7px;
-  width: 14px;
-  height: 14px;
+  right: -13px;
+  bottom: -13px;
+  width: 26px;
+  height: 26px;
   pointer-events: auto;
   border-radius: 3px;
   background: #fff;
@@ -1142,11 +1360,17 @@ body.layout-edit #pControls b {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  opacity: 0.6;
+  opacity: 0.85;
 }
 #editSide .eh button {
+  min-width: 24px;
+  min-height: 24px;
   padding: 1px 7px;
   font-size: 12px;
+}
+#editBar button,
+#editBar select {
+  min-height: 24px;
 }
 #editSide .ec {
   display: flex;
@@ -1160,6 +1384,8 @@ body.layout-edit #pControls b {
   background: rgba(168, 85, 247, 0.22);
 }
 #editSide .ec input {
+  width: 24px;
+  height: 24px;
   accent-color: #a855f7;
 }
 #editSide .er {
@@ -1177,5 +1403,5 @@ body.layout-edit #pControls b {
   margin-top: 10px;
   font-size: 11px;
   line-height: 1.45;
-  opacity: 0.5;
+  opacity: 0.8;
 }

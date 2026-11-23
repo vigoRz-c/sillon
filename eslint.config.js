@@ -16,8 +16,8 @@ module.exports = [
     languageOptions: { ecmaVersion: 2023, sourceType: 'script', globals: { ...globals.browser } },
   },
   {
-    // Partagé navigateur + tests node.
-    files: ['src/renderer/shared/scene-layout.js'],
+    // Partagés navigateur + tests node (modules UMD : « module » si présent, sinon window).
+    files: ['src/renderer/shared/scene-layout.js', 'src/renderer/shared/catalog.js'],
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
   },
   {

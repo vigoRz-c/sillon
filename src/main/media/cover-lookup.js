@@ -9,27 +9,18 @@
 
 const API = 'https://api.deezer.com';
 const disk = require('./disk-cache');
+const { norm, strict, artistKey, note, fetchImageDataUrl, readJsonCapped } = require('./text-norm');
 const cache = new Map(); // clé -> data URL | null
 
-// "Break Stuff (Remastered 2021) - Live" -> "break stuff"
-function norm(s) {
-  return String(s || '')
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/\s*[([].*?[)\]]/g, '')
-    .replace(/\s+-\s+.*$/, '')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
-}
-
-// Windows donne parfois "Artiste 1, Artiste 2" : on compare le premier.
-const firstArtist = (a) => norm(String(a || '').split(/,|&| feat\.? | ft\.? /i)[0]);
+// Les pochettes de Deezer sont servies par son CDN (cdn-images.dzcdn.net,
+// e-cdns-images.dzcdn.net...). Rien d'autre n'est téléchargé.
+const COVER_HOSTS = /^([a-z0-9-]+\.)*dzcdn\.net$/i;
+const MAX_JSON = 1024 * 1024; // réponse JSON de Deezer : 1 Mo au plus
 
 async function getJson(path) {
   const res = await fetch(API + path, { signal: AbortSignal.timeout(5000) });
   if (!res.ok) throw new Error(`Deezer ${res.status}`);
-  const json = await res.json();
+  const json = await readJsonCapped(res, MAX_JSON, 'Deezer : réponse trop volumineuse');
   if (json.error) throw new Error(`Deezer : ${json.error.message || 'erreur'}`);
   return json.data || [];
 }
@@ -37,22 +28,17 @@ async function getJson(path) {
 async function getAlbum(id) {
   const res = await fetch(`${API}/album/${id}`, { signal: AbortSignal.timeout(5000) });
   if (!res.ok) throw new Error(`Deezer ${res.status}`);
-  const json = await res.json();
+  const json = await readJsonCapped(res, MAX_JSON, 'Deezer : réponse trop volumineuse');
   if (json.error) throw new Error('album introuvable');
   return json;
 }
 
-async function toDataUrl(url) {
-  const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-  if (!res.ok) throw new Error(`image ${res.status}`);
-  const type = res.headers.get('content-type') || 'image/jpeg';
-  return `data:${type};base64,${Buffer.from(await res.arrayBuffer()).toString('base64')}`;
-}
+const toDataUrl = (url) => fetchImageDataUrl(url, COVER_HOSTS, 8000);
 
 async function findCoverUrl({ title, artist, album }) {
-  const a = firstArtist(artist);
+  const a = artistKey(artist);
   if (!a) return null;
-  const sameArtist = (name) => firstArtist(name) === a;
+  const sameArtist = (name) => artistKey(name) === a;
   const al = norm(album),
     ti = norm(title);
   // Requêtes avec les noms nettoyés : "(2011 Remaster)" fait échouer Deezer.
@@ -71,13 +57,6 @@ async function findCoverUrl({ title, artist, album }) {
   // Ordre de préférence : le titre exact (pas un remix ni une version
   // alternative), puis le même titre en version différente, puis l'album
   // annoncé par Windows (souvent un single ou une compilation).
-  const strict = (s) =>
-    String(s || '')
-      .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, ' ')
-      .trim();
   byArtist.filter((t) => strict(t.title) === strict(title)).forEach((t) => add(t.album.id));
   byArtist.filter((t) => norm(t.title) === ti).forEach((t) => add(t.album.id));
   if (al) add((byArtist.find((t) => norm(t.album.title) === al) || {}).album?.id);
@@ -89,7 +68,11 @@ async function findCoverUrl({ title, artist, album }) {
 
   // On veut la pochette de l'album (studio) plutôt que celle du single :
   // Deezer indique le type de chaque sortie.
-  const details = (await Promise.all(ids.slice(0, 6).map((id) => getAlbum(id).catch(() => null)))).filter(Boolean);
+  // Si tous les appels échouent (réseau, 429), on relance l'erreur : sinon un
+  // « rien trouvé » serait mis en cache à tort.
+  const settled = await Promise.allSettled(ids.slice(0, 6).map((id) => getAlbum(id)));
+  const details = settled.filter((r) => r.status === 'fulfilled').map((r) => r.value);
+  if (!details.length) throw settled[0].reason;
   const isLive = (x) => /\blive\b/.test(norm(x.title));
   const pick =
     details.find((x) => x.record_type === 'album' && !isLive(x)) ||
@@ -112,6 +95,7 @@ async function lookupCover(media) {
     if (url) result = await toDataUrl(url);
   } catch (e) {
     console.error('Pochette Deezer :', e.message);
+    note('pochette', e.message);
     return null; // erreur réseau : pas mis en cache, on réessaiera au prochain morceau
   }
   if (cache.size > 200) cache.delete(cache.keys().next().value);
@@ -120,4 +104,4 @@ async function lookupCover(media) {
   return result;
 }
 
-module.exports = { lookupCover, norm, findCoverUrl };
+module.exports = { lookupCover, norm, findCoverUrl, toDataUrl };

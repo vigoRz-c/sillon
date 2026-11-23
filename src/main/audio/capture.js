@@ -2,6 +2,7 @@
 
 const { session, desktopCapturer, screen } = require('electron');
 const S = require('../app/state');
+const diagnostic = require('../app/diagnostic');
 
 // ---------- Son : capture de la sortie du PC ----------
 
@@ -12,7 +13,11 @@ function setupLoopback() {
     desktopCapturer
       .getSources({ types: ['screen'] })
       .then((sources) => callback({ video: sources[0], audio: 'loopback' }))
-      .catch(() => callback({}));
+      .catch((e) => {
+        console.error('Capture du son du système impossible :', e.message);
+        diagnostic.note('son', `capture du son du système impossible (${e.message})`);
+        callback({});
+      });
   });
 }
 
@@ -26,9 +31,16 @@ function setupLoopback() {
 
 let timer = null;
 
+// Seul le thème « fond d'écran » s'en sert, et seulement si une page l'affiche
+// (scène éveillée, plein écran ou éditeur).
+function wanted() {
+  if (!S.settings || S.settings.get('theme') !== 'wallpaper') return false;
+  return S.sceneActive() || S.alive(S.fullscreen) || S.alive(S.editorWin);
+}
+
 async function sampleWallpaper() {
   const widget = S.widget;
-  if (!S.alive(widget)) return;
+  if (!S.alive(widget) || !wanted()) return;
   try {
     const bounds = widget.getBounds();
     const display = screen.getDisplayMatching(bounds);
@@ -54,6 +66,7 @@ async function sampleWallpaper() {
     S.send([S.widget, S.fullscreen, S.editorWin], 'wallpaper', S.wallpaperSample);
   } catch (e) {
     console.error("Couleurs du fond d'écran :", e.message);
+    diagnostic.note('fond', `couleurs du fond d'écran impossibles (${e.message})`);
   }
 }
 

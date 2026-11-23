@@ -11,6 +11,15 @@
 const { screen } = require('electron');
 
 let api = null;
+// Journalise un échec une seule fois par origine (ces appels tournent en
+// boucle : une panne ne doit pas remplir la console).
+const reported = new Set();
+function reportOnce(what, e) {
+  if (reported.has(what)) return;
+  reported.add(what);
+  console.error(`${what} :`, (e && e.message) || e);
+}
+
 function win32() {
   if (api) return api;
   if (process.platform !== 'win32') throw new Error("Mode fond d'écran : Windows uniquement.");
@@ -130,8 +139,8 @@ class WallpaperAttacher {
       if (!w.IsWindow(this.host.parent) || parent !== this.host.parent) {
         try {
           this.attach(this.lastBounds);
-        } catch {
-          /* on réessaiera */
+        } catch (e) {
+          reportOnce("Ré-accrochage au fond d'écran (nouvel essai dans 5 s)", e);
         }
       }
     }, 5000);
@@ -199,7 +208,8 @@ function fullscreenAppRunning() {
     const out = [0];
     if (shell32.query(out) !== 0) return false;
     return out[0] === 2 || out[0] === 3 || out[0] === 4;
-  } catch {
+  } catch (e) {
+    reportOnce('Détection du plein écran (koffi)', e);
     return false;
   }
 }
@@ -223,7 +233,8 @@ function foregroundRect() {
     const r = {};
     if (!rectApi.rect(h, r)) return null;
     return { x: r.left, y: r.top, width: r.right - r.left, height: r.bottom - r.top };
-  } catch {
+  } catch (e) {
+    reportOnce('Fenêtre au premier plan (koffi)', e);
     return null;
   }
 }
@@ -260,7 +271,8 @@ function windowAt(pt) {
     if (!hwnd) return null;
     const root = w.GetAncestor(hwnd, 2); // GA_ROOT
     return { hwnd, root, cls: cls(hwnd), rootCls: cls(root) };
-  } catch {
+  } catch (e) {
+    reportOnce('Fenêtre sous un point (koffi)', e);
     return null;
   }
 }

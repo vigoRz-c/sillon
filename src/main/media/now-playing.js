@@ -57,7 +57,13 @@ function startMedia() {
           }
         : { shuffleAllowed: true, repeatAllowed: true }),
     };
-    S.send([S.widget, S.fullscreen, S.controlsWin, S.editorWin], 'media', S.lastMedia);
+    S.send([S.widget, S.fullscreen, S.editorWin], 'media', S.lastMedia);
+    // La fenêtre des boutons n'utilise pas la pochette (100 à 250 Ko par message).
+    if (S.alive(S.controlsWin)) {
+      const light = { ...S.lastMedia };
+      delete light.cover;
+      S.send([S.controlsWin], 'media', light);
+    }
     S.actions.audioOnMedia(S.lastMedia);
   };
   S.actions.rebroadcast = () => {
@@ -73,6 +79,7 @@ function startMedia() {
   let trackKey = '';
   let officialCover = null;
   let lastStatus = '';
+  let lastTrayKey = null;
   media.on('media', (m) => {
     // Lecture / pause : ce que Spotify autorise (aléatoire, répétition) peut changer.
     if (m.status !== lastStatus) {
@@ -88,20 +95,32 @@ function startMedia() {
       // Paroles : vides tant qu'on cherche, puis celles de LRCLIB si elles existent.
       sendLyrics({ title: m.title || '', artist: m.artist || '', lines: [], pending: !!key });
       if (key) {
-        lookupLyrics(m).then((l) => {
-          if (trackKey !== key) return;
-          sendLyrics({
-            title: m.title,
-            artist: m.artist,
-            lines: l ? l.lines : [],
-            instrumental: !!(l && l.instrumental),
+        lookupLyrics(m)
+          .then((l) => {
+            if (trackKey !== key) return;
+            // error : la recherche a échoué (réseau), ce n'est pas « pas de paroles ».
+            if (l && l.error) {
+              sendLyrics({ title: m.title, artist: m.artist, lines: [], error: true });
+              return;
+            }
+            sendLyrics({
+              title: m.title,
+              artist: m.artist,
+              lines: l ? l.lines : [],
+              instrumental: !!(l && l.instrumental),
+            });
+          })
+          .catch((e) => {
+            diagnostic.note('paroles', e.message);
+            if (trackKey === key) sendLyrics({ title: m.title, artist: m.artist, lines: [], error: true });
           });
-        });
-        lookupCover(m).then((cover) => {
-          if (!cover || trackKey !== key) return;
-          officialCover = cover;
-          broadcast({ ...S.lastMedia, cover });
-        });
+        lookupCover(m)
+          .then((cover) => {
+            if (!cover || trackKey !== key) return;
+            officialCover = cover;
+            broadcast({ ...S.lastMedia, cover });
+          })
+          .catch((e) => diagnostic.note('pochette', e.message));
       }
     }
     const exe = m.active ? exeForApp(m.app) : null;
@@ -110,7 +129,12 @@ function startMedia() {
       media.setVolumeTarget(exe);
     }
     broadcast(officialCover ? { ...m, cover: officialCover } : m);
-    S.actions.buildTray();
+    // Le menu de l'icône n'affiche que titre, artiste et état de lecture.
+    const trayKey = `${m.active ? m.title : ''}|${m.active ? m.artist : ''}|${m.status}|${m.active}`;
+    if (trayKey !== lastTrayKey) {
+      lastTrayKey = trayKey;
+      S.actions.buildTray();
+    }
   });
   // Volume du lecteur : on suit l'application qui joue.
   media.on('volume', (v) => {

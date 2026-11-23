@@ -2,6 +2,7 @@
 name = "sillon-helper"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.82"
 description = "Assistant système de Sillon : morceau en cours, volume du lecteur, capture du son du lecteur."
 license = "GPL-3.0-only"
 publish = false
@@ -12,6 +13,8 @@ base64 = "0.23"
 # Même version que « windows » ci-dessous (utilisé par la macro #[implement]).
 # Dependabot l'ignore : le monter à la main avec windows.
 windows-core = "0.62"
+# Types asynchrones WinRT (IAsyncOperation, AsyncStatus) : version imposée par « windows ».
+windows-future = "0.3"
 
 [dependencies.windows]
 version = "0.62"

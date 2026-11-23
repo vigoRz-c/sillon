@@ -18,11 +18,12 @@
     "predev": "node scripts/build-helper.js",
     "build:helper": "node scripts/build-helper.js",
     "check": "node scripts/check.js",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "format": "prettier --write \"**/*.{js,css,html,yml}\" package.json",
     "format:check": "prettier --check \"**/*.{js,css,html,yml}\" package.json",
     "test": "node --test",
-    "verify": "npm run check && npm run lint && npm run format:check && npm test",
+    "verify": "npm run check && npm run lint && npm run format:check && npm test && node scripts/verify-rust.js",
+    "verify:rust": "node scripts/verify-rust.js --strict",
     "dist": "node scripts/build-helper.js --strict && electron-builder --win",
     "release": "node scripts/release.js"
   },
@@ -74,6 +75,12 @@
     ],
     "portable": {
       "artifactName": "Sillon-${version}-portable.${ext}"
+    },
+    "electronFuses": {
+      "runAsNode": false,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "onlyLoadAppFromAsar": true
     }
   },
   "engines": {

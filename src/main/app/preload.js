@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('bridge', {
   onUpdateStatus: (cb) => ipcRenderer.on('update-status', (_e, s) => cb(s)),
   checkUpdates: () => ipcRenderer.send('update:check'),
   installUpdate: () => ipcRenderer.send('update:install'),
+  onAudioStart: (cb) => ipcRenderer.on('audio:start', (_e, mode) => cb(mode)),
   onAudioPcm: (cb) => ipcRenderer.on('audio-pcm', (_e, chunk) => cb(chunk)),
   onMedia: (cb) => ipcRenderer.on('media', (_e, m) => cb(m)),
   onWallpaper: (cb) => ipcRenderer.on('wallpaper', (_e, url) => cb(url)),

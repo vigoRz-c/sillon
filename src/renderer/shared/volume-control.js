@@ -28,8 +28,8 @@
     const bridge = window.bridge;
     root.classList.add('vol', 'hidden');
     root.innerHTML =
-      '<button type="button" class="vol-btn" title="Couper le son du lecteur"></button>' +
-      '<input class="vol-range" type="range" min="0" max="100" step="1" aria-label="Volume du lecteur">';
+      '<button type="button" class="vol-btn" title="Couper le son du lecteur" aria-label="Couper le son du lecteur"></button>' +
+      '<input class="vol-range" type="range" min="0" max="100" step="1" aria-label="Volume du lecteur" aria-valuetext="0 pour cent">';
     const btn = root.querySelector('button');
     const range = root.querySelector('input');
     let value = -1;
@@ -42,8 +42,10 @@
       range.value = String(v);
       range.style.setProperty('--v', `${v}%`);
       btn.innerHTML = v === 0 ? ICONS.mute : v < 50 ? ICONS.low : ICONS.high;
-      btn.title = v === 0 ? 'Remettre le son du lecteur' : 'Couper le son du lecteur';
-      root.title = `Volume du lecteur : ${v} %`;
+      const label = v === 0 ? 'Remettre le son du lecteur' : 'Couper le son du lecteur';
+      btn.title = label;
+      btn.setAttribute('aria-label', label);
+      range.setAttribute('aria-valuetext', `${v} pour cent`);
     }
 
     // Un envoi par image au plus pendant le glissement.

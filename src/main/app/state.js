@@ -21,6 +21,9 @@ const S = {
   editorWin: null, // éditeur de disposition de la scène
   veilleWins: [],
   editing: false, // mode placement du bandeau
+  gamePaused: false, // un jeu ou une vidéo couvre l'écran de la scène
+  asleep: false, // aucune musique depuis longtemps : scène endormie
+  renderPaused: false, // dernier état envoyé à la scène par « render-pause »
 
   lastMedia: { active: false },
   lastLyrics: null,
@@ -36,11 +39,34 @@ S.RENDERER = path.join(__dirname, '..', '..', 'renderer', 'pages');
 S.ASSETS = path.join(__dirname, '..', '..', '..', 'assets');
 S.PRELOAD = path.join(__dirname, 'preload.js');
 
-// Envoie un message aux fenêtres encore ouvertes parmi celles données.
+// Envoie un message aux fenêtres encore ouvertes parmi celles données. Une
+// fenêtre qui meurt en route n'empêche pas les autres de le recevoir.
 S.send = (wins, channel, data) => {
-  for (const w of wins) if (w && !w.isDestroyed()) w.webContents.send(channel, data);
+  for (const w of wins) {
+    if (!w || w.isDestroyed()) continue;
+    try {
+      w.webContents.send(channel, data);
+    } catch (e) {
+      console.error(`Envoi « ${channel} » impossible :`, e.message);
+    }
+  }
 };
 
 S.alive = (w) => !!(w && !w.isDestroyed());
+
+// Rejoue l'état courant dans une page qui vient de se charger (ou de se
+// recharger après un plantage) : réglages, morceau, paroles, file, fond.
+S.replayTo = (win) => {
+  if (!S.alive(win)) return;
+  S.send([win], 'settings', S.settings.get());
+  S.send([win], 'media', S.lastMedia);
+  if (S.lastLyrics) S.send([win], 'lyrics', S.lastLyrics);
+  S.send([win], 'queue', S.lastQueue);
+  if (S.wallpaperSample) S.send([win], 'wallpaper', S.wallpaperSample);
+};
+
+// La scène est-elle affichée et vivante ? (visible, éveillée, pas de jeu)
+S.sceneActive = () =>
+  S.alive(S.widget) && (S.editing || (!S.settings.get('sceneHidden') && !S.gamePaused && !S.asleep));
 
 module.exports = S;

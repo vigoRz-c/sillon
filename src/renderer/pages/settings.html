@@ -3,13 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'" />
-    <title>Paramètres · Sillon</title>
+    <title>Sillon · réglages</title>
     <link rel="stylesheet" href="../style.css" />
   </head>
   <body class="settings">
     <header>
-      <h1>Paramètres</h1>
-      <button id="close" class="icon" title="Fermer (Échap)">&#10005;</button>
+      <h1 id="pageTitle" tabindex="-1">Paramètres</h1>
+      <button id="close" class="icon" type="button" title="Fermer (Échap)" aria-label="Fermer les paramètres">
+        &#10005;
+      </button>
     </header>
 
     <main>
@@ -56,7 +58,7 @@
           <button id="openLayout" class="primary">Personnaliser la scène…</button>
         </div>
         <label class="row"
-          >Intensité du disque <output id="discIntensityOut"></output>
+          >Intensité du disque <output id="discIntensityOut" aria-hidden="true"></output>
           <input id="discIntensity" type="range" min="0.5" max="2" step="0.1" />
         </label>
         <label class="row"
@@ -79,11 +81,11 @@
           </select>
         </label>
         <label class="row"
-          >Lueur au centre du disque <output id="discBloomOut"></output>
+          >Lueur au centre du disque <output id="discBloomOut" aria-hidden="true"></output>
           <input id="discBloom" type="range" min="0" max="1.5" step="0.1" />
         </label>
         <label class="row"
-          >Bord de l'écran lumineux <output id="edgeGlowOut"></output>
+          >Bord de l'écran lumineux <output id="edgeGlowOut" aria-hidden="true"></output>
           <input id="edgeGlow" type="range" min="0" max="2" step="0.1" />
         </label>
       </section>
@@ -95,14 +97,28 @@
             Pour le bandeau, le plein écran et l'élément « Barres » de la scène. Aperçus animés sur un rythme d'exemple
             : clique pour choisir.
           </p>
-          <div id="styleGallery" class="gallery">
-            <button data-style="bars"><canvas></canvas><span>Barres</span></button>
-            <button data-style="mirror"><canvas></canvas><span>Miroir</span></button>
-            <button data-style="blocks"><canvas></canvas><span>Blocs</span></button>
-            <button data-style="ring"><canvas></canvas><span>Anneau</span></button>
-            <button data-style="halo"><canvas></canvas><span>Halo</span></button>
-            <button data-style="wave"><canvas></canvas><span>Onde</span></button>
-            <button data-style="aurora"><canvas></canvas><span>Aurore</span></button>
+          <div id="styleGallery" class="gallery" role="radiogroup" aria-label="Style du visualiseur">
+            <button type="button" role="radio" aria-checked="false" data-style="bars">
+              <canvas aria-hidden="true"></canvas><span>Barres</span>
+            </button>
+            <button type="button" role="radio" aria-checked="false" data-style="mirror">
+              <canvas aria-hidden="true"></canvas><span>Miroir</span>
+            </button>
+            <button type="button" role="radio" aria-checked="false" data-style="blocks">
+              <canvas aria-hidden="true"></canvas><span>Blocs</span>
+            </button>
+            <button type="button" role="radio" aria-checked="false" data-style="ring">
+              <canvas aria-hidden="true"></canvas><span>Anneau</span>
+            </button>
+            <button type="button" role="radio" aria-checked="false" data-style="halo">
+              <canvas aria-hidden="true"></canvas><span>Halo</span>
+            </button>
+            <button type="button" role="radio" aria-checked="false" data-style="wave">
+              <canvas aria-hidden="true"></canvas><span>Onde</span>
+            </button>
+            <button type="button" role="radio" aria-checked="false" data-style="aurora">
+              <canvas aria-hidden="true"></canvas><span>Aurore</span>
+            </button>
           </div>
         </div>
         <label class="row"
@@ -138,11 +154,11 @@
           récent ou 11 ; sinon Sillon écoute tout le PC.
         </p>
         <label class="row"
-          >Sensibilité <output id="sensitivityOut"></output>
+          >Sensibilité <output id="sensitivityOut" aria-hidden="true"></output>
           <input id="sensitivity" type="range" min="0.4" max="2.5" step="0.1" />
         </label>
         <label class="row"
-          >Opacité <output id="opacityOut"></output>
+          >Opacité <output id="opacityOut" aria-hidden="true"></output>
           <input id="opacity" type="range" min="0.2" max="1" step="0.05" />
         </label>
         <label class="row"
@@ -165,6 +181,14 @@
           <input id="dimOnPause" type="checkbox" />
         </label>
         <label class="row"
+          >Réduire les animations et les lueurs
+          <input id="reduceMotion" type="checkbox" aria-describedby="reduceMotionHelp" />
+        </label>
+        <p id="reduceMotionHelp" class="help">
+          Supprime la dérive du fond, les ondes et les pulsations au rythme des basses. Sillon respecte aussi le réglage
+          « Effets d'animation » de Windows.
+        </p>
+        <label class="row"
           >Masquer la scène sans musique après
           <select id="sleepAfter">
             <option value="0">Jamais</option>
@@ -186,7 +210,7 @@
           <button id="spotifyLogin">Se connecter à Spotify</button>
           <button id="spotifyLogout" class="hidden">Se déconnecter</button>
         </div>
-        <div id="spotifyState" class="state"></div>
+        <div id="spotifyState" class="state" role="status" aria-live="polite"></div>
 
         <label class="row"
           >Utiliser mon propre Client ID (avancé)
@@ -198,7 +222,8 @@
         </p>
         <div id="customClient" class="hidden">
           <p class="help">
-            Crée une app gratuite sur le <a href="#" id="dashboard">tableau de bord Spotify</a>
+            Crée une app gratuite sur le
+            <button type="button" id="dashboard" class="link">tableau de bord Spotify</button>
             (ton compte doit être Premium), coche « Web API » et ajoute cette adresse de retour (Redirect URI) :
           </p>
           <div class="row copy-row">
@@ -256,7 +281,7 @@
           <button id="checkUpdates">Rechercher les mises à jour</button>
           <button id="installUpdate" class="hidden">Redémarrer et mettre à jour</button>
         </div>
-        <div id="updateState" class="state"></div>
+        <div id="updateState" class="state" role="status" aria-live="polite"></div>
         <label class="row"
           >Lancer au démarrage de Windows
           <input id="launchAtLogin" type="checkbox" />
@@ -273,10 +298,11 @@
         <div class="row buttons">
           <button id="copyDiagnostic">Copier le diagnostic</button>
         </div>
-        <div id="diagnosticState" class="state"></div>
+        <div id="diagnosticState" class="state" role="status" aria-live="polite"></div>
       </section>
     </main>
 
+    <script src="../shared/catalog.js"></script>
     <script src="../shared/engine.js"></script>
     <script src="settings.js"></script>
   </body>

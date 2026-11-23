@@ -5,11 +5,14 @@
 // le fond d'écran de Windows. « Terminé » enregistre la disposition,
 // « Annuler » (ou Échap) ferme sans rien changer.
 
-const { BrowserWindow, nativeImage, ipcMain, screen } = require('electron');
+const { BrowserWindow, nativeImage, screen } = require('electron');
 const { execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const S = require('../app/state');
+const diagnostic = require('../app/diagnostic');
+const ipc = require('../app/ipc');
+const { secureWindow } = require('./secure');
 const SceneLayout = require('../../renderer/shared/scene-layout');
 
 // Chemin du fond d'écran de Windows (registre), ou sa copie interne.
@@ -55,7 +58,9 @@ async function wallpaperDataUrl(display) {
     if (img.isEmpty()) return S.wallpaperSample;
     img = cropToDisplay(img, display);
     return img.resize({ width: Math.min(img.getSize().width, 1920), quality: 'good' }).toDataURL();
-  } catch {
+  } catch (e) {
+    console.error("Lecture du fond d'écran impossible :", e.message);
+    diagnostic.note('éditeur', `lecture du fond d'écran impossible (${e.message})`);
     return S.wallpaperSample;
   }
 }
@@ -89,14 +94,19 @@ function openLayoutEditor() {
   S.editorWin = win;
   S.actions.updateControls();
   win.loadFile(path.join(S.RENDERER, 'widget.html'), { query: { edit: '1' } });
+  secureWindow(win);
   win.webContents.on('did-finish-load', async () => {
-    win.webContents.send('settings', S.settings.get());
-    win.webContents.send('media', S.lastMedia);
-    if (S.lastLyrics) win.webContents.send('lyrics', S.lastLyrics);
-    win.webContents.send('queue', S.lastQueue);
-    if (S.wallpaperSample) win.webContents.send('wallpaper', S.wallpaperSample);
-    S.actions.startAudio(win);
-    win.webContents.send('editor-background', await wallpaperDataUrl(display));
+    try {
+      S.replayTo(win);
+      S.actions.startAudio(win);
+      setTimeout(S.actions.sampleWallpaper, 800);
+      const background = await wallpaperDataUrl(display);
+      if (!S.alive(win)) return; // fermée pendant la lecture du fond d'écran
+      S.send([win], 'editor-background', background);
+    } catch (e) {
+      console.error('Éditeur : chargement de la page :', e.message);
+      diagnostic.note('éditeur', `chargement de la page : ${e.message}`);
+    }
   });
   win.once('ready-to-show', () => {
     win.show();
@@ -112,11 +122,11 @@ function fromEditor(e) {
   return S.alive(S.editorWin) && e.sender === S.editorWin.webContents;
 }
 
-ipcMain.on('layout:open', openLayoutEditor);
-ipcMain.on('layout:cancel', (e) => {
+ipc.on('layout:open', () => openLayoutEditor());
+ipc.on('layout:cancel', (e) => {
   if (fromEditor(e)) S.editorWin.close();
 });
-ipcMain.on('layout:done', (e, patch) => {
+ipc.on('layout:done', (e, patch) => {
   if (!fromEditor(e) || !patch || typeof patch !== 'object') return;
   // Seules ces clés peuvent venir de l'éditeur.
   const allowed = ['sceneLayout', 'discRays', 'discColors', 'panelRing', 'style'];

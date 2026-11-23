@@ -11,8 +11,17 @@
 //   capture.js          son du système, couleurs du fond d'écran
 //   tray.js             menu de l'icône
 //   state.js            état partagé
+//   ipc.js              handlers IPC contrôlés (expéditeur, erreurs)
 
-const { app, ipcMain, screen, globalShortcut, shell, clipboard } = require('electron');
+const { app, screen, globalShortcut, shell, clipboard } = require('electron');
+
+// Une seule instance : la seconde se ferme sans rien démarrer. Le fichier est
+// un module CommonJS : `return` arrête ici toute la suite (IPC, démarrage).
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+  return;
+}
+
 const path = require('path');
 const fs = require('fs');
 const S = require('./state');
@@ -31,39 +40,58 @@ const updater = require('./updater');
 const diagnostic = require('./diagnostic');
 const layoutEditor = require('../windows/layout-editor');
 const appAudio = require('../audio/app-audio');
+const ipc = require('./ipc');
+const { MEDIA_COMMANDS, finite, validRect } = require('./ipc-guard');
+const { isAsleep } = require('./rest');
 
 // Mémoire graphique : par défaut, Chromium garde un gros cache sur la carte
 // graphique (~300 Mo pour la scène). Plafonné, il reste vers 180 Mo sans
 // différence à l'écran (mesuré sur une scène plein écran à 30 i/s).
 app.commandLine.appendSwitch('force-gpu-mem-available-mb', '96');
-
-if (!app.requestSingleInstanceLock()) app.quit();
+// Le son démarre sur un message du processus principal (« audio:start »), pas
+// sur un geste de l'utilisateur.
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 // ---------- Réglages ----------
 
+// Le menu de l'icône est reconstruit au plus une fois par rafale de changements.
+let trayTimer = null;
+function scheduleTray() {
+  clearTimeout(trayTimer);
+  trayTimer = setTimeout(() => {
+    trayTimer = null;
+    buildTray();
+  }, 150);
+}
+
 function updateSettings(patch) {
-  const all = S.settings.set(patch);
+  const { all, changed } = S.settings.change(patch);
+  if (!Object.keys(changed).length) return; // rien de nouveau : rien à renvoyer ni à reconstruire
+  const has = (...keys) => keys.some((k) => k in changed);
   S.send([S.widget, S.fullscreen, S.settingsWin, S.editorWin], 'settings', all);
-  if ('mode' in patch || 'layout' in patch || 'sceneHidden' in patch || 'sceneScreen' in patch) {
+  if (has('mode', 'layout', 'sceneHidden', 'sceneScreen')) {
     widgetWindow.applyMode();
+    applyRest();
     setTimeout(capture.sampleWallpaper, 1200);
   }
-  if ('sceneLayout' in patch) updateControls();
-  if (('spotifyCustomClientId' in patch || 'spotifyClientId' in patch) && S.spotify) {
+  if (changed.theme === 'wallpaper') setTimeout(capture.sampleWallpaper, 500);
+  if (has('sleepAfter')) restTick();
+  if (has('sceneLayout')) updateControls();
+  if (has('spotifyCustomClientId', 'spotifyClientId') && S.spotify) {
     S.spotify.setError('');
     queue.refreshQueue();
   }
-  if ('audioSource' in patch || 'preferApp' in patch) appAudio.onSettingChanged();
-  if ('preferApp' in patch && S.media) S.media.setPreferredApp(patch.preferApp);
-  if ('launchAtLogin' in patch) app.setLoginItemSettings({ openAtLogin: !!patch.launchAtLogin });
-  if (patch.autoUpdate === true) updater.check();
-  buildTray();
+  if (has('audioSource', 'preferApp')) appAudio.onSettingChanged();
+  if (has('preferApp') && S.media) S.media.setPreferredApp(changed.preferApp);
+  if (has('launchAtLogin')) app.setLoginItemSettings({ openAtLogin: !!changed.launchAtLogin });
+  if (changed.autoUpdate === true) updater.check();
+  scheduleTray();
 }
 
 // Fonctions partagées entre modules (voir state.js).
 Object.assign(S.actions, {
   updateSettings,
-  buildTray,
+  buildTray: scheduleTray,
   updateControls,
   isScene: widgetWindow.isScene,
   sceneDisplay: widgetWindow.sceneDisplay,
@@ -72,7 +100,10 @@ Object.assign(S.actions, {
   applyMode: widgetWindow.applyMode,
   setEditing: widgetWindow.setEditing,
   startAudio: appAudio.startAudio,
-  audioOnMedia: appAudio.onMedia,
+  audioOnMedia: (m) => {
+    restTick();
+    appAudio.onMedia(m);
+  },
   audioStatus: appAudio.status,
   sampleWallpaper: capture.sampleWallpaper,
   startWallpaperSampling: capture.startWallpaperSampling,
@@ -91,9 +122,10 @@ Object.assign(S.actions, {
   installUpdate: updater.installNow,
 });
 
-// ---------- Mode jeu ----------
+// ---------- Repos et mode jeu ----------
 // Un jeu, une vidéo ou une présentation en plein écran cache le bureau : la
 // scène s'arrête de dessiner (et d'analyser le son) jusqu'à leur fermeture.
+// Même chose quand la scène est masquée, ou endormie faute de musique.
 
 // Windows dit seulement « une appli est en plein écran », sans dire où : on
 // vérifie que la fenêtre au premier plan couvre bien l'écran de la scène
@@ -108,14 +140,43 @@ function coversSceneScreen() {
   );
 }
 
-let gamePaused = false;
+// Envoie « render-pause » à la scène (jeu ou scène masquée) quand cela change,
+// et prévient la chaîne audio et l'échantillonnage du fond d'écran.
+let wasActive = null;
+function applyRest() {
+  const pause = !S.editing && (S.gamePaused || !!S.settings.get('sceneHidden'));
+  if (pause !== S.renderPaused) {
+    S.renderPaused = pause;
+    S.send([S.widget], 'render-pause', pause);
+  }
+  appAudio.onActivityChanged();
+  const active = S.sceneActive();
+  if (active && wasActive === false) setTimeout(capture.sampleWallpaper, 1200); // réveil : couleurs à jour
+  wasActive = active;
+}
+S.actions.applyRest = applyRest;
+
 function watchGameMode() {
   setInterval(() => {
     const on = S.settings.get('gameMode') !== false && fullscreenAppRunning() && coversSceneScreen();
-    if (on === gamePaused) return;
-    gamePaused = on;
-    S.send([S.widget], 'render-pause', on);
+    if (on === S.gamePaused) return;
+    S.gamePaused = on;
+    applyRest();
   }, 3000);
+}
+
+// Endormie : même règle que la page de la scène (voir rest.js).
+let silentSince = Date.now();
+function restTick() {
+  if (!S.settings) return;
+  const m = S.lastMedia;
+  const playing = !!(m && m.active && m.status === 'Playing');
+  const now = Date.now();
+  if (playing) silentSince = now;
+  const asleep = isAsleep({ playing, silentSince, now, minutes: S.settings.get('sleepAfter') });
+  if (asleep === S.asleep) return;
+  S.asleep = asleep;
+  applyRest();
 }
 
 // ---------- Écrans ----------
@@ -146,14 +207,18 @@ function watchDisplays() {
 }
 
 // ---------- IPC ----------
+// Chaque handler passe par ipc.js : expéditeur contrôlé, erreurs journalisées.
+// Les arguments sont validés ici (types, nombres finis, liste blanche).
 
-ipcMain.handle('settings:get', () => S.settings.get());
-ipcMain.on('settings:set', (_e, patch) => updateSettings(patch));
-ipcMain.on('settings:open', windows.openSettings);
-ipcMain.on('media:volume', (_e, percent) => {
-  if (Number.isFinite(percent) && S.actions.setVolume) S.actions.setVolume(percent);
+ipc.handle('settings:get', () => S.settings.get());
+ipc.on('settings:set', (_e, patch) => updateSettings(patch));
+ipc.on('settings:open', () => windows.openSettings());
+ipc.on('media:volume', (_e, percent) => {
+  const v = finite(percent, 0, 100);
+  if (v !== null && S.actions.setVolume) S.actions.setVolume(v);
 });
-ipcMain.on('media:command', (e, cmd) => {
+ipc.on('media:command', (e, cmd) => {
+  if (typeof cmd !== 'string' || !MEDIA_COMMANDS.includes(cmd)) return;
   const from =
     S.controlsWin && e.sender === S.controlsWin.webContents
       ? 'boutons de la scène'
@@ -168,48 +233,56 @@ function copyDiagnostic() {
   clipboard.writeText(text);
   return text;
 }
-ipcMain.handle('diagnostic:copy', copyDiagnostic);
+ipc.handle('diagnostic:copy', copyDiagnostic);
 
-ipcMain.on('edit:done', () => widgetWindow.setEditing(false));
-ipcMain.on('edit:start', () => {
+ipc.on('edit:done', () => widgetWindow.setEditing(false));
+ipc.on('edit:start', () => {
   if (widgetWindow.isScene()) return; // la scène occupe tout l'écran : rien à déplacer
   if (S.alive(S.fullscreen)) S.fullscreen.close();
   if (S.alive(S.settingsWin)) S.settingsWin.close();
   widgetWindow.setEditing(true);
 });
-ipcMain.on('bounds:reset', () => {
+ipc.on('bounds:reset', () => {
   S.settings.set({ bounds: null });
   widgetWindow.applyMode();
 });
-ipcMain.on('widget:resize', (_e, { width, height }) => {
-  if (!S.editing || !S.alive(S.widget)) return;
+ipc.on('widget:resize', (_e, size) => {
+  if (!S.editing || !S.alive(S.widget) || !size || typeof size !== 'object') return;
+  const width = finite(size.width, 0, 20000);
+  const height = finite(size.height, 0, 20000);
+  if (width === null || height === null) return;
   const b = S.widget.getBounds();
   S.widget.setBounds({ ...b, width: Math.max(240, Math.round(width)), height: Math.max(120, Math.round(height)) });
 });
-ipcMain.on('scene:controls-rect', (e, rect) => {
+ipc.on('scene:controls-rect', (e, rect) => {
   if (!S.widget || e.sender !== S.widget.webContents) return;
-  S.controlsRect = rect && rect.width > 0 ? rect : null;
+  const r = validRect(rect);
+  S.controlsRect = r && r.width > 0 ? r : null;
   updateControls();
 });
 
-ipcMain.on('veille:start', () => setTimeout(veille.startVeille, 300));
-ipcMain.on('veille:exit', veille.stopVeille);
-ipcMain.on('lyrics:nudge', (_e, delta) => nowPlaying.nudgeLyrics(typeof delta === 'number' ? delta : null));
-ipcMain.handle('update:status', () => updater.status());
-ipcMain.on('update:check', () => updater.check());
-ipcMain.on('update:install', () => updater.installNow());
-ipcMain.on('fullscreen:close', () => S.alive(S.fullscreen) && S.fullscreen.close());
+ipc.on('veille:start', () => setTimeout(veille.startVeille, 300));
+ipc.on('veille:exit', () => veille.stopVeille());
+ipc.on('lyrics:nudge', (_e, delta) => {
+  if (delta === null) return nowPlaying.nudgeLyrics(null); // remise à zéro
+  const d = finite(delta, -60, 60);
+  if (d !== null) nowPlaying.nudgeLyrics(d);
+});
+ipc.handle('update:status', () => updater.status());
+ipc.on('update:check', () => updater.check());
+ipc.on('update:install', () => updater.installNow());
+ipc.on('fullscreen:close', () => S.alive(S.fullscreen) && S.fullscreen.close());
 
-ipcMain.handle('spotify:status', () => (S.spotify ? S.spotify.status() : { connected: false }));
-ipcMain.on('spotify:login', () => S.spotify && S.spotify.login());
-ipcMain.on('spotify:logout', () => {
+ipc.handle('spotify:status', () => (S.spotify ? S.spotify.status() : { connected: false }));
+ipc.on('spotify:login', () => S.spotify && S.spotify.login());
+ipc.on('spotify:logout', () => {
   if (S.spotify) {
     S.spotify.logout();
     queue.refreshQueue();
   }
 });
 // Seule page externe que les paramètres peuvent ouvrir : le tableau de bord Spotify.
-ipcMain.on('spotify:dashboard', () => shell.openExternal('https://developer.spotify.com/dashboard'));
+ipc.on('spotify:dashboard', () => shell.openExternal('https://developer.spotify.com/dashboard'));
 
 // ---------- Ancien nom (Spoti-View) ----------
 // Le dossier des réglages suit le nom de l'app : %APPDATA%/Sillon. Au premier
@@ -244,6 +317,8 @@ app.whenReady().then(() => {
   nowPlaying.startMedia();
   queue.startSpotify();
   buildTray();
+  restTick();
+  setInterval(restTick, 2000);
   globalShortcut.register('CommandOrControl+Alt+F', windows.toggleFullscreen);
   if (!globalShortcut.register('CommandOrControl+Alt+L', veille.startVeille)) {
     console.error('Raccourci Ctrl+Alt+L déjà pris par une autre application.');
@@ -258,6 +333,9 @@ app.on('second-instance', () => S.tray && S.tray.popUpContextMenu());
 app.on('window-all-closed', (e) => e.preventDefault()); // on vit dans la zone de notification
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
+  clearTimeout(trayTimer);
+  if (S.settings) S.settings.flush(); // écrit ce qui est encore en attente
+  appAudio.stop();
   if (S.media) S.media.stop();
   if (S.attacher) S.attacher.detach();
   if (S.alive(S.controlsWin)) S.controlsWin.destroy();

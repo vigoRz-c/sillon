@@ -26,23 +26,58 @@
     'gameMode',
     'dimOnPause',
     'autoUpdate',
+    'reduceMotion',
   ];
   const numeric = new Set(['fps', 'veilleDelay', 'sleepAfter']);
   const pct = (v) => `${Math.round(v * 100)} %`;
+  const times = (v) => `× ${v.toFixed(1)}`;
+  // Pour chaque curseur : texte affiché, et texte lu par les lecteurs d'écran (avec l'unité).
   const ranges = {
-    sensitivity: (v) => `× ${v.toFixed(1)}`,
-    opacity: pct,
-    discIntensity: (v) => `× ${v.toFixed(1)}`,
-    discBloom: (v) => (v ? `× ${v.toFixed(1)}` : 'aucune'),
-    edgeGlow: (v) => (v ? `× ${v.toFixed(1)}` : 'aucun'),
+    sensitivity: { show: times, say: (v) => `multiplié par ${v.toFixed(1).replace('.', ',')}` },
+    opacity: { show: pct, say: (v) => `${Math.round(v * 100)} pour cent` },
+    discIntensity: { show: times, say: (v) => `multiplié par ${v.toFixed(1).replace('.', ',')}` },
+    discBloom: {
+      show: (v) => (v ? times(v) : 'aucune'),
+      say: (v) => (v ? `multiplié par ${v.toFixed(1).replace('.', ',')}` : 'aucune'),
+    },
+    edgeGlow: {
+      show: (v) => (v ? times(v) : 'aucun'),
+      say: (v) => (v ? `multiplié par ${v.toFixed(1).replace('.', ',')}` : 'aucun'),
+    },
   };
+  function showRange(k, v) {
+    $(`${k}Out`).textContent = ranges[k].show(v);
+    $(k).setAttribute('aria-valuetext', ranges[k].say(v));
+  }
+
+  // Le focus arrive sur le titre à l'ouverture : le lecteur d'écran annonce la fenêtre.
+  $('pageTitle').focus({ preventScroll: true });
 
   // ----- Galerie des visualiseurs : aperçus animés -----
   const { VISUALIZERS, THEMES, FakeAudio } = window.SV;
   const gallery = [...document.querySelectorAll('#styleGallery button')];
   let current = {};
   const fake = new FakeAudio();
+  // Animations réduites : réglage Sillon ou réglage Windows. Les aperçus restent figés.
+  const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const still = () => !!current.reduceMotion || motionQuery.matches;
+  let needsPaint = true;
+  motionQuery.addEventListener('change', () => {
+    document.body.classList.toggle('reduce-motion', still());
+    needsPaint = true;
+  });
   for (const b of gallery) b.onclick = () => bridge.setSettings({ style: b.dataset.style });
+  // Groupe de boutons radio : une seule tabulation, flèches pour changer de style.
+  for (const [i, b] of gallery.entries()) {
+    b.addEventListener('keydown', (e) => {
+      const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+      if (!step) return;
+      e.preventDefault();
+      const next = gallery[(i + step + gallery.length) % gallery.length];
+      next.focus();
+      bridge.setSettings({ style: next.dataset.style });
+    });
+  }
   // Légèreté : on ne dessine que les aperçus visibles, à 30 i/s, et rien
   // pendant le défilement (sinon la fenêtre saccade). Les tailles sont lues
   // une fois par l'observateur, pas à chaque image.
@@ -56,9 +91,11 @@
       p.c.width = Math.round(p.w * dpr);
       p.c.height = Math.round(p.h * dpr);
     }
+    needsPaint = true;
   });
   const seen = new IntersectionObserver((entries) => {
     for (const e of entries) previews.find((x) => x.c === e.target).visible = e.isIntersecting;
+    needsPaint = true;
   });
   for (const p of previews) {
     sizes.observe(p.c);
@@ -79,15 +116,20 @@
   function drawGallery(now) {
     requestAnimationFrame(drawGallery);
     if (scrolling || now - lastDraw < 1000 / 30 - 2) return;
+    // Aperçus figés : une seule image fixe, redessinée seulement si quelque chose a changé.
+    const frozen = still();
+    if (frozen && !needsPaint) return;
+    needsPaint = false;
     lastDraw = now;
-    const a = fake.frame(now);
+    const t = frozen ? 1500 : now;
+    const a = fake.frame(t);
     const pal = THEMES[current.theme] || THEMES.violet;
     for (const p of previews) {
       if (!p.visible || !p.w) continue;
       const ctx = p.c.getContext('2d');
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, p.w, p.h);
-      VISUALIZERS[p.b.dataset.style](ctx, p.w, p.h, a, pal, { glow: true, t: now, reflection: false, sensitivity: 1 });
+      VISUALIZERS[p.b.dataset.style](ctx, p.w, p.h, a, pal, { glow: true, t, reflection: false, sensitivity: 1 });
     }
   }
   requestAnimationFrame(drawGallery);
@@ -105,7 +147,16 @@
     $('showNowPlaying').checked = s.showNowPlaying !== false;
     $('showLyrics').checked = s.showLyrics !== false;
     current = s;
-    for (const b of gallery) b.classList.toggle('on', b.dataset.style === (s.style || 'bars'));
+    $('reduceMotion').checked = !!s.reduceMotion;
+    document.body.classList.toggle('reduce-motion', still());
+    needsPaint = true;
+    const style = s.style || 'bars';
+    for (const b of gallery) {
+      const on = b.dataset.style === style;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-checked', String(on));
+      b.tabIndex = on ? 0 : -1;
+    }
     $('launchAtLogin').checked = !!s.launchAtLogin;
     if (document.activeElement !== $('spotifyClientId')) $('spotifyClientId').value = s.spotifyClientId || '';
     $('spotifyCustomClientId').checked = !!s.spotifyCustomClientId;
@@ -125,9 +176,9 @@
     $('showNowPlayingRow').classList.toggle('hidden', scene);
     // La scène occupe tout le bureau : rien à déplacer.
     $('editRow').classList.toggle('hidden', scene);
-    for (const [k, f] of Object.entries(ranges)) {
+    for (const k of Object.keys(ranges)) {
       if (document.activeElement !== $(k)) $(k).value = s[k];
-      $(`${k}Out`).textContent = f(Number(s[k]));
+      showRange(k, Number(s[k]));
     }
   }
 
@@ -138,10 +189,10 @@
     });
   }
   for (const k of checks) $(k).addEventListener('change', () => bridge.setSettings({ [k]: $(k).checked }));
-  for (const [k, f] of Object.entries(ranges)) {
+  for (const k of Object.keys(ranges)) {
     $(k).addEventListener('input', () => {
       const v = Number($(k).value);
-      $(`${k}Out`).textContent = f(v);
+      showRange(k, v);
       bridge.setSettings({ [k]: v });
     });
   }
@@ -169,10 +220,7 @@
     setTimeout(() => bridge.spotifyLogin(), 200);
   };
   $('spotifyLogout').onclick = () => bridge.spotifyLogout();
-  $('dashboard').onclick = (e) => {
-    e.preventDefault();
-    bridge.openSpotifyDashboard();
-  };
+  $('dashboard').onclick = () => bridge.openSpotifyDashboard();
   $('copyRedirect').onclick = async () => {
     await navigator.clipboard.writeText($('redirectUri').textContent);
     $('copyRedirect').textContent = 'Copié';
@@ -187,7 +235,7 @@
     $('spotifyLogout').classList.toggle('hidden', !st.connected);
     const el = $('spotifyState');
     el.textContent = st.error
-      ? st.error
+      ? `Erreur : ${st.error}`
       : !st.connected
         ? 'Non connecté.'
         : st.needsReconnect
@@ -206,12 +254,13 @@
     const text =
       {
         dev: 'Mode développement (npm start) : pas de mise à jour automatique.',
+        portable: 'Version portable : pas de mise à jour automatique (télécharge la nouvelle version à la main).',
         idle: `${v}`,
         checking: `${v}Recherche en cours…`,
         uptodate: `${v}Sillon est à jour.`,
         downloading: `${v}Téléchargement de la version ${u.version}… ${u.progress} %`,
         ready: `Version ${u.version} prête : elle s'installera à la fermeture, ou maintenant.`,
-        error: `${v}${u.error}`,
+        error: `Erreur : ${v}${u.error}`,
       }[u.state] || v;
     el.textContent = text;
     el.className = `state${u.state === 'error' ? ' error' : u.state === 'ready' || u.state === 'uptodate' ? ' ok' : ''}`;
@@ -230,10 +279,10 @@
     const el = $('diagnosticState');
     try {
       await bridge.copyDiagnostic();
-      el.textContent = 'Copié dans le presse-papiers : colle-le (Ctrl+V) dans ton message.';
+      el.textContent = 'Réussi : copié dans le presse-papiers, colle-le (Ctrl+V) dans ton message.';
       el.className = 'state ok';
     } catch (e) {
-      el.textContent = `Impossible de copier : ${e.message}`;
+      el.textContent = `Erreur : impossible de copier (${e.message})`;
       el.className = 'state error';
     }
   };

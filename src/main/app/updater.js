@@ -14,8 +14,16 @@ const CHECK_EVERY = 4 * 3600 * 1000; // toutes les 4 heures
 let autoUpdater = null;
 const U = { state: 'idle', version: null, progress: 0, error: '' };
 
+// La version portable (exécutable autonome) ne passe pas par l'installateur.
+const isPortable = () => !!process.env.PORTABLE_EXECUTABLE_DIR;
+
 function status() {
-  return { ...U, current: app.getVersion(), enabled: app.isPackaged, auto: S.settings.get('autoUpdate') !== false };
+  return {
+    ...U,
+    current: app.getVersion(),
+    enabled: app.isPackaged && !isPortable(),
+    auto: S.settings.get('autoUpdate') !== false,
+  };
 }
 
 function changed() {
@@ -31,6 +39,10 @@ function set(patch) {
 function init() {
   if (!app.isPackaged) {
     U.state = 'dev';
+    return;
+  }
+  if (isPortable()) {
+    U.state = 'portable';
     return;
   }
   ({ autoUpdater } = require('electron-updater'));

@@ -59,3 +59,40 @@ test('saut dans le morceau et nouveau morceau : on suit la nouvelle position', (
   near(r[1], 150);
   near(r[2], 0.3, 0.01);
 });
+
+test('inactif : position brute, ancrage à maintenant', () => {
+  const a = anchor({}, { active: false }, T);
+  assert.deepEqual(a, { anchorPos: 0, anchorAt: T });
+  const b = anchor({}, { ...base, active: false, status: 'Playing', position: 12 }, T);
+  assert.deepEqual(b, { anchorPos: 12, anchorAt: T });
+});
+
+test('updated à 0 (inconnu) : position brute, pas d’extrapolation', () => {
+  const [p] = run([[{ ...base, newTrack: true, status: 'Playing', position: 42, updated: 0 }, T]]);
+  near(p, 42, 0.01);
+});
+
+test('même mesure répétée en cours de lecture : l’ancrage ne recule pas', () => {
+  let state = {};
+  const step = (msg, now) => {
+    state = { ...msg, ...anchor(state, msg, now) };
+    return state;
+  };
+  step({ ...base, newTrack: true, status: 'Playing', position: 10, updated: T }, T);
+  const first = { pos: state.anchorPos, at: state.anchorAt };
+  // 3 s plus tard, Spotify renvoie la même mesure (position 10, même heure) :
+  // sans garde, l'estimation (10 + 6 s fraîche) ferait avancer ou reculer.
+  step({ ...base, status: 'Playing', position: 10, updated: T }, T + 20000);
+  assert.deepEqual({ pos: state.anchorPos, at: state.anchorAt }, first);
+});
+
+test('nouveau morceau avec la même heure : on ne garde pas l’ancrage', () => {
+  let state = {};
+  const step = (msg, now) => {
+    state = { ...msg, ...anchor(state, msg, now) };
+    return state;
+  };
+  step({ ...base, newTrack: true, status: 'Playing', position: 10, updated: T }, T);
+  step({ ...base, newTrack: true, title: 'B', status: 'Playing', position: 0, updated: T }, T + 500);
+  assert.equal(state.anchorAt, T + 500);
+});
