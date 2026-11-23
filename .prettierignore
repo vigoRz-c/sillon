@@ -1,7 +1,0 @@
-# Généré ou externe
-dist/
-node_modules/
-native/**/target/
-package-lock.json
-# Texte rédigé à la main (tableaux et retours à la ligne voulus)
-*.md

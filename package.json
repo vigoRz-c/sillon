@@ -19,8 +19,8 @@
     "build:helper": "node scripts/build-helper.js",
     "check": "node scripts/check.js",
     "lint": "eslint .",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format": "prettier --write \"**/*.{js,css,html,yml}\" package.json",
+    "format:check": "prettier --check \"**/*.{js,css,html,yml}\" package.json",
     "test": "node --test",
     "verify": "npm run check && npm run lint && npm run format:check && npm test",
     "dist": "node scripts/build-helper.js --strict && electron-builder --win",
@@ -78,5 +78,12 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "prettier": {
+    "printWidth": 120,
+    "singleQuote": true,
+    "trailingComma": "all",
+    "arrowParens": "always",
+    "endOfLine": "lf"
   }
 }

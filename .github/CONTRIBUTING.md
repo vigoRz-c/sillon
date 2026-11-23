@@ -36,8 +36,8 @@ Une faille de sécurité ne se signale pas dans une issue publique : voir [SECUR
 
 ## Publier une version (mainteneur)
 
-Mets à jour [CHANGELOG.md](CHANGELOG.md), puis `npm run release` (voir le README).
+Mets à jour [CHANGELOG.md](../CHANGELOG.md), puis `npm run release` (voir le README).
 
 ## Licence
 
-En contribuant, tu acceptes que ta contribution soit publiée sous [GPL-3.0](LICENSE), comme le reste du projet.
+En contribuant, tu acceptes que ta contribution soit publiée sous [GPL-3.0](../LICENSE), comme le reste du projet.

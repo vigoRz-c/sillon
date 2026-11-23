@@ -4,7 +4,7 @@
 
 Visualiseur musical qui vit **sur le fond d'écran Windows**, derrière toutes les fenêtres, et réagit à ce que tu écoutes sur Spotify.
 
-> **Projet en bêta.** Sillon évolue encore : des bugs sont possibles. Si tu en trouves un, ou si tu as une idée pour l'améliorer, contacte-moi sur Discord : **`_vigorz_`**. Voir aussi [CONTRIBUTING.md](CONTRIBUTING.md) et le [journal des versions](CHANGELOG.md).
+> **Projet en bêta.** Sillon évolue encore : des bugs sont possibles. Si tu en trouves un, ou si tu as une idée pour l'améliorer, contacte-moi sur Discord : **`_vigorz_`**. Voir aussi [CONTRIBUTING.md](.github/CONTRIBUTING.md) et le [journal des versions](CHANGELOG.md).
 
 - Scène sur tout le bureau : pochette en disque avec rayons en soleil et halo (intensité, position et taille réglables), paroles synchronisées en karaoké avec la ligne précédente en fantôme, panneau « en lecture » avec boutons (aléatoire, répéter, masquer…) et file d'attente « À suivre »
 - Écran de veille (**Ctrl + Alt + L** ou après inactivité) qui verrouille la session en sortant

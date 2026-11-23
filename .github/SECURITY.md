@@ -19,4 +19,4 @@ Décris la faille, comment la reproduire et la version concernée. Je réponds d
 - Les jetons Spotify sont chiffrés par Windows et restent sur le PC (`%APPDATA%/Sillon`).
 - Seules les informations du morceau (artiste, album, titre, durée) partent vers des services publics, pour trouver la pochette et les paroles.
 
-Le détail est dans la section « Données et vie privée » du [README](README.md).
+Le détail est dans la section « Données et vie privée » du [README](../README.md).
