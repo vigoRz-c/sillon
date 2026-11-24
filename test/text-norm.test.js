@@ -79,7 +79,7 @@ test('readCapped : arrête la lecture dès que le plafond est dépassé, sans co
       c.enqueue(new Uint8Array(1024));
     },
   });
-  await assert.rejects(readCapped({ headers: new Headers(), body }, 4096), /trop volumineuse/);
+  await assert.rejects(readCapped({ headers: new Headers(), body }, 4096), /too large/);
   assert.ok(pulled < 10, `lecture arrêtée tôt (${pulled} morceaux)`);
 });
 
@@ -89,7 +89,7 @@ test('fetchImageDataUrl : redirection vers un hôte non autorisé refusée AVANT
     urls.push(url);
     return reply(302, { location: 'https://evil.example/x.jpg' });
   });
-  await assert.rejects(fetchImageDataUrl('https://cdn-images.dzcdn.net/a.jpg', HOSTS), /hôte non autorisé/);
+  await assert.rejects(fetchImageDataUrl('https://cdn-images.dzcdn.net/a.jpg', HOSTS), /host not allowed/);
   assert.deepEqual(urls, ['https://cdn-images.dzcdn.net/a.jpg']);
 });
 
@@ -106,5 +106,5 @@ test('fetchImageDataUrl : redirection autorisée suivie, image renvoyée en data
 test('fetchImageDataUrl : image sans content-length plus grosse que le plafond refusée', async (t) => {
   const big = new Uint8Array(IMAGE_MAX + 1);
   t.mock.method(global, 'fetch', async () => reply(200, { 'content-type': 'image/png' }, [big]));
-  await assert.rejects(fetchImageDataUrl('https://cdn-images.dzcdn.net/a.png', HOSTS), /trop grosse/);
+  await assert.rejects(fetchImageDataUrl('https://cdn-images.dzcdn.net/a.png', HOSTS), /too big/);
 });

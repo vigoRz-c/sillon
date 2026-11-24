@@ -1,26 +1,26 @@
-// Pochette de l'album via la recherche publique de Deezer (sans compte).
+// Album cover from Deezer's public search (no account).
 //
-// Spotify transmet parfois à Windows une image du clip plutôt que la pochette
-// (titres qui ont une version vidéo). On cherche donc la pochette de l'album
-// studio où figure le morceau (à défaut l'EP, puis le single), à partir de
-// l'artiste, de l'album et du titre fournis par Windows.
-// Seuls ces trois textes sont envoyés à Deezer. Rien trouvé de fiable : null,
-// et l'app garde l'image de Windows.
+// Spotify sometimes gives Windows a picture of the video rather than the cover
+// (tracks that have a video version). So we look for the cover of the studio
+// album the track is on (or else the EP, then the single), from
+// the artist, album and title given by Windows.
+// Only these three texts are sent to Deezer. Nothing reliable found: null,
+// and the app keeps the Windows picture.
 
 const API = 'https://api.deezer.com';
 const disk = require('./disk-cache');
 const { norm, strict, artistKey, note, fetchImageDataUrl, readJsonCapped } = require('./text-norm');
-const cache = new Map(); // clé -> data URL | null
+const cache = new Map(); // key -> data URL | null
 
-// Les pochettes de Deezer sont servies par son CDN (cdn-images.dzcdn.net,
-// e-cdns-images.dzcdn.net...). Rien d'autre n'est téléchargé.
+// Deezer's covers are served by its CDN (cdn-images.dzcdn.net,
+// e-cdns-images.dzcdn.net...). Nothing else is downloaded.
 const COVER_HOSTS = /^([a-z0-9-]+\.)*dzcdn\.net$/i;
-const MAX_JSON = 1024 * 1024; // réponse JSON de Deezer : 1 Mo au plus
+const MAX_JSON = 1024 * 1024; // Deezer JSON reply: 1 MB at most
 
 async function getJson(path) {
   const res = await fetch(API + path, { signal: AbortSignal.timeout(5000) });
   if (!res.ok) throw new Error(`Deezer ${res.status}`);
-  const json = await readJsonCapped(res, MAX_JSON, 'Deezer : réponse trop volumineuse');
+  const json = await readJsonCapped(res, MAX_JSON, 'Deezer: reply too large');
   if (json.error) throw new Error(`Deezer : ${json.error.message || 'erreur'}`);
   return json.data || [];
 }
@@ -28,7 +28,7 @@ async function getJson(path) {
 async function getAlbum(id) {
   const res = await fetch(`${API}/album/${id}`, { signal: AbortSignal.timeout(5000) });
   if (!res.ok) throw new Error(`Deezer ${res.status}`);
-  const json = await readJsonCapped(res, MAX_JSON, 'Deezer : réponse trop volumineuse');
+  const json = await readJsonCapped(res, MAX_JSON, 'Deezer: reply too large');
   if (json.error) throw new Error('album introuvable');
   return json;
 }
@@ -41,11 +41,11 @@ async function findCoverUrl({ title, artist, album }) {
   const sameArtist = (name) => artistKey(name) === a;
   const al = norm(album),
     ti = norm(title);
-  // Requêtes avec les noms nettoyés : "(2011 Remaster)" fait échouer Deezer.
+  // Queries with the cleaned names: "(2011 Remaster)" makes Deezer fail.
   const q = (...parts) => encodeURIComponent(parts.filter(Boolean).join(' '));
 
-  // Tous les albums de l'artiste où figure ce titre (singles, album studio,
-  // compilations...), plus celui que Windows annonce.
+  // Every album of the artist that has this title (singles, studio album,
+  // compilations...), plus the one Windows announces.
   const tracks = [];
   if (ti) tracks.push(...(await getJson(`/search?limit=25&q=${q(a, ti)}`)));
   if (al && al !== ti) tracks.push(...(await getJson(`/search?limit=25&q=${q(a, al)}`)));
@@ -54,9 +54,9 @@ async function findCoverUrl({ title, artist, album }) {
   const add = (id) => {
     if (id && !ids.includes(id)) ids.push(id);
   };
-  // Ordre de préférence : le titre exact (pas un remix ni une version
-  // alternative), puis le même titre en version différente, puis l'album
-  // annoncé par Windows (souvent un single ou une compilation).
+  // Order of preference: the exact title (not a remix or an alternative
+  // version), then the same title in a different version, then the album
+  // announced by Windows (often a single or a compilation).
   byArtist.filter((t) => strict(t.title) === strict(title)).forEach((t) => add(t.album.id));
   byArtist.filter((t) => norm(t.title) === ti).forEach((t) => add(t.album.id));
   if (al) add((byArtist.find((t) => norm(t.album.title) === al) || {}).album?.id);
@@ -66,10 +66,10 @@ async function findCoverUrl({ title, artist, album }) {
   }
   if (!ids.length) return null;
 
-  // On veut la pochette de l'album (studio) plutôt que celle du single :
-  // Deezer indique le type de chaque sortie.
-  // Si tous les appels échouent (réseau, 429), on relance l'erreur : sinon un
-  // « rien trouvé » serait mis en cache à tort.
+  // We want the cover of the (studio) album rather than that of the single:
+  // Deezer gives the type of each release.
+  // If every call fails (network, 429), the error is thrown again: otherwise a
+  // "nothing found" would wrongly be cached.
   const settled = await Promise.allSettled(ids.slice(0, 6).map((id) => getAlbum(id)));
   const details = settled.filter((r) => r.status === 'fulfilled').map((r) => r.value);
   if (!details.length) throw settled[0].reason;
@@ -95,13 +95,13 @@ async function lookupCover(media) {
     if (url) result = await toDataUrl(url);
   } catch (e) {
     console.error('Pochette Deezer :', e.message);
-    note('pochette', e.message);
-    return null; // erreur réseau : pas mis en cache, on réessaiera au prochain morceau
+    note('cover', e.message);
+    return null; // network error: not cached, we will try again on the next track
   }
-  // Chaque entrée est une image (100 à 250 Ko) : 30 suffisent, le cache disque fait le reste.
+  // Each entry is an image (100 to 250 KB): 30 are enough, the disk cache does the rest.
   if (cache.size > 30) cache.delete(cache.keys().next().value);
   cache.set(key, result);
-  await disk.set('covers', key, result); // erreurs gérées (et notées) par le cache
+  await disk.set('covers', key, result); // errors handled (and noted) by the cache
   return result;
 }
 

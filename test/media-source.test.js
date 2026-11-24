@@ -68,19 +68,19 @@ test('ready : envoie prefer (et le lecteur ciblé), protocole à jour sans avert
   src.volumeExe = 'spotify.exe';
   await procs[0].say({ type: 'ready', protocol: HELPER_PROTOCOL });
   assert.deepEqual(procs[0].stdin.written, ['prefer:spotify\n', 'volume-target:spotify.exe\n']);
-  assert.ok(!notes.some((n) => n.includes('périmé')));
+  assert.ok(!notes.some((n) => n.includes('outdated')));
   src.stop();
 });
 
 test('ready sans protocole ou avec un autre : « assistant périmé » (sans bloquer)', async () => {
   const a = setup();
   await a.procs[0].say({ type: 'ready' });
-  assert.ok(a.notes.some((n) => n.includes('assistant périmé : relancer npm run build:helper')));
+  assert.ok(a.notes.some((n) => n.includes('outdated helper: run npm run build:helper again')));
   assert.equal(a.procs[0].stdin.written.length, 1);
   a.src.stop();
   const b = setup();
   await b.procs[0].say({ type: 'ready', protocol: 99 });
-  assert.ok(b.notes.some((n) => n.includes('assistant périmé')));
+  assert.ok(b.notes.some((n) => n.includes('outdated helper')));
   b.src.stop();
 });
 
@@ -94,7 +94,7 @@ test('command : liste blanche, booléen renvoyé', () => {
   assert.equal(src.command(null), false);
   assert.equal(src.command('NEXT'), false);
   assert.equal(procs[0].stdin.written.length, 10);
-  assert.ok(notes.some((n) => n.includes('commande refusée')));
+  assert.ok(notes.some((n) => n.includes('command refused')));
   src.stop();
 });
 

@@ -212,7 +212,7 @@ test('findLyrics : titre ou artiste vide -> null sans requête', async () => {
 test('findLyrics : réponse trop volumineuse refusée', async () => {
   await withLrclib(
     () => ({ ok: true, status: 200, headers: { get: () => '9999999' }, text: async () => '{}' }),
-    async () => assert.rejects(findLyrics(MEDIA), /volumineuse/),
+    async () => assert.rejects(findLyrics(MEDIA), /too large/),
   );
 });
 

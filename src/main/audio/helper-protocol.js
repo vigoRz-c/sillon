@@ -1,26 +1,26 @@
 // @ts-check
-// Contrat avec l'assistant natif (sillon-helper.exe) côté Node : commandes
-// acceptées et codes de sortie. Source unique pour ipc-guard.js, media.js et
-// app-audio.js ; le détail du protocole est documenté dans
-// native/sillon-helper/src/main.rs (en tête du fichier).
+// Contract with the native helper (sillon-helper.exe) on the Node side: accepted
+// commands and exit codes. Single source for ipc-guard.js, media.js and
+// app-audio.js; the protocol details are documented in
+// native/sillon-helper/src/main.rs (at the top of the file).
 
-// Version du protocole du mode « media » (message {"type":"ready","protocol":1}).
+// Protocol version of the "media" mode (message {"type":"ready","protocol":1}).
 const PROTOCOL = 1;
 
-// Commandes média simples (une ligne sur l'entrée de l'assistant).
+// Simple media commands (one line on the helper's input).
 const MEDIA_COMMANDS = Object.freeze(['playpause', 'play', 'pause', 'next', 'previous', 'shuffle', 'repeat']);
-// Celles qui changent la lecture (rejouées si l'assistant redémarre entre-temps).
+// Those that change playback (replayed if the helper restarts in the meantime).
 const PLAYBACK_COMMANDS = Object.freeze(['playpause', 'play', 'pause', 'next', 'previous']);
-// Commandes avec un argument : « volume:50 », « prefer:spotify », « volume-target:spotify.exe ».
+// Commands with an argument: "volume:50", "prefer:spotify", "volume-target:spotify.exe".
 const PREFIXED_COMMANDS = Object.freeze(['volume:', 'prefer:', 'volume-target:']);
 
-// Codes de sortie du mode « capture <programme.exe> ».
+// Exit codes of the "capture <program.exe>" mode.
 const EXIT = Object.freeze({
-  UNSUPPORTED: 2, // capture par programme impossible sur ce Windows
-  CLOSED: 3, // programme fermé
-  NOT_FOUND: 4, // programme introuvable ou nom refusé
-  PANIC: 5, // erreur interne (signalée par « ERR 5 » sur stderr)
-  DEVICE_LOST: 7, // périphérique audio perdu (changement de sortie)
+  UNSUPPORTED: 2, // per-program capture impossible on this Windows
+  CLOSED: 3, // program closed
+  NOT_FOUND: 4, // program not found or name refused
+  PANIC: 5, // internal error (reported by "ERR 5" on stderr)
+  DEVICE_LOST: 7, // audio device lost (output change)
 });
 
 module.exports = { PROTOCOL, MEDIA_COMMANDS, PLAYBACK_COMMANDS, PREFIXED_COMMANDS, EXIT };

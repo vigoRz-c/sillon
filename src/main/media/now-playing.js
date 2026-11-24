@@ -1,5 +1,5 @@
-// Morceau en cours : source Windows, pochette officielle (Deezer), paroles
-// (LRCLIB) et décalage des paroles par morceau.
+// Current track: Windows source, official cover (Deezer), lyrics
+// (LRCLIB) and lyrics offset per track.
 
 const S = require('../app/state');
 const { WindowsMediaSource } = require('./media');
@@ -8,9 +8,9 @@ const { lookupLyrics } = require('./lyrics');
 const diagnostic = require('../app/diagnostic');
 const { exeForApp } = require('../audio/app-ids');
 
-// ---------- Décalage des paroles (par morceau) ----------
-// Pour les titres où LRCLIB a les paroles d'une autre version. Positif : les
-// paroles arrivent plus tôt.
+// ---------- Lyrics offset (per track) ----------
+// For the titles where LRCLIB has the lyrics of another version. Positive: the
+// lyrics come earlier.
 
 const offsetKey = (m) => `${(m.artist || '').toLowerCase()}|${(m.title || '').toLowerCase()}`;
 
@@ -33,8 +33,8 @@ function nudgeLyrics(delta) {
   }
 }
 
-// Paroles : nouveaux essais après une erreur réseau (10 s, puis 20 s), et durée
-// du morceau jugée différente au-delà de 2 s (la durée sert à choisir la bonne version).
+// Lyrics: new attempts after a network error (10 s, then 20 s), and track
+// duration considered different beyond 2 s (the duration is used to choose the right version).
 const LYRICS_RETRY_MS = [10000, 20000];
 const DURATION_GAP_S = 2;
 
@@ -43,12 +43,12 @@ const DURATION_GAP_S = 2;
 function startMedia() {
   const media = new WindowsMediaSource({ prefer: S.settings.get('preferApp') });
   S.media = media;
-  // canShuffle : boutons aléatoire / répétition affichés (compte Spotify
-  // connecté et autorisé) ; leur état vient alors de l'API Spotify.
+  // canShuffle: shuffle / repeat buttons shown (Spotify account
+  // connected and authorized); their state then comes from the Spotify API.
   const broadcast = (m) => {
     const ps = S.playerState;
     const canShuffle = !!(S.spotify && S.spotify.canControl());
-    // volume : celui du lecteur dans le mélangeur de Windows (null = inconnu).
+    // volume: that of the player in the Windows mixer (null = unknown).
     S.lastMedia = {
       ...m,
       canShuffle,
@@ -63,7 +63,7 @@ function startMedia() {
         : { shuffleAllowed: true, repeatAllowed: true }),
     };
     S.sendMedia([S.widget, S.fullscreen, S.editorWin], S.lastMedia);
-    // La fenêtre des boutons n'utilise pas la pochette (100 à 250 Ko par message).
+    // The buttons window does not use the cover (100 to 250 KB per message).
     if (S.alive(S.controlsWin)) {
       const light = { ...S.lastMedia };
       delete light.cover;
@@ -79,22 +79,22 @@ function startMedia() {
     S.lastLyrics = { ...l, offset: lyricsOffsetFor(l) };
     S.send([S.widget, S.fullscreen, S.editorWin], 'lyrics', S.lastLyrics);
   };
-  // L'image donnée par Windows est remplacée par la pochette officielle (Deezer)
-  // dès qu'elle est trouvée ; sinon on garde celle de Windows.
+  // The picture given by Windows is replaced with the official cover (Deezer)
+  // as soon as it is found; otherwise the Windows one is kept.
   let trackKey = '';
   let officialCover = null;
   let lastStatus = '';
   let lastTrayKey = null;
-  let lyricsSeq = 0; // seule la dernière recherche de paroles est prise en compte
-  let lyricsDuration = 0; // durée utilisée par la recherche en cours ou terminée
-  let lastSeenDuration = 0; // durée du dernier message (celle du morceau précédent à un changement)
+  let lyricsSeq = 0; // only the last lyrics search counts
+  let lyricsDuration = 0; // duration used by the current or finished search
+  let lastSeenDuration = 0; // duration of the last message (that of the previous track on a change)
   let lyricsRetry = null;
 
-  // Cherche les paroles de m (key = morceau auquel elles sont destinées).
-  // Le titre arrive souvent avant la timeline : la durée reçue peut être celle
-  // du morceau précédent. Elle est alors suspecte (0 ou identique à la
-  // précédente) : un résultat vide n'est pas mis en cache, et la recherche est
-  // relancée si la durée change ensuite (voir plus bas).
+  // Looks for the lyrics of m (key = track they are meant for).
+  // The title often arrives before the timeline: the received duration may be that
+  // of the previous track. It is then suspicious (0 or identical to the
+  // previous one): an empty result is not cached, and the search is
+  // started again if the duration changes later (see below).
   const loadLyrics = (m, key, previousDuration, attempt = 0) => {
     const seq = ++lyricsSeq;
     clearTimeout(lyricsRetry);
@@ -113,7 +113,7 @@ function startMedia() {
     lookupLyrics(m, { volatile })
       .then((l) => {
         if (!current()) return;
-        // error : la recherche a échoué (réseau), ce n'est pas « pas de paroles ».
+        // error: the search failed (network), it is not "no lyrics".
         if (l && l.error) return failed();
         sendLyrics({
           title: m.title,
@@ -123,12 +123,12 @@ function startMedia() {
         });
       })
       .catch((e) => {
-        diagnostic.note('paroles', e.message);
+        diagnostic.note('lyrics', e.message);
         if (current()) failed();
       });
   };
   media.on('media', (m) => {
-    // Lecture / pause : ce que Spotify autorise (aléatoire, répétition) peut changer.
+    // Play / pause: what Spotify allows (shuffle, repeat) may change.
     if (m.status !== lastStatus) {
       lastStatus = m.status;
       setTimeout(S.actions.refreshPlayer, 1000);
@@ -137,9 +137,9 @@ function startMedia() {
     if (key !== trackKey) {
       trackKey = key;
       officialCover = null;
-      // File d'attente : Spotify met un instant à la décaler après un changement.
+      // Queue: Spotify takes a moment to shift it after a change.
       if (key) setTimeout(S.actions.refreshQueue, 1500);
-      // Paroles : vides tant qu'on cherche, puis celles de LRCLIB si elles existent.
+      // Lyrics: empty while searching, then those of LRCLIB if they exist.
       sendLyrics({ title: m.title || '', artist: m.artist || '', lines: [], pending: !!key });
       if (key) {
         loadLyrics(m, key, lastSeenDuration);
@@ -149,10 +149,10 @@ function startMedia() {
             officialCover = cover;
             broadcast({ ...S.lastMedia, cover });
           })
-          .catch((e) => diagnostic.note('pochette', e.message));
+          .catch((e) => diagnostic.note('cover', e.message));
       }
     }
-    // Même morceau, mais la durée vient de changer (la timeline arrive après le titre).
+    // Same track, but the duration has just changed (the timeline arrives after the title).
     else if (key && m.duration > 0 && Math.abs(m.duration - lyricsDuration) > DURATION_GAP_S) {
       loadLyrics(m, key, lastSeenDuration);
     }
@@ -163,14 +163,14 @@ function startMedia() {
       media.setVolumeTarget(exe);
     }
     broadcast(officialCover ? { ...m, cover: officialCover } : m);
-    // Le menu de l'icône n'affiche que titre, artiste et état de lecture.
+    // The icon menu only shows the title, the artist and the playback state.
     const trayKey = `${m.active ? m.title : ''}|${m.active ? m.artist : ''}|${m.status}|${m.active}`;
     if (trayKey !== lastTrayKey) {
       lastTrayKey = trayKey;
       S.actions.buildTray();
     }
   });
-  // Volume du lecteur : on suit l'application qui joue.
+  // Player volume: follow the application that is playing.
   media.on('volume', (v) => {
     const vol = v.volume >= 0 ? v.volume : null;
     if (vol === S.appVolume) return;
@@ -182,14 +182,14 @@ function startMedia() {
     S.appVolume = Math.round(percent);
   };
   media.on('error', (e) => {
-    console.error('Média :', e.message);
-    diagnostic.note('média', e.message);
+    console.error('Media:', e.message);
+    diagnostic.note('media', e.message);
   });
-  media.on('log', (t) => diagnostic.note('assistant', t));
+  media.on('log', (t) => diagnostic.note('helper', t));
   media.on('command-result', (r) =>
     diagnostic.note(
       'windows',
-      `${r.cmd} → ${r.ok ? 'accepté' : 'refusé'}${r.app ? ` par ${r.app}` : ''}${r.reason ? ` (${r.reason})` : ''}`,
+      `${r.cmd} → ${r.ok ? 'accepted' : 'refused'}${r.app ? ` by ${r.app}` : ''}${r.reason ? ` (${r.reason})` : ''}`,
     ),
   );
   media.start();

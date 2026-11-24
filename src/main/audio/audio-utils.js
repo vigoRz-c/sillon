@@ -1,23 +1,23 @@
 // @ts-check
-// Petites fonctions pures de la chaîne audio (sans Electron), testées à part.
+// Small pure functions of the audio chain (without Electron), tested separately.
 
-// Délais avant de relancer l'assistant de capture après un échec :
-// 3 s, puis 30 s, puis 60 s.
+// Delays before restarting the capture helper after a failure:
+// 3 s, then 30 s, then 60 s.
 const RETRY_DELAYS = [3000, 30000, 60000];
 
-// `failures` : nombre d'échecs consécutifs (1 = le premier).
+// `failures`: number of consecutive failures (1 = the first).
 function retryDelay(failures) {
   const i = Math.max(1, Math.floor(Number(failures)) || 1) - 1;
   return RETRY_DELAYS[Math.min(i, RETRY_DELAYS.length - 1)];
 }
 
-// Le flux est du PCM 16 bits : un morceau de longueur impaire laisse un octet
-// qui appartient à l'échantillon suivant. L'assembleur garde cet octet et le
-// place devant le morceau suivant, pour que chaque envoi soit aligné.
+// The stream is 16-bit PCM: a chunk of odd length leaves a byte
+// that belongs to the next sample. The assembler keeps this byte and
+// puts it in front of the next chunk, so that every send is aligned.
 function createPcmAssembler() {
   let rest = null;
   return {
-    // Renvoie un Buffer de longueur paire (éventuellement vide).
+    // Returns a Buffer of even length (possibly empty).
     push(chunk) {
       let buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk || []);
       if (rest) {
@@ -36,7 +36,7 @@ function createPcmAssembler() {
   };
 }
 
-// Ajoute `text` à `current` sans dépasser `max` caractères (on garde la fin).
+// Appends `text` to `current` without exceeding `max` characters (the end is kept).
 function appendCapped(current, text, max) {
   const s = current + text;
   return s.length > max ? s.slice(s.length - max) : s;

@@ -119,7 +119,7 @@ test('5 codes 4 de suite avec le lecteur annoncé actif : tout le son du PC', (t
   }
   exitWith(4);
   assert.equal(appAudio.status().mode, 'system');
-  assert.match(appAudio.status().reason, /introuvable/);
+  assert.match(appAudio.status().reason, /not found/);
   // Jusqu'au prochain changement de lecteur.
   appAudio.onMedia(chrome);
   assert.equal(appAudio.status().mode, 'app');

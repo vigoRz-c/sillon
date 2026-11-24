@@ -1,23 +1,23 @@
-// Captures : son du système (loopback) et couleurs du fond d'écran.
+// Captures: system sound (loopback) and wallpaper colors.
 
 const { session, desktopCapturer, screen } = require('electron');
 const S = require('../app/state');
 const diagnostic = require('../app/diagnostic');
 const { isAppUrl } = require('../app/ipc-guard');
 
-// ---------- Son : capture de la sortie du PC ----------
+// ---------- Sound: capture of the PC's output ----------
 
-// Seules les pages de l'app reçoivent des autorisations (capture du son,
-// presse-papiers des paramètres…) ; toute autre page n'en reçoit aucune.
+// Only the app's pages get permissions (sound capture,
+// clipboard of the settings…); any other page gets none.
 const fromApp = (url) => isAppUrl(url, S.RENDERER);
 
 function setupPermissions(ses) {
   ses.setPermissionRequestHandler((_wc, permission, callback, details) => {
     const ok = fromApp(details && details.requestingUrl);
-    if (!ok) diagnostic.note('sécurité', `autorisation « ${permission} » refusée à une page externe`);
+    if (!ok) diagnostic.note('security', `permission "${permission}" refused to an external page`);
     callback(ok);
   });
-  // Sans adresse précise (certaines vérifications), on se fie à l'origine : file:// pour nos pages.
+  // Without a precise address (some checks), rely on the origin: file:// for our pages.
   ses.setPermissionCheckHandler((_wc, _permission, origin, details) =>
     details && details.requestingUrl ? fromApp(details.requestingUrl) : origin === 'file://',
   );
@@ -26,12 +26,12 @@ function setupPermissions(ses) {
 function setupLoopback() {
   const ses = session.defaultSession;
   setupPermissions(ses);
-  // getDisplayMedia() dans la page reçoit l'écran (ignoré) + le son du système.
-  // Jamais le micro.
+  // getDisplayMedia() in the page receives the screen (ignored) + the system sound.
+  // Never the microphone.
   ses.setDisplayMediaRequestHandler((req, callback) => {
-    // Demande d'une page qui n'est pas à l'app (ou déjà fermée) : rien.
+    // Request from a page that is not the app's (or already closed): nothing.
     if (!fromApp(req && req.frame && req.frame.url)) {
-      diagnostic.note('sécurité', 'capture du son refusée à une page externe');
+      diagnostic.note('security', 'sound capture refused to an external page');
       callback({});
       return;
     }
@@ -39,25 +39,25 @@ function setupLoopback() {
       .getSources({ types: ['screen'] })
       .then((sources) => callback({ video: sources[0], audio: 'loopback' }))
       .catch((e) => {
-        console.error('Capture du son du système impossible :', e.message);
-        diagnostic.note('son', `capture du son du système impossible (${e.message})`);
+        console.error('Could not capture the system sound:', e.message);
+        diagnostic.note('sound', `could not capture the system sound (${e.message})`);
         callback({});
       });
   });
 }
 
-// Le démarrage dans les fenêtres et le choix de la source : voir app-audio.js.
+// Starting in the windows and choosing the source: see app-audio.js.
 
-// ---------- Couleurs du fond d'écran ----------
-// Petite capture de l'écran qui porte le widget, recadrée sur sa zone, pour
-// que la page en tire sa palette. Rafraîchie régulièrement (fond animé,
-// diaporama). Une fenêtre ouverte par-dessus peut fausser une mesure : la
-// suivante corrige.
+// ---------- Wallpaper colors ----------
+// Small capture of the screen that holds the widget, cropped to its area, so
+// that the page takes its palette from it. Refreshed regularly (animated background,
+// slideshow). A window opened on top may skew a measure: the
+// next one corrects it.
 
 let timer = null;
 
-// Seul le thème « fond d'écran » s'en sert, et seulement si une page l'affiche
-// (scène éveillée, plein écran ou éditeur).
+// Only the "wallpaper" theme uses it, and only if a page shows it
+// (scene awake, full screen or editor).
 function wanted() {
   if (!S.settings || S.settings.get('theme') !== 'wallpaper') return false;
   return S.sceneActive() || S.alive(S.fullscreen) || S.alive(S.editorWin);
@@ -74,7 +74,7 @@ async function sampleWallpaper() {
     const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: W, height: H } });
     const src = sources.find((s) => String(s.display_id) === String(display.id)) || sources[0];
     if (!src || src.thumbnail.isEmpty()) return;
-    // Zone du widget, élargie pour capter l'ambiance autour.
+    // Widget area, widened to catch the surrounding mood.
     const sx = W / display.bounds.width,
       sy = H / display.bounds.height;
     const pad = 80;
@@ -88,13 +88,13 @@ async function sampleWallpaper() {
     };
     const img = crop.width > 4 && crop.height > 4 ? src.thumbnail.crop(crop) : src.thumbnail;
     const url = img.toDataURL();
-    // Fond inchangé : les pages ont déjà ces couleurs (inutile de redécoder l'image).
+    // Background unchanged: the pages already have these colors (no need to decode the image again).
     if (url === S.wallpaperSample) return;
     S.wallpaperSample = url;
     S.send([S.widget, S.fullscreen, S.editorWin], 'wallpaper', url);
   } catch (e) {
-    console.error("Couleurs du fond d'écran :", e.message);
-    diagnostic.note('fond', `couleurs du fond d'écran impossibles (${e.message})`);
+    console.error('Wallpaper colors:', e.message);
+    diagnostic.note('wallpaper', `wallpaper colors impossible (${e.message})`);
   }
 }
 

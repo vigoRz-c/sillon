@@ -1,38 +1,38 @@
 // @ts-check
-// Petit cache sur disque (pochettes, paroles) : un fichier JSON par entrée,
-// dans %APPDATA%/Sillon/cache/<espace>/. Les morceaux déjà écoutés
-// s'affichent donc aussi hors ligne, et sans redemander à Deezer ou LRCLIB.
+// Small disk cache (covers, lyrics): one JSON file per entry,
+// in %APPDATA%/Sillon/cache/<space>/. Tracks already listened to
+// therefore also show offline, without asking Deezer or LRCLIB again.
 //
-// Une entrée vide (rien trouvé) est gardée aussi, mais moins longtemps : un
-// titre peut être ajouté plus tard sur Deezer ou LRCLIB.
+// An empty entry (nothing found) is kept too, but for less time: a
+// title may be added later on Deezer or LRCLIB.
 
 const fsp = require('fs').promises;
 const path = require('path');
 const crypto = require('crypto');
 const { note } = require('./text-norm');
 
-const MISS_TTL = 7 * 24 * 3600 * 1000; // 7 jours pour un "rien trouvé"
+const MISS_TTL = 7 * 24 * 3600 * 1000; // 7 days for a "nothing found"
 const MAX_FILES = 600; // par espace
-const PRUNE_EVERY = 50; // écritures entre deux nettoyages
+const PRUNE_EVERY = 50; // writes between two cleanups
 
 let root = null;
 let writeErrorLogged = false;
-const writes = {}; // espace -> écritures depuis le dernier nettoyage
+const writes = {}; // space -> writes since the last cleanup
 
 function init(dir) {
   root = dir;
   writeErrorLogged = false;
   for (const k of Object.keys(writes)) delete writes[k];
-  // Nettoyage au démarrage : en tâche de fond, sans retarder le lancement.
+  // Cleanup at startup: in the background, without delaying the launch.
   for (const ns of ['covers', 'lyrics']) prune(ns);
 }
 
 const fileFor = (ns, key) => path.join(root, ns, `${crypto.createHash('sha1').update(key).digest('hex')}.json`);
 
-// Lectures et écritures asynchrones : le processus principal relaie le son
-// toutes les 30 ms, un accès disque synchrone le retarderait.
+// Asynchronous reads and writes: the main process relays the sound
+// every 30 ms, a synchronous disk access would delay it.
 
-// undefined : pas en cache (ou "rien trouvé" trop ancien) ; sinon la valeur (éventuellement null).
+// undefined: not cached (or a "nothing found" that is too old); otherwise the value (possibly null).
 async function get(ns, key) {
   if (!root) return undefined;
   const file = fileFor(ns, key);
@@ -40,14 +40,14 @@ async function get(ns, key) {
   try {
     entry = JSON.parse(await fsp.readFile(file, 'utf8'));
   } catch (e) {
-    // Entrée illisible (écriture coupée, disque abîmé) : supprimée, sinon elle
-    // serait relue et rejetée à chaque fois.
+    // Unreadable entry (interrupted write, damaged disk): deleted, otherwise it
+    // would be read and rejected every time.
     if (e.code !== 'ENOENT') await fsp.unlink(file).catch(() => {});
     return undefined;
   }
   if (!entry || typeof entry !== 'object') return undefined;
   if (entry.value == null && Date.now() - entry.at > MISS_TTL) return undefined;
-  // Lue = récente : le nettoyage garde les entrées les plus écoutées.
+  // Read = recent: the cleanup keeps the most listened entries.
   const now = new Date();
   await fsp.utimes(file, now, now).catch(() => {}); // simple optimisation
   return entry.value;
@@ -61,7 +61,7 @@ async function set(ns, key, value) {
     await fsp.writeFile(f, JSON.stringify({ at: Date.now(), key, value: value ?? null }));
   } catch (e) {
     if (!writeErrorLogged) {
-      writeErrorLogged = true; // une seule fois : le disque plein ne doit pas saturer le journal
+      writeErrorLogged = true; // only once: a full disk must not flood the log
       console.error('Cache :', e.message);
       note('cache', e.message);
     }
@@ -74,7 +74,7 @@ async function set(ns, key, value) {
   }
 }
 
-// Garde les MAX_FILES entrées les plus récentes (écriture ou lecture).
+// Keeps the MAX_FILES most recent entries (write or read).
 async function prune(ns) {
   if (!root) return;
   const dir = path.join(root, ns);
@@ -82,7 +82,7 @@ async function prune(ns) {
   try {
     names = await fsp.readdir(dir);
   } catch {
-    return; // dossier absent : rien à faire
+    return; // missing folder: nothing to do
   }
   if (names.length <= MAX_FILES) return;
   const files = [];

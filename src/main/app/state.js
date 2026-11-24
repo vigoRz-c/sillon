@@ -10,7 +10,7 @@ const path = require('path');
 const S = {
   settings: null, // Settings (saved settings)
   media: null, // WindowsMediaSource
-  spotify: null, // SpotifyApi (file d'attente, facultatif)
+  spotify: null, // SpotifyApi (queue, optional)
   tray: null,
 
   widget: null, // scene or strip, on the wallpaper

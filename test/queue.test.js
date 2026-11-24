@@ -135,7 +135,7 @@ test('mediaCommand : lecture / suivant passent par Windows, sans Spotify', async
 test('mediaCommand : aléatoire sans compte connecté -> ignoré et noté', async (t) => {
   setup(t, fakeSpotify({ canControl: () => false }));
   await queue.mediaCommand('shuffle');
-  assert.ok(notes.some((n) => n.includes('non connecté')));
+  assert.ok(notes.some((n) => n.includes('not connected')));
 });
 
 test('mediaCommand : interdit par Spotify -> pas d’appel', async (t) => {
@@ -324,7 +324,7 @@ test('mediaCommand : play ignoré par Spotify -> API Spotify sur l’ordinateur'
   t.mock.timers.tick(1500); // toujours en pause : on relance via l'API
   for (let i = 0; i < 5; i++) await tick(); // laisse finir la chaîne
   assert.deepEqual(played, ['pc']);
-  assert.ok(notes.some((n) => n.includes('API Spotify')));
+  assert.ok(notes.some((n) => n.includes('Spotify API')));
 });
 
 test('mediaCommand : play réussi (lecture reprise) ou autre lecteur -> pas d’appel à l’API', async (t) => {

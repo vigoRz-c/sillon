@@ -1,10 +1,10 @@
-// Paroles synchronisées via LRCLIB (lrclib.net : gratuit, sans compte).
+// Synced lyrics from LRCLIB (lrclib.net: free, no account).
 //
-// Seuls l'artiste, le titre, l'album et la durée sont envoyés. Résultat :
+// Only the artist, title, album and duration are sent. Result:
 //   { lines: [{ t, end, text, words: [{ t, text }] | null }], instrumental }
-// en secondes, null si aucune parole synchronisée n'existe pour ce titre, ou
-// { error: true } si la recherche a échoué (réseau : rien n'est mis en cache).
-// Quand LRCLIB a le minutage mot à mot (champ "lyricsfile"), on l'utilise.
+// in seconds, null if no synced lyrics exist for this title, or
+// { error: true } if the search failed (network: nothing is cached).
+// When LRCLIB has word-by-word timing (field "lyricsfile"), it is used.
 
 const API = 'https://lrclib.net/api';
 const disk = require('./disk-cache');
@@ -12,13 +12,13 @@ const { cleanTitle, norm, firstArtist, note, readCapped } = require('./text-norm
 const HEADERS = { 'User-Agent': 'Sillon/0.1' };
 const cache = new Map();
 
-const MAX_BODY = 512 * 1024; // une réponse LRCLIB plus grosse est suspecte
+const MAX_BODY = 512 * 1024; // a larger LRCLIB reply is suspicious
 
 async function getJson(path) {
   const res = await fetch(API + path, { headers: HEADERS, signal: AbortSignal.timeout(6000) });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`LRCLIB ${res.status}`);
-  const buf = await readCapped(res, MAX_BODY, 'LRCLIB : réponse trop volumineuse');
+  const buf = await readCapped(res, MAX_BODY, 'LRCLIB: reply too large');
   return JSON.parse(buf.toString('utf8'));
 }
 
@@ -33,21 +33,21 @@ function parseLrc(lrc) {
   }
   lines.sort((a, b) => a.t - b.t);
   lines.forEach((l, i) => {
-    // Une ligne suivie d'un long instrumental ne doit pas rester affichée
-    // jusqu'à la suivante : durée plausible selon le nombre de mots (4 à 8 s).
+    // A line followed by a long instrumental must not stay shown
+    // until the next one: plausible duration from the number of words (4 to 8 s).
     const words = l.text ? l.text.split(/\s+/).length : 0;
     const reasonable = Math.min(8, Math.max(4, 2 + words * 0.6));
     const next = lines[i + 1] ? lines[i + 1].t : Infinity;
     if (!l.text)
-      l.end = next === Infinity ? l.t + 5 : next; // ligne vide : jusqu'à la suivante
+      l.end = next === Infinity ? l.t + 5 : next; // empty line: until the next one
     else if (next === Infinity) l.end = l.t + 5;
     else l.end = Math.min(next, l.t + reasonable);
   });
   return lines;
 }
 
-// Le "lyricsfile" est un petit YAML à structure fixe : on le lit ligne à ligne
-// plutôt que d'ajouter une bibliothèque.
+// The "lyricsfile" is a small YAML with a fixed structure: it is read line by line
+// rather than adding a library.
 function yamlValue(v) {
   v = v.trim();
   if (v.startsWith("'") && v.endsWith("'")) return v.slice(1, -1).replace(/''/g, "'");
@@ -72,7 +72,7 @@ function parseLyricsFile(text) {
       continue;
     }
     if (!inLines) continue;
-    if (/^[A-Za-z_]/.test(raw)) break; // clé de premier niveau : fin du bloc "lines"
+    if (/^[A-Za-z_]/.test(raw)) break; // top-level key: end of the "lines" block
     let m;
     if ((m = raw.match(/^- text:\s*(.*)$/))) {
       line = { text: yamlValue(m[1]), t: null, end: 0, words: [] };
@@ -89,12 +89,12 @@ function parseLyricsFile(text) {
       line.end = Number(m[1]) / 1000;
     }
   }
-  // Une ligne sans start_ms rend le fichier inexploitable : retour au LRC.
+  // A line without start_ms makes the file unusable: back to the LRC.
   const ok = lines.length && lines.every((l) => l.t !== null && l.t >= 0 && l.words.every((w) => w.text));
   if (!ok) return null;
   lines.sort((a, b) => a.t - b.t);
   for (const l of lines) {
-    // Mot sans horaire : celui de la ligne.
+    // Word without a time: the line's.
     l.words = l.words.map((w) => ({ text: w.text.trim(), t: w.t === null ? l.t : w.t })).filter((w) => w.text);
     if (!l.words.length) l.words = null;
     if (!l.end) l.end = l.t + 5;
@@ -119,8 +119,8 @@ async function findLyrics({ title, artist, album, duration }) {
   const exact = await getJson(`/get?${p}`);
   if (exact && (exact.syncedLyrics || exact.instrumental)) return toResult(exact);
 
-  // Pas de correspondance exacte (album ou durée différents) : recherche, en
-  // gardant un résultat du même artiste, même titre et durée proche.
+  // No exact match (different album or duration): search, keeping
+  // a result with the same artist, same title and a close duration.
   const list = (await getJson(`/search?${new URLSearchParams({ track_name: t, artist_name: a })}`)) || [];
   const close = (r) => !duration || !r.duration || Math.abs(r.duration - duration) <= 8;
   const hit = list.find(
@@ -129,9 +129,9 @@ async function findLyrics({ title, artist, album, duration }) {
   return toResult(hit);
 }
 
-// options.volatile : la durée du morceau est peut-être périmée (celle du morceau
-// précédent, la timeline arrive après le titre) : un résultat vide n'est alors
-// pas mémorisé, il serait faux pour ce morceau.
+// options.volatile: the track duration may be stale (that of the previous
+// track, the timeline arrives after the title): an empty result is then
+// not remembered, it would be wrong for this track.
 async function lookupLyrics(media, { volatile = false } = {}) {
   const key = `${norm(firstArtist(media.artist))}|${norm(media.title)}|${Math.round((media.duration || 0) / 5)}`;
   if (cache.has(key)) return cache.get(key);
@@ -145,13 +145,13 @@ async function lookupLyrics(media, { volatile = false } = {}) {
     result = await findLyrics(media);
   } catch (e) {
     console.error('Paroles :', e.message);
-    note('paroles', e.message);
-    return { error: true }; // erreur réseau : pas mis en cache, distinct de « pas de paroles »
+    note('lyrics', e.message);
+    return { error: true }; // network error: not cached, distinct from "no lyrics"
   }
   if (volatile && !result) return result;
   if (cache.size > 200) cache.delete(cache.keys().next().value);
   cache.set(key, result);
-  await disk.set('lyrics', key, result); // erreurs gérées (et notées) par le cache
+  await disk.set('lyrics', key, result); // errors handled (and noted) by the cache
   return result;
 }
 

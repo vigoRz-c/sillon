@@ -1,8 +1,8 @@
-// File d'attente « À suivre » (API Spotify, facultative).
+// "Up next" queue (Spotify API, optional).
 //
-// Windows ne donne que le morceau en cours : les suivants viennent de l'API
-// Spotify, une fois le compte connecté dans les paramètres. Interrogée au
-// changement de morceau et toutes les 20 s pendant la lecture.
+// Windows only gives the current track: the next ones come from the Spotify
+// API, once the account is connected in the settings. Asked when the
+// track changes and every 20 s during playback.
 
 const S = require('../app/state');
 const { SpotifyApi } = require('./spotify-api');
@@ -10,10 +10,10 @@ const diagnostic = require('../app/diagnostic');
 const { exeForApp } = require('../audio/app-ids');
 const { fetchImageDataUrl } = require('./text-norm');
 
-// Pochettes de Spotify : i.scdn.co et autres hôtes du CDN, rien d'autre.
+// Spotify covers: i.scdn.co and other CDN hosts, nothing else.
 const IMAGE_HOSTS = /^([a-z0-9-]+\.)*(scdn\.co|spotifycdn\.com)$/i;
 
-const imageCache = new Map(); // URL Spotify -> data URL (la page n'accepte que data:)
+const imageCache = new Map(); // Spotify URL -> data URL (the page only accepts data:)
 async function imageData(url) {
   if (!url) return null;
   if (imageCache.has(url)) return imageCache.get(url);
@@ -23,24 +23,24 @@ async function imageData(url) {
     imageCache.set(url, data);
     return data;
   } catch (e) {
-    diagnostic.note('spotify', `image de la file : ${e.message}`);
+    diagnostic.note('spotify', `queue image: ${e.message}`);
     return null;
   }
 }
 
-// Pause commune aux deux requêtes (player, queue) après un 429 de Spotify.
+// Pause shared by both requests (player, queue) after a Spotify 429.
 let pauseUntil = 0;
 const notePause = (e) => {
   if (e && e.retryAfter) pauseUntil = Date.now() + e.retryAfter * 1000;
 };
 
-// Après des erreurs répétées, on espace les relectures de l'état du lecteur
-// (2 s, 4 s, 8 s... jusqu'à 60 s) au lieu de marteler l'API.
+// After repeated errors, the player state is read again less often
+// (2 s, 4 s, 8 s... up to 60 s) instead of hammering the API.
 let playerFailures = 0;
 let playerRetryAt = 0;
 let playerInflight = null;
 
-// État aléatoire / répétition lu dans l'API (celui de Windows n'est pas fiable).
+// Shuffle / repeat state read from the API (the Windows one is not reliable).
 function refreshPlayer() {
   const spotify = S.spotify;
   if (!spotify || !spotify.canControl()) {
@@ -59,7 +59,7 @@ function refreshPlayer() {
       notePause(e);
       playerFailures++;
       playerRetryAt = Date.now() + Math.min(60000, 2000 * 2 ** (playerFailures - 1));
-      diagnostic.note('spotify', `état du lecteur : ${e.message}`);
+      diagnostic.note('spotify', `player state: ${e.message}`);
       S.playerState = null;
     } finally {
       playerInflight = null;
@@ -72,20 +72,20 @@ function refreshPlayer() {
 const NEXT_REPEAT = { None: 'List', List: 'Track', Track: 'None' };
 const nextRepeat = (mode) => NEXT_REPEAT[mode] || 'List';
 
-// Les commandes aléatoire / répétition sont traitées l'une après l'autre : deux
-// clics rapides = deux bascules, chacune calculée sur l'état à jour.
+// The shuffle / repeat commands are handled one after the other: two
+// quick clicks = two toggles, each computed on the up-to-date state.
 let commandChain = Promise.resolve();
 
 async function spotifyCommand(cmd) {
   const spotify = S.spotify;
   if (!spotify || !spotify.canControl()) {
-    diagnostic.note('spotify', `${cmd} ignoré : compte Spotify non connecté`);
+    diagnostic.note('spotify', `${cmd} ignored: Spotify account not connected`);
     return;
   }
   try {
     const cur = S.playerState || (await spotify.player()) || { shuffle: false, repeat: 'None' };
     if (cmd === 'shuffle' ? cur.shuffleAllowed === false : cur.repeatAllowed === false) {
-      diagnostic.note('spotify', `${cmd} → interdit par Spotify pour le moment`);
+      diagnostic.note('spotify', `${cmd} → forbidden by Spotify for now`);
       refreshPlayer();
       return;
     }
@@ -99,7 +99,7 @@ async function spotifyCommand(cmd) {
     }
     diagnostic.note(
       'spotify',
-      `${cmd} → accepté (aléatoire ${S.playerState.shuffle ? 'oui' : 'non'}, répétition ${S.playerState.repeat})`,
+      `${cmd} → accepted (shuffle ${S.playerState.shuffle ? 'yes' : 'no'}, repeat ${S.playerState.repeat})`,
     );
     S.actions.rebroadcast();
     setTimeout(refreshPlayer, 1500);
@@ -110,15 +110,15 @@ async function spotifyCommand(cmd) {
   }
 }
 
-// Spotify ignore parfois la bascule SMTC (« accepté » mais reste en pause) :
-// on envoie « play » ou « pause » explicitement, selon l'état connu.
+// Spotify sometimes ignores the SMTC toggle ("accepted" but stays paused):
+// we send "play" or "pause" explicitly, depending on the known state.
 function explicitPlayPause(cmd) {
   if (cmd !== 'playpause') return cmd;
   return S.lastMedia && S.lastMedia.status === 'Playing' ? 'pause' : 'play';
 }
 
-// Après un « play » accepté, si Spotify est toujours en pause, on passe par
-// son API (sur l'ordinateur si aucun appareil n'est actif).
+// After an accepted "play", if Spotify is still paused, we go through
+// its API (on the computer if no device is active).
 const PLAY_CHECK_MS = 1500;
 function checkPlayResumed() {
   const spotify = S.spotify;
@@ -130,7 +130,7 @@ function checkPlayResumed() {
       try {
         const device = await spotify.playbackDevice();
         await spotify.play(device && !device.active ? device.id : undefined);
-        diagnostic.note('spotify', `play → toujours en pause après Windows, repris par l'API Spotify`);
+        diagnostic.note('spotify', `play → still paused after Windows, resumed by the Spotify API`);
       } catch (e) {
         diagnostic.note('spotify', `play (API) → ${e.message}`);
         notePause(e);
@@ -139,9 +139,9 @@ function checkPlayResumed() {
     .catch(() => {});
 }
 
-// Toutes les commandes de lecture passent par ici (boutons, plein écran, icône).
-// Lecture, précédent, suivant : Windows. Aléatoire, répétition : API Spotify,
-// car l'app Spotify ignore ces deux commandes venant de Windows.
+// Every playback command goes through here (buttons, full screen, icon).
+// Play, previous, next: Windows. Shuffle, repeat: Spotify API,
+// since the Spotify app ignores these two commands coming from Windows.
 function mediaCommand(cmd) {
   if (cmd !== 'shuffle' && cmd !== 'repeat') {
     const sent = explicitPlayPause(cmd);
@@ -154,13 +154,13 @@ function mediaCommand(cmd) {
 }
 
 function sendQueue(q) {
-  // Rien à renvoyer si la file n'a pas changé (les images sont lourdes).
+  // Nothing to send if the queue has not changed (the images are heavy).
   if (JSON.stringify(q) === JSON.stringify(S.lastQueue)) return;
   S.lastQueue = q;
   S.send([S.widget, S.editorWin], 'queue', q);
 }
 
-// Identifie le morceau en cours : un résultat obtenu pour un autre est périmé.
+// Identifies the current track: a result obtained for another one is stale.
 const currentTrack = () => {
   const m = S.lastMedia || {};
   return m.active ? `${m.app}|${m.title}|${m.artist}|${m.album}` : '';
@@ -172,7 +172,7 @@ async function refreshQueue() {
   const spotify = S.spotify;
   if (!spotify || Date.now() < pauseUntil) return;
   if (busy) {
-    dirty = true; // une demande est arrivée pendant la requête : on relance à la fin
+    dirty = true; // a request arrived during the query: start again at the end
     return;
   }
   if (!spotify.status().connected) {
@@ -185,11 +185,11 @@ async function refreshQueue() {
   refreshPlayer();
   try {
     const items = await spotify.queue(4);
-    // null : jeton absent ou rafraîchissement en échec, pas une file vide. On
-    // garde la file affichée et l'erreur (l'effacer cacherait le problème).
+    // null: token missing or refresh failed, not an empty queue. We
+    // keep the queue shown and the error (erasing it would hide the problem).
     if (!items) return;
     const withImages = await Promise.all(items.map(async (it) => ({ ...it, image: await imageData(it.image) })));
-    // Le morceau a changé, ou la session est fermée, pendant la requête : résultat périmé.
+    // The track changed, or the session closed, during the query: stale result.
     if (S.spotify === spotify && spotify.status().connected && currentTrack() === track) {
       sendQueue({ items: withImages, connected: true });
       if (spotify.status().error) spotify.clearError();
@@ -198,7 +198,7 @@ async function refreshQueue() {
     }
   } catch (e) {
     notePause(e);
-    diagnostic.note('spotify', `file d'attente : ${e.message}`);
+    diagnostic.note('spotify', `queue: ${e.message}`);
     spotify.setError(e.message);
   } finally {
     busy = false;
@@ -220,16 +220,16 @@ function startSpotify() {
     if (st.error && st.error !== lastError) diagnostic.note('spotify', st.error);
     lastError = st.error || '';
     S.send([S.settingsWin], 'spotify-status', st);
-    S.actions.rebroadcast(); // boutons aléatoire / répétition affichés ou non
+    S.actions.rebroadcast(); // shuffle / repeat buttons shown or not
   };
   spotify.on('status', pushStatus);
   spotify.on('connected', () => {
     pushStatus(spotify.status());
     refreshQueue();
   });
-  // Seulement si une page affiche la file (scène éveillée ou éditeur) : scène
-  // masquée, endormie ou cachée par un jeu, rien à lire. Au réveil, main.js
-  // (applyRest) relit la file tout de suite.
+  // Only if a page shows the queue (scene awake or editor): scene
+  // hidden, asleep or covered by a game, nothing to read. On waking up, main.js
+  // (applyRest) reads the queue again right away.
   setInterval(() => {
     const shown = S.sceneActive() || S.alive(S.editorWin);
     if (shown && S.lastMedia.active && S.lastMedia.status === 'Playing') refreshQueue();
@@ -240,7 +240,7 @@ function startSpotify() {
   });
 }
 
-// Remise à zéro de l'état interne (tests).
+// Reset of the internal state (tests).
 function resetForTests() {
   pauseUntil = 0;
   playerFailures = 0;

@@ -1,8 +1,8 @@
 // @ts-check
-// Normalisation des titres et des noms d'artistes, partagée par la recherche
-// de pochettes (Deezer) et de paroles (LRCLIB).
+// Normalization of titles and artist names, shared by the search
+// for covers (Deezer) and lyrics (LRCLIB).
 
-// Sans accents, en minuscules, lettres et chiffres séparés par une espace.
+// Without accents, lowercase, letters and digits separated by a space.
 function strict(s) {
   return String(s || '')
     .normalize('NFD')
@@ -13,8 +13,8 @@ function strict(s) {
 }
 
 // "Bohemian Rhapsody - Remastered 2011" -> "Bohemian Rhapsody".
-// Seules les parenthèses qui suivent du texte sont retirées : « (Don't Fear)
-// The Reaper » garde son début. Si tout disparaissait, on rend le texte d'origine.
+// Only the parentheses that follow some text are removed: "(Don't Fear)
+// The Reaper" keeps its start. If everything disappeared, the original text is returned.
 function cleanTitle(s) {
   const src = String(s || '').trim();
   const out = src
@@ -27,17 +27,17 @@ function cleanTitle(s) {
 // "Break Stuff (Remastered 2021) - Live" -> "break stuff"
 const norm = (s) => strict(cleanTitle(s));
 
-// Windows donne parfois "Artiste 1, Artiste 2" : on garde le premier.
+// Windows sometimes gives "Artist 1, Artist 2": the first one is kept.
 const firstArtist = (s) =>
   String(s || '')
     .split(/,|&| feat\.? | ft\.? /i)[0]
     .trim();
 
-// Premier artiste, normalisé (pour comparer).
+// First artist, normalized (for comparing).
 const artistKey = (s) => norm(firstArtist(s));
 
-// Note dans le diagnostic si disponible (le module dépend d'Electron : absent
-// dans les tests, où l'on n'a pas besoin du journal).
+// Note in the diagnostic if available (the module depends on Electron: missing
+// in the tests, where the log is not needed).
 let diag;
 function note(kind, text) {
   try {
@@ -48,9 +48,9 @@ function note(kind, text) {
   }
 }
 
-// Télécharge une image distante en data URL (la page n'accepte que data:).
-// Garde-fous : HTTPS, hôte autorisé (hosts : RegExp sur le nom d'hôte), type
-// image/jpeg|png|webp, 2 Mo au plus. Lève une erreur sinon.
+// Downloads a remote image as a data URL (the page only accepts data:).
+// Safeguards: HTTPS, allowed host (hosts: RegExp on the host name), type
+// image/jpeg|png|webp, 2 MB at most. Throws an error otherwise.
 const IMAGE_MAX = 2 * 1024 * 1024;
 const IMAGE_TYPE = /^image\/(jpeg|png|webp)\s*(;|$)/i;
 
@@ -59,21 +59,21 @@ function checkImageUrl(url, hosts) {
   try {
     u = new URL(url);
   } catch {
-    throw new Error("adresse d'image invalide");
+    throw new Error('invalid image address');
   }
-  if (u.protocol !== 'https:') throw new Error('image refusée : HTTPS obligatoire');
-  if (!hosts.test(u.hostname)) throw new Error(`image refusée : hôte non autorisé (${u.hostname})`);
+  if (u.protocol !== 'https:') throw new Error('image refused: HTTPS required');
+  if (!hosts.test(u.hostname)) throw new Error(`image refused: host not allowed (${u.hostname})`);
   return u;
 }
 
-// Lit le corps d'une réponse en s'arrêtant dès que `max` octets sont dépassés
-// (un en-tête content-length absent ou mensonger ne suffit pas à protéger la
-// mémoire).
-async function readCapped(res, max, tooBig = 'réponse trop volumineuse') {
+// Reads the body of a reply, stopping as soon as `max` bytes are exceeded
+// (a missing or lying content-length header is not enough to protect the
+// memory).
+async function readCapped(res, max, tooBig = 'reply too large') {
   const declared = Number(res.headers && res.headers.get && res.headers.get('content-length'));
   if (declared > max) throw new Error(tooBig);
   if (!res.body || typeof res.body.getReader !== 'function') {
-    // Réponse sans flux lisible (corps vide, réponse simulée) : lecture directe.
+    // Reply without a readable stream (empty body, simulated reply): direct read.
     const buf =
       typeof res.arrayBuffer === 'function'
         ? Buffer.from(await res.arrayBuffer())
@@ -97,8 +97,8 @@ async function readCapped(res, max, tooBig = 'réponse trop volumineuse') {
   return Buffer.concat(parts, size);
 }
 
-// JSON plafonné. Une réponse qui n'expose que json() (réponse simulée dans
-// les tests) est lue telle quelle.
+// Capped JSON. A reply that only exposes json() (simulated reply in
+// the tests) is read as is.
 async function readJsonCapped(res, max, tooBig) {
   const readable = (res.body && typeof res.body.getReader === 'function') || res.arrayBuffer || res.text;
   if (!readable && typeof res.json === 'function') return res.json();
@@ -111,18 +111,18 @@ async function fetchImageDataUrl(url, hosts, timeout = 8000) {
   let u = checkImageUrl(url, hosts);
   const signal = AbortSignal.timeout(timeout);
   let res;
-  // Redirections suivies à la main : chaque adresse est vérifiée AVANT la requête.
+  // Redirects followed by hand: each address is checked BEFORE the request.
   for (let hop = 0; ; hop++) {
     res = await fetch(u.href, { signal, redirect: 'manual' });
     if (res.status < 300 || res.status >= 400) break;
     const loc = res.headers && res.headers.get && res.headers.get('location');
-    if (!loc || hop >= MAX_REDIRECTS) throw new Error(`image ${res.status} : redirection refusée`);
+    if (!loc || hop >= MAX_REDIRECTS) throw new Error(`image ${res.status}: redirect refused`);
     u = checkImageUrl(new URL(loc, u).href, hosts);
   }
   if (!res.ok) throw new Error(`image ${res.status}`);
   const type = (res.headers && res.headers.get('content-type')) || '';
-  if (!IMAGE_TYPE.test(type)) throw new Error(`image refusée : type ${type || 'inconnu'}`);
-  const buf = await readCapped(res, IMAGE_MAX, 'image refusée : trop grosse');
+  if (!IMAGE_TYPE.test(type)) throw new Error(`image refused: type ${type || 'unknown'}`);
+  const buf = await readCapped(res, IMAGE_MAX, 'image refused: too big');
   return `data:${type.split(';')[0].trim().toLowerCase()};base64,${buf.toString('base64')}`;
 }
 

@@ -1,12 +1,12 @@
-// Assistant système de Sillon (sillon-helper.exe, écrit en Rust).
+// Sillon's system helper (sillon-helper.exe, written in Rust).
 //
-// Petit programme natif qui lit le morceau en cours (contrôles média de
-// Windows), règle le volume du lecteur et capture son seul son. Il remplace
-// les anciens scripts PowerShell : environ 5 Mo de mémoire au lieu de 70 à
-// 90 Mo chacun, et démarrage immédiat. Sources : native/sillon-helper.
+// Small native program that reads the current track (Windows media
+// controls), sets the player's volume and captures its sound alone. It replaces
+// the old PowerShell scripts: about 5 MB of memory instead of 70 to
+// 90 MB each, and immediate startup. Sources: native/sillon-helper.
 //
-// En build : copié dans resources/ (voir extraResources de package.json).
-// En développement : compilé par « npm run build:helper ».
+// In a build: copied into resources/ (see extraResources in package.json).
+// In development: built by "npm run build:helper".
 
 const path = require('path');
 const fs = require('fs');

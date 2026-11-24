@@ -1,8 +1,8 @@
-// Correspondance entre la session média de Windows et le programme à écouter.
+// Mapping between the Windows media session and the program to listen to.
 //
-// Module sans dépendance à Electron : la logique est testée à part.
+// Module with no dependency on Electron: the logic is tested separately.
 
-// Session média de Windows (AppUserModelId) -> programme à écouter.
+// Windows media session (AppUserModelId) -> program to listen to.
 const KNOWN = [
   [/spotify/i, 'Spotify.exe'],
   [/msedge/i, 'msedge.exe'],
@@ -20,7 +20,7 @@ const KNOWN = [
 function exeForApp(appId) {
   if (!appId || typeof appId !== 'string') return null;
   for (const [re, exe] of KNOWN) if (re.test(appId)) return exe;
-  const m = /([\w.\- ]+\.exe)$/i.exec(appId); // certaines applis donnent leur .exe
+  const m = /([\w.\- ]+\.exe)$/i.exec(appId); // some apps give their .exe
   return m ? m[1] : null;
 }
 

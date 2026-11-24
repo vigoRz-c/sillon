@@ -317,6 +317,18 @@
     'window.editor': 'Customize the scene · Sillon',
     'window.place': 'Place the strip · Sillon',
     'window.settings': 'Settings · Sillon',
+    'spotify.notErased': 'Spotify tokens not erased: {error}',
+    'spotify.refused': 'Spotify refused the sign-in: {error}{hint}',
+    'spotify.refusedHint': ' (Client ID or redirect address not registered?)',
+    'spotify.notOnBuiltin':
+      'Your Spotify account is not allowed on the app built into Sillon (Spotify limits it to 5 accounts, added by its owner). Ask them to add you, or use your own Client ID below.',
+    'spotify.forbidden':
+      'Spotify refuses access: the owner of your app must have Premium, and your account must be added in the app\'s "User Management".',
+    'spotify.reason': ' (Spotify: {reason})',
+    'spotify.tooMany': 'Spotify: too many requests, new attempt in {wait} s',
+    'spotify.notConnectedError': 'Spotify not connected',
+    'spotify.notNow': 'Spotify does not allow this change for now ({why})',
+    'spotify.noPlayer': 'No active Spotify player (start playing in Spotify).',
   };
 
   if (typeof module === 'object' && module.exports) module.exports = en;

@@ -395,6 +395,18 @@
     'window.editor': 'Personnaliser la scène · Sillon',
     'window.place': 'Placer le bandeau · Sillon',
     'window.settings': 'Paramètres · Sillon',
+    'spotify.notErased': 'Jetons Spotify non effacés : {error}',
+    'spotify.refused': 'Spotify a refusé la connexion : {error}{hint}',
+    'spotify.refusedHint': ' (Client ID ou adresse de retour non enregistrée ?)',
+    'spotify.notOnBuiltin':
+      "Ton compte Spotify n'est pas autorisé sur l'app intégrée à Sillon (Spotify la limite à 5 comptes, ajoutés par son propriétaire). Demande-lui de t'ajouter, ou utilise ton propre Client ID ci-dessous.",
+    'spotify.forbidden':
+      "Spotify refuse l'accès : le propriétaire de ton app doit avoir Premium, et ton compte doit être ajouté dans « User Management » de l'app.",
+    'spotify.reason': ' (Spotify : {reason})',
+    'spotify.tooMany': 'Spotify : trop de requêtes, nouvel essai dans {wait} s',
+    'spotify.notConnectedError': 'Spotify non connecté',
+    'spotify.notNow': "Spotify n'autorise pas ce changement pour le moment ({why})",
+    'spotify.noPlayer': 'Aucun lecteur Spotify actif (lance la lecture dans Spotify).',
   };
 
   if (typeof module === 'object' && module.exports) module.exports = fr;

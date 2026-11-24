@@ -160,9 +160,9 @@ test('toDataUrl : refuse HTTP, hôte inconnu, mauvais type, image trop grosse', 
   const m = mock.method(global, 'fetch', async () => imgRes('image/png', [1]));
   try {
     await assert.rejects(toDataUrl('http://cdn-images.dzcdn.net/a.jpg'), /HTTPS/);
-    await assert.rejects(toDataUrl('https://evil.example.com/a.jpg'), /hôte/);
-    await assert.rejects(toDataUrl('https://dzcdn.net.evil.com/a.jpg'), /hôte/);
-    await assert.rejects(toDataUrl('pas une url'), /invalide/);
+    await assert.rejects(toDataUrl('https://evil.example.com/a.jpg'), /host/);
+    await assert.rejects(toDataUrl('https://dzcdn.net.evil.com/a.jpg'), /host/);
+    await assert.rejects(toDataUrl('pas une url'), /invalid/);
     assert.equal(m.mock.callCount(), 0);
     const ok = await toDataUrl('https://e-cdns-images.dzcdn.net/a.png');
     assert.equal(ok, 'data:image/png;base64,AQ==');
@@ -173,11 +173,11 @@ test('toDataUrl : refuse HTTP, hôte inconnu, mauvais type, image trop grosse', 
     t.mock.restore();
 
     const big = mock.method(global, 'fetch', async () => imgRes('image/jpeg', [1], { 'content-length': '3000000' }));
-    await assert.rejects(toDataUrl('https://cdn-images.dzcdn.net/a.jpg'), /grosse/);
+    await assert.rejects(toDataUrl('https://cdn-images.dzcdn.net/a.jpg'), /too big/);
     big.mock.restore();
 
     const real = mock.method(global, 'fetch', async () => imgRes('image/webp', new Array(2 * 1024 * 1024 + 1).fill(0)));
-    await assert.rejects(toDataUrl('https://cdn-images.dzcdn.net/a.jpg'), /grosse/);
+    await assert.rejects(toDataUrl('https://cdn-images.dzcdn.net/a.jpg'), /too big/);
     real.mock.restore();
   } finally {
     mock.restoreAll();

@@ -1,17 +1,17 @@
-// Son analysé : seulement le lecteur suivi, ou tout le PC.
+// Analyzed sound: only the followed player, or the whole PC.
 //
-// Par défaut, Sillon n'écoute que l'application qui joue la musique (Spotify,
-// le navigateur pour YouTube…) grâce à la capture d'un seul processus de
-// Windows (assistant natif, voir helper.js et native/sillon-helper). Le chat vocal (Discord, TeamSpeak), les
-// notifications et les jeux ne font donc plus bouger le visualiseur.
-// Si Windows ne le permet pas, ou si l'application est inconnue, on revient à
-// la capture de tout le son du PC (getDisplayMedia + loopback).
+// By default, Sillon only listens to the application that plays the music (Spotify,
+// the browser for YouTube…) thanks to Windows' capture of a single
+// process (native helper, see helper.js and native/sillon-helper). Voice chat (Discord, TeamSpeak),
+// notifications and games therefore no longer move the visualizer.
+// If Windows does not allow it, or if the application is unknown, we fall back to
+// capturing all the PC's sound (getDisplayMedia + loopback).
 //
-// Économie au repos : l'assistant ne tourne que si une fenêtre a besoin du son
-// (visible, éveillée, sans jeu en plein écran) ET que le lecteur ciblé est
-// annoncé actif par Windows. Le son part vers les pages par paquets d'environ
-// 30 ms (canal « audio-pcm »), et chaque page est prévenue du mode par
-// « audio:start » ('system' ou 'app').
+// Saving at rest: the helper only runs if a window needs the sound
+// (visible, awake, no full-screen game) AND the targeted player is
+// announced active by Windows. The sound goes to the pages in packets of about
+// 30 ms ("audio-pcm" channel), and each page is told the mode with
+// "audio:start" ('system' or 'app').
 
 const { spawn } = require('child_process');
 const S = require('../app/state');
@@ -21,13 +21,13 @@ const { exeForApp } = require('./app-ids');
 const { retryDelay, createPcmAssembler, appendCapped } = require('./audio-utils');
 const { EXIT } = require('./helper-protocol');
 
-const FLUSH_MS = 30; // regroupement des envois de son (le worklet tolère 80 ms)
-const MAX_STDERR = 4096; // on ne garde que la fin des messages d'erreur de l'assistant
-const MAX_FAILURES = 5; // échecs de suite avant de se rabattre sur tout le son du PC
-const MAX_UNSUPPORTED = 3; // codes 2 (capture impossible) de suite avant de conclure que Windows ne sait pas
-const MAX_ABSENT = 5; // codes 3/4 de suite alors que le lecteur est annoncé actif (exe annoncé ≠ processus réel)
+const FLUSH_MS = 30; // grouping of the sound sends (the worklet tolerates 80 ms)
+const MAX_STDERR = 4096; // only the end of the helper's error messages is kept
+const MAX_FAILURES = 5; // failures in a row before falling back to all the PC's sound
+const MAX_UNSUPPORTED = 3; // code 2 (capture impossible) in a row before concluding that Windows cannot
+const MAX_ABSENT = 5; // codes 3/4 in a row while the player is announced active (announced exe ≠ real process)
 
-// État exposé au diagnostic.
+// State exposed to the diagnostic.
 const state = {
   mode: 'system',
   exe: null,
@@ -39,11 +39,11 @@ const state = {
 };
 let proc = null;
 let restartTimer = null;
-let fallback = false; // trop d'échecs : tout le son du PC jusqu'au prochain changement de lecteur
-const listeners = new Set(); // fenêtres qui reçoivent le son
+let fallback = false; // too many failures: all the PC's sound until the next player change
+const listeners = new Set(); // windows that receive the sound
 
-// Relance la capture après `delay` ms, seulement si le lecteur est toujours
-// annoncé actif et qu'une fenêtre écoute (sinon on attend un message média).
+// Restarts the capture after `delay` ms, only if the player is still
+// announced active and a window is listening (otherwise wait for a media message).
 function scheduleRetry(exe, delay) {
   if (!targetActive(exe) || !activeListeners().length) return;
   restartTimer = setTimeout(() => {
@@ -52,20 +52,20 @@ function scheduleRetry(exe, delay) {
   }, delay);
 }
 
-// Tous les compteurs d'échecs repartent de zéro.
+// Every failure counter starts again from zero.
 function resetCounters() {
   state.failures = 0;
   state.unsupportedCodes = 0;
   state.absent = 0;
 }
 
-// ---------- Fenêtres concernées ----------
+// ---------- Windows concerned ----------
 
 function wanted() {
   return S.settings.get('audioSource') !== 'system';
 }
 
-// Une fenêtre a-t-elle besoin du son ? La scène : visible, éveillée, sans jeu.
+// Does a window need the sound? The scene: visible, awake, no game.
 function windowActive(win) {
   if (!S.alive(win)) return false;
   if (win === S.widget) return S.sceneActive();
@@ -76,7 +76,7 @@ function activeListeners() {
   return [...listeners].filter(windowActive);
 }
 
-// ---------- Envoi du son, par paquets alignés ----------
+// ---------- Sending the sound, in aligned packets ----------
 
 const assembler = createPcmAssembler();
 let pending = [];
@@ -91,9 +91,9 @@ function flushPcm() {
 }
 
 function onPcm(data) {
-  // L'assistant fonctionne : tous les compteurs d'échecs repartent de zéro.
+  // The helper works: every failure counter starts again from zero.
   if (state.failures || state.unsupportedCodes || state.absent) resetCounters();
-  const aligned = assembler.push(data); // jamais d'échantillon 16 bits coupé en deux
+  const aligned = assembler.push(data); // never a 16-bit sample cut in two
   if (!aligned.length) return;
   pending.push(aligned);
   if (!flushTimer) flushTimer = setTimeout(flushPcm, FLUSH_MS);
@@ -119,7 +119,7 @@ function stopHelper() {
   resetPcm();
 }
 
-// Le lecteur ciblé est-il annoncé actif par Windows ?
+// Is the targeted player announced active by Windows?
 function targetActive(exe) {
   const m = S.lastMedia;
   return !!(m && m.active && exeForApp(m.app) === exe);
@@ -133,12 +133,12 @@ function startHelper(exe) {
   const p = spawn(helperExe(), ['capture', exe], { windowsHide: true });
   proc = p;
   let err = '';
-  // Assistant absent ou bloqué (antivirus…) : on écoute tout le PC.
+  // Helper missing or blocked (antivirus…): listen to the whole PC.
   p.on('error', (e) => {
     if (proc !== p) return;
     proc = null;
     state.unsupported = true;
-    diagnostic.note('son', `assistant introuvable (${e.message}) : tout le son du PC`);
+    diagnostic.note('sound', `helper not found (${e.message}): all the PC's sound`);
     useSystem(`assistant introuvable : ${e.message}`);
   });
   p.stdout.on('data', onPcm);
@@ -149,15 +149,15 @@ function startHelper(exe) {
     if (proc !== p) return;
     proc = null;
     resetPcm();
-    const msg = (/ERR \d+ (.*)/.exec(err) || [])[1] || `arrêt (code ${code})`;
+    const msg = (/ERR \d+ (.*)/.exec(err) || [])[1] || `stopped (code ${code})`;
     if (code === EXIT.UNSUPPORTED) {
-      // Un seul code 2 peut être passager (lecteur en train de démarrer) : on
-      // n'abandonne la capture par application qu'au 3e de suite.
+      // A single code 2 may be passing (player starting up): per-application
+      // capture is only given up at the 3rd in a row.
       state.unsupportedCodes += 1;
       if (state.unsupportedCodes >= MAX_UNSUPPORTED) {
-        // Windows ne sait pas faire : on écoute tout le PC.
+        // Windows cannot do it: listen to the whole PC.
         state.unsupported = true;
-        diagnostic.note('son', `capture par application impossible (${msg}) : tout le son du PC`);
+        diagnostic.note('sound', `per-application capture impossible (${msg}): all the PC's sound`);
         useSystem(`capture par application impossible : ${msg}`);
         return;
       }
@@ -171,42 +171,42 @@ function startHelper(exe) {
     }
     state.reason = msg;
     if (code === EXIT.DEVICE_LOST) {
-      // Périphérique audio perdu (sortie changée) : on relance vite, sans
-      // compter un échec ni abandonner la capture par application.
-      diagnostic.note('son', `capture interrompue (${msg}) : nouvel essai`);
+      // Audio device lost (output changed): restart quickly, without
+      // counting a failure or giving up per-application capture.
+      diagnostic.note('sound', `capture interrompue (${msg}) : nouvel essai`);
       scheduleRetry(exe, 1000);
       return;
     }
-    // Application fermée ou pas encore lancée : cas normaux, qui ne
-    // comptent pas comme des échecs. Le reste est noté et compté.
+    // Application closed or not started yet: normal cases, which do not
+    // count as failures. The rest is noted and counted.
     const normal = code === EXIT.CLOSED || code === EXIT.NOT_FOUND;
     if (!normal) {
-      diagnostic.note('son', `assistant de capture arrêté (code ${code}) : ${msg}`);
+      diagnostic.note('sound', `capture helper stopped (code ${code}): ${msg}`);
       state.failures += 1;
     } else if (targetActive(exe)) {
-      // Windows annonce le lecteur actif mais son processus est introuvable
-      // (l'exécutable annoncé n'est pas le vrai) : la boucle ne s'arrêterait jamais.
+      // Windows announces the player as active but its process cannot be found
+      // (the announced executable is not the real one): the loop would never stop.
       state.absent += 1;
       if (state.absent >= MAX_ABSENT) {
         fallback = true;
-        diagnostic.note('son', `lecteur annoncé actif mais introuvable (${msg}) : tout le son du PC`);
-        useSystem(`lecteur introuvable pour la capture (${exe}) : ${msg}`);
+        diagnostic.note('sound', `player announced active but not found (${msg}): all the PC's sound`);
+        useSystem(`player not found for the capture (${exe}): ${msg}`);
         return;
       }
     }
     if (state.failures >= MAX_FAILURES) {
       fallback = true;
-      diagnostic.note('son', `${state.failures} échecs de suite (${msg}) : tout le son du PC`);
-      useSystem(`capture par application en échec : ${msg}`);
+      diagnostic.note('sound', `${state.failures} failures in a row (${msg}): all the PC's sound`);
+      useSystem(`per-application capture failing: ${msg}`);
       return;
     }
-    // On ne relance que si le lecteur est toujours annoncé actif, avec un
-    // délai croissant. Sinon on attend qu'il réapparaisse (voir onMedia).
+    // Restart only if the player is still announced active, with a
+    // growing delay. Otherwise wait for it to come back (see onMedia).
     scheduleRetry(exe, retryDelay(state.failures));
   });
 }
 
-// Bascule toutes les fenêtres sur le son de tout le PC.
+// Switches every window to the whole PC's sound.
 function useSystem(reason) {
   stopHelper();
   state.mode = 'system';
@@ -214,36 +214,36 @@ function useSystem(reason) {
   for (const w of listeners) startIn(w);
 }
 
-// Lance ou arrête l'assistant selon le besoin (mode « application »).
+// Starts or stops the helper as needed ("application" mode).
 function ensureHelper(exe) {
   if (!activeListeners().length) {
-    stopHelper(); // personne n'écoute : on ne capture rien
+    stopHelper(); // nobody is listening: capture nothing
     return;
   }
   if (!targetActive(exe)) {
-    stopHelper(); // lecteur pas (encore) annoncé : on attend le prochain message média
-    state.reason = 'lecteur pas encore actif';
+    stopHelper(); // player not announced (yet): wait for the next media message
+    state.reason = 'player not active yet';
     return;
   }
-  if (restartTimer && state.exe === exe) return; // délai avant nouvel essai en cours
+  if (restartTimer && state.exe === exe) return; // delay before a new attempt in progress
   if (!proc || state.exe !== exe) startHelper(exe);
 }
 
-// Choisit la source selon le réglage et la session média en cours.
+// Chooses the source from the setting and the current media session.
 function refresh() {
   const exe =
     exeForApp(S.lastMedia && S.lastMedia.app) || (S.settings.get('preferApp') === 'spotify' ? 'Spotify.exe' : null);
   if (!wanted() || state.unsupported || fallback) {
     if (state.mode !== 'system') {
-      useSystem(wanted() ? state.reason : 'réglage « tout le son du PC »');
+      useSystem(wanted() ? state.reason : 'setting "all the PC\'s sound"');
     } else if (proc) {
       stopHelper();
     }
     return;
   }
   if (!exe) {
-    if (state.mode !== 'system') useSystem('lecteur inconnu');
-    else state.reason = 'lecteur inconnu';
+    if (state.mode !== 'system') useSystem('unknown player');
+    else state.reason = 'unknown player';
     return;
   }
   const switching = state.mode !== 'app';
@@ -253,19 +253,19 @@ function refresh() {
   ensureHelper(exe);
 }
 
-// Prévient une page du mode à démarrer (canal « audio:start »).
+// Tells a page which mode to start ("audio:start" channel).
 function startIn(win) {
   if (!S.alive(win)) return;
   const mode = state.mode === 'app' ? 'app' : 'system';
-  // La capture « tout le son du PC » (getDisplayMedia) exige un geste de
-  // l'utilisateur : un script marqué comme tel l'autorise quelques secondes.
+  // Capturing "all the PC's sound" (getDisplayMedia) requires a user
+  // gesture: a script marked as such allows it for a few seconds.
   win.webContents
     .executeJavaScript('0', true)
     .catch(() => {})
     .finally(() => S.send([win], 'audio:start', mode));
 }
 
-// ---------- Fenêtres ----------
+// ---------- Windows ----------
 
 const watched = new WeakSet();
 function startAudio(win) {
@@ -277,23 +277,23 @@ function startAudio(win) {
       if (!listeners.size) stopHelper();
       else onActivityChanged();
     });
-    // Réduite / restaurée : elle cesse ou recommence d'avoir besoin du son.
+    // Minimized / restored: it stops or starts again needing the sound.
     for (const ev of ['minimize', 'restore', 'show', 'hide']) win.on(ev, onActivityChanged);
   }
-  // Choisir la source ; si elle change, refresh() démarre déjà toutes les
-  // fenêtres, celle-ci comprise.
+  // Choose the source; if it changes, refresh() already starts every
+  // window, this one included.
   const before = state.mode;
   refresh();
   if (state.mode === before) startIn(win);
 }
 
-// Une fenêtre est devenue active ou inactive (scène masquée, endormie, jeu…).
+// A window became active or inactive (scene hidden, asleep, game…).
 function onActivityChanged() {
   if (!listeners.size || !S.settings) return;
   refresh();
 }
 
-// Le lecteur a changé (Spotify -> navigateur…), ou démarre / s'arrête.
+// The player changed (Spotify -> browser…), or starts / stops.
 let lastKey = null;
 let lastApp = '';
 function onMedia(m) {
@@ -301,12 +301,12 @@ function onMedia(m) {
   const key = `${!!m.active}|${m.app || ''}`;
   if (key === lastKey) return;
   lastKey = key;
-  // Lecteur différent : Windows peut savoir capturer celui-ci même s'il n'a pas su pour l'autre.
+  // Different player: Windows may be able to capture this one even if it could not for the other.
   if ((m.app || '') !== lastApp) {
     lastApp = m.app || '';
     state.unsupported = false;
   }
-  // Nouveau lecteur ou lecteur revenu : on repart sans attendre les délais.
+  // New player or player back: start again without waiting for the delays.
   resetCounters();
   fallback = false;
   clearTimeout(restartTimer);
@@ -320,7 +320,7 @@ function onSettingChanged() {
   if (listeners.size) refresh();
 }
 
-// Arrêt de l'application : on ne laisse pas l'assistant derrière nous.
+// App exit: do not leave the helper behind.
 function stop() {
   stopHelper();
 }

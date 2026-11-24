@@ -1,18 +1,18 @@
 // @ts-check
-// Connexion à l'API Web de Spotify : file d'attente (« À suivre »), et lecture
-// aléatoire / répétition (Spotify ignore ces deux commandes venant de Windows).
+// Connection to the Spotify Web API: queue ("Up next"), and shuffle /
+// repeat (Spotify ignores these two commands coming from Windows).
 //
-// Autorisation "Authorization Code + PKCE" : pas de secret dans l'app, et le
-// Client ID n'est pas secret non plus (il identifie l'app, pas l'utilisateur).
+// "Authorization Code + PKCE" authorization: no secret in the app, and the
+// Client ID is not secret either (it identifies the app, not the user).
 //
-// Deux possibilités :
-//  - l'app Spotify intégrée à Sillon (BUILTIN_CLIENT_ID) : il suffit de se
-//    connecter. Mais en mode développement, Spotify la limite à 5 comptes, que
-//    son propriétaire ajoute un par un dans son tableau de bord ;
-//  - sa propre app (developer.spotify.com, propriétaire Premium depuis février
-//    2026), avec l'adresse de retour REDIRECT_URI ci-dessous.
-// La connexion se fait dans le navigateur ; les jetons restent sur ce PC,
-// chiffrés par Windows (safeStorage) quand c'est possible.
+// Two options:
+//  - the Spotify app built into Sillon (BUILTIN_CLIENT_ID): signing in is
+//    enough. But in development mode, Spotify limits it to 5 accounts, which
+//    its owner adds one by one in their dashboard;
+//  - your own app (developer.spotify.com, Premium owner since February
+//    2026), with the redirect address REDIRECT_URI below.
+// Sign-in happens in the browser; the tokens stay on this PC,
+// encrypted by Windows (safeStorage) when possible.
 
 const { app, shell, safeStorage } = require('electron');
 const { EventEmitter } = require('events');
@@ -23,7 +23,7 @@ const path = require('path');
 const { note } = require('./text-norm');
 const { t } = require('../app/i18n');
 
-// App Spotify « Sillon » (mode développement : comptes autorisés uniquement).
+// "Sillon" Spotify app (development mode: allowed accounts only).
 const BUILTIN_CLIENT_ID = '2205461c49cc4912a8e5f913ebc36c6d';
 
 const PORT = 43821;
@@ -47,10 +47,10 @@ class SpotifyApi extends EventEmitter {
     this.tokens = null;
     this.server = null;
     this.lastError = '';
-    this.persistWarning = ''; // jetons non mémorisés (chiffrement indisponible, écriture impossible)
-    this.session = 0; // incrémenté à chaque déconnexion : une écriture en cours ne doit pas la défaire
-    this.refreshing = null; // rafraîchissement du jeton en cours, partagé par les appels concurrents
-    // Lecture asynchrone des jetons (API de chiffrement d'Electron 45+).
+    this.persistWarning = ''; // tokens not remembered (encryption unavailable, could not write)
+    this.session = 0; // incremented on each sign-out: a write in progress must not undo it
+    this.refreshing = null; // token refresh in progress, shared by concurrent calls
+    // Asynchronous reading of the tokens (Electron 45+ encryption API).
     this.ready = this.load()
       .then((t) => {
         if (t && !this.tokens) this.tokens = t;
@@ -65,13 +65,13 @@ class SpotifyApi extends EventEmitter {
     return null;
   }
 
-  // ----- Jetons sur disque (chiffrés par Windows quand c'est possible) -----
+  // ----- Tokens on disk (encrypted by Windows when possible) -----
   async load() {
     let raw;
     try {
       raw = fs.readFileSync(this.file);
     } catch (e) {
-      if (e.code === 'ENOENT') return null; // jamais connecté : normal
+      if (e.code === 'ENOENT') return null; // never connected: normal
       return this.loadFailed(e);
     }
     try {
@@ -79,10 +79,10 @@ class SpotifyApi extends EventEmitter {
         try {
           const { result, shouldReEncrypt } = await safeStorage.decryptStringAsync(raw);
           const tokens = JSON.parse(result);
-          if (shouldReEncrypt) await this.save(tokens); // clé renouvelée par Windows
+          if (shouldReEncrypt) await this.save(tokens); // key renewed by Windows
           return tokens;
         } catch (e) {
-          // Fichier en clair d'une ancienne version : relu, puis chiffré.
+          // Plain-text file from an old version: read, then encrypted.
           let legacy = null;
           try {
             legacy = JSON.parse(raw.toString('utf8'));
@@ -100,9 +100,9 @@ class SpotifyApi extends EventEmitter {
     }
   }
 
-  // Persiste d'abord, puis garde en mémoire. Sans chiffrement Windows, rien
-  // n'est écrit en clair : la connexion vaut pour cette session seulement.
-  // Renvoie false si une déconnexion a eu lieu entre-temps (rien n'est écrit).
+  // Persists first, then keeps in memory. Without Windows encryption, nothing
+  // is written in plain text: the sign-in only lasts for this session.
+  // Returns false if a sign-out happened in the meantime (nothing is written).
   async save(tokens) {
     const session = this.session;
     const json = JSON.stringify(tokens);
@@ -121,7 +121,7 @@ class SpotifyApi extends EventEmitter {
       }
     } catch (e) {
       console.error('Jetons Spotify :', e.message);
-      note('spotify', `jetons non enregistrés : ${e.message}`);
+      note('spotify', `tokens not saved: ${e.message}`);
       this.persistWarning = t('spotify.notSaved', { error: e.message });
       this.setError(this.persistWarning);
     }
@@ -130,7 +130,7 @@ class SpotifyApi extends EventEmitter {
     return true;
   }
 
-  // Client ID utilisé : celui de l'utilisateur, ou celui intégré à Sillon.
+  // Client ID used: the user's, or the one built into Sillon.
   clientId() {
     const c = this.getConfig();
     return c.custom ? (c.clientId || '').trim() : BUILTIN_CLIENT_ID;
@@ -140,14 +140,14 @@ class SpotifyApi extends EventEmitter {
     return !this.getConfig().custom;
   }
 
-  // Jetons obtenus avec un autre Client ID (on a changé d'option) : inutilisables.
+  // Tokens obtained with another Client ID (the option changed): unusable.
   tokensMatch() {
     return !!(this.tokens && this.tokens.refresh && this.tokens.clientId === this.clientId());
   }
 
-  // Aléatoire / répétition pilotables : connecté avec l'autorisation de
-  // commander la lecture (connexions d'avant la 0.1.3 : se reconnecter).
-  // Spotify peut ensuite les interdire par moments : voir player().allowed.
+  // Shuffle / repeat controllable: connected with the permission to
+  // control playback (sign-ins from before 0.1.3: sign in again).
+  // Spotify may then forbid them at times: see player().allowed.
   canControl() {
     return (
       this.tokensMatch() &&
@@ -177,7 +177,7 @@ class SpotifyApi extends EventEmitter {
     this.emit('status', this.status());
   }
 
-  // Efface une erreur passagère, mais pas l'avertissement « connexion non mémorisée ».
+  // Clears a passing error, but not the "sign-in not remembered" warning.
   clearError() {
     this.setError(this.persistWarning);
   }
@@ -192,14 +192,14 @@ class SpotifyApi extends EventEmitter {
     } catch (e) {
       if (e.code !== 'ENOENT') {
         console.error('Jetons Spotify :', e.message);
-        note('spotify', `jetons non effacés : ${e.message}`);
-        error = `Jetons Spotify non effacés : ${e.message}`;
+        note('spotify', `tokens not erased: ${e.message}`);
+        error = t('spotify.notErased', { error: e.message });
       }
     }
     this.setError(error);
   }
 
-  // ----- Connexion (navigateur + petit serveur local pour le retour) -----
+  // ----- Sign-in (browser + small local server for the return) -----
   login() {
     const clientId = this.clientId();
     if (!/^[0-9a-f]{32}$/i.test(clientId)) {
@@ -236,7 +236,7 @@ class SpotifyApi extends EventEmitter {
         if (this.server === server) this.server = null;
       };
       if (url.searchParams.get('state') !== state) {
-        // Une page quelconque ne doit pas pouvoir annuler la connexion : 400, le serveur reste ouvert.
+        // Any page must not be able to cancel the sign-in: 400, the server stays open.
         res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' }).end(t('spotify.unexpected'));
         return;
       }
@@ -289,7 +289,7 @@ class SpotifyApi extends EventEmitter {
       shell.openExternal(`${ACCOUNTS}/authorize?${q}`);
     });
     this.server = server;
-    // Abandon au bout de 5 minutes sans retour.
+    // Give up after 5 minutes without a return.
     timer = setTimeout(
       () => {
         if (this.server === server) {
@@ -303,7 +303,7 @@ class SpotifyApi extends EventEmitter {
     if (timer.unref) timer.unref();
   }
 
-  // Réponse du point /api/token de Spotify.
+  // Reply of Spotify's /api/token endpoint.
   /**
    * @typedef {{ access_token: string, refresh_token?: string, expires_in: number, scope?: string,
    *   error?: string, error_description?: string }} TokenResponse
@@ -319,8 +319,8 @@ class SpotifyApi extends EventEmitter {
     });
     const json = /** @type {TokenResponse} */ (await res.json().catch(() => ({})));
     if (!res.ok) {
-      const hint = json.error === 'invalid_client' ? ' (Client ID ou adresse de retour non enregistrée ?)' : '';
-      throw new Error(`Spotify a refusé la connexion : ${json.error_description || json.error || res.status}${hint}`);
+      const hint = json.error === 'invalid_client' ? t('spotify.refusedHint') : '';
+      throw new Error(t('spotify.refused', { error: json.error_description || json.error || res.status, hint }));
     }
     return json;
   }
@@ -329,10 +329,10 @@ class SpotifyApi extends EventEmitter {
     await this.ready;
     const t = this.tokens;
     if (!t || !t.refresh) return null;
-    if (!this.tokensMatch()) return null; // connecté avec l'autre option : se reconnecter
+    if (!this.tokensMatch()) return null; // connected with the other option: sign in again
     if (t.access && Date.now() < t.expiresAt - 60000) return t.access;
-    // Un seul rafraîchissement à la fois : Spotify peut renouveler le refresh
-    // token, et le second appel recevrait invalid_grant (donc une déconnexion).
+    // Only one refresh at a time: Spotify may renew the refresh
+    // token, and the second call would get invalid_grant (so a sign-out).
     if (!this.refreshing) {
       this.refreshing = this.refreshTokens(t).finally(() => {
         this.refreshing = null;
@@ -356,9 +356,9 @@ class SpotifyApi extends EventEmitter {
         expiresAt: Date.now() + tok.expires_in * 1000,
         scope: tok.scope || t.scope || '',
       });
-      return this.tokens ? this.tokens.access : null; // null si déconnecté entre-temps
+      return this.tokens ? this.tokens.access : null; // null if signed out in the meantime
     } catch (e) {
-      // Jeton révoqué ou app supprimée : il faut se reconnecter.
+      // Token revoked or app deleted: signing in again is needed.
       if (session === this.session && /invalid_grant|invalid_client/.test(e.message)) this.logout();
       this.setError(e.message);
       return null;
@@ -373,14 +373,12 @@ class SpotifyApi extends EventEmitter {
       signal: AbortSignal.timeout(8000),
     });
     if (res.status === 403) {
-      // La vraie raison donnée par Spotify, pour le diagnostic.
+      // The real reason given by Spotify, for the diagnostic.
       const body = /** @type {any} */ (await res.json().catch(() => ({})));
       const why = (body.error && (body.error.reason || body.error.message)) || '';
       throw new Error(
-        (this.builtIn()
-          ? "Ton compte Spotify n'est pas autorisé sur l'app intégrée à Sillon (Spotify la limite à 5 comptes, ajoutés par son propriétaire). Demande-lui de t'ajouter, ou utilise ton propre Client ID ci-dessous."
-          : "Spotify refuse l'accès : le propriétaire de ton app doit avoir Premium, et ton compte doit être ajouté dans « User Management » de l'app.") +
-          (why ? ` (Spotify : ${why})` : ''),
+        (this.builtIn() ? t('spotify.notOnBuiltin') : t('spotify.forbidden')) +
+          (why ? t('spotify.reason', { reason: why }) : ''),
       );
     }
     if (res.status === 204) return null;
@@ -390,7 +388,7 @@ class SpotifyApi extends EventEmitter {
     }
     if (res.status === 429) {
       const wait = Number(res.headers.get('retry-after')) || 30;
-      throw Object.assign(new Error(`Spotify : trop de requêtes, nouvel essai dans ${wait} s`), { retryAfter: wait });
+      throw Object.assign(new Error(t('spotify.tooMany', { wait })), { retryAfter: wait });
     }
     if (!res.ok) throw new Error(`Spotify ${res.status}`);
     return res.json();
@@ -399,7 +397,7 @@ class SpotifyApi extends EventEmitter {
   // Commande de lecture (PUT).
   async put(pathname) {
     const token = await this.accessToken();
-    if (!token) throw new Error('Spotify non connecté');
+    if (!token) throw new Error(t('spotify.notConnectedError'));
     const res = await fetch(API + pathname, {
       method: 'PUT',
       headers: { Authorization: `Bearer ${token}` },
@@ -409,20 +407,20 @@ class SpotifyApi extends EventEmitter {
     const body = /** @type {any} */ (await res.json().catch(() => ({})));
     const why = (body.error && (body.error.reason || body.error.message)) || res.status;
     if (res.status === 403) {
-      // Interdit pour l'instant (selon le contexte de lecture ; toujours pour un
-      // compte gratuit). Ce n'est pas définitif : on relit l'état ensuite.
-      throw new Error(`Spotify n'autorise pas ce changement pour le moment (${why})`);
+      // Forbidden for now (depending on the playback context; always for a
+      // free account). It is not final: the state is read again afterwards.
+      throw new Error(t('spotify.notNow', { why }));
     }
-    if (res.status === 404) throw new Error('Aucun lecteur Spotify actif (lance la lecture dans Spotify).');
+    if (res.status === 404) throw new Error(t('spotify.noPlayer'));
     throw new Error(`Spotify ${why}`);
   }
 
-  // Aléatoire et répétition du lecteur : { shuffle, repeat: 'None'|'List'|'Track' }.
+  // Shuffle and repeat of the player: { shuffle, repeat: 'None'|'List'|'Track' }.
   async player() {
     const p = await this.get('/me/player');
     if (!p) return null;
-    // actions.disallows : ce que Spotify interdit en ce moment (ça change selon
-    // la lecture : début d'album, pub, compte gratuit…).
+    // actions.disallows: what Spotify forbids right now (it changes with
+    // playback: start of an album, ad, free account…).
     const no = (p.actions && p.actions.disallows) || {};
     return {
       shuffle: !!p.shuffle_state,
@@ -439,12 +437,12 @@ class SpotifyApi extends EventEmitter {
     return this.put(`/me/player/repeat?state=${{ List: 'context', Track: 'track' }[mode] || 'off'}`);
   }
 
-  // Reprend la lecture (sur l'appareil donné, sinon l'appareil actif).
+  // Resumes playback (on the given device, otherwise the active device).
   play(deviceId) {
     return this.put(`/me/player/play${deviceId ? `?device_id=${encodeURIComponent(deviceId)}` : ''}`);
   }
 
-  // Appareil actif, sinon l'ordinateur : { id, active } (null si aucun connu).
+  // Active device, otherwise the computer: { id, active } (null if none known).
   async playbackDevice() {
     const data = await this.get('/me/player/devices');
     const list = (data && Array.isArray(data.devices) && data.devices) || [];
@@ -453,8 +451,8 @@ class SpotifyApi extends EventEmitter {
   }
 
   // Les prochains morceaux : [{ title, artist, image }] (image = URL Spotify).
-  // null = pas de jeton ou rafraîchissement en échec (inconnu, à ne pas confondre
-  // avec [] : file vide).
+  // null = no token or refresh failed (unknown, not to be confused
+  // with []: empty queue).
   async queue(limit = 4) {
     if (!(await this.accessToken())) return null;
     const data = await this.get('/me/player/queue');
