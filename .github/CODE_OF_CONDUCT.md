@@ -1,21 +1,21 @@
-# Code de conduite
+# Code of conduct
 
-Sillon veut rester un endroit accueillant pour tout le monde, quels que soient l'âge, le niveau, l'origine, le genre, l'orientation, le handicap ou l'apparence.
+Sillon wants to stay a welcoming place for everyone, whatever their age, level, origin, gender, orientation, disability or appearance.
 
-## Attendu
+## Expected
 
-- Être respectueux et bienveillant, y compris dans le désaccord.
-- Critiquer les idées et le code, jamais les personnes.
-- Accepter les retours et reconnaître ses erreurs.
+- Being respectful and kind, including in disagreement.
+- Criticizing ideas and code, never people.
+- Accepting feedback and owning one's mistakes.
 
-## Pas accepté
+## Not accepted
 
-- Insultes, moqueries, propos discriminatoires ou sexualisés.
-- Harcèlement, en public comme en privé.
-- Publier des informations privées de quelqu'un sans son accord.
+- Insults, mockery, discriminatory or sexualized remarks.
+- Harassment, in public as in private.
+- Publishing someone's private information without their consent.
 
-## Signaler
+## Reporting
 
-Écris en privé sur Discord à **`_vigorz_`**. Les signalements restent confidentiels. Selon la gravité : rappel à l'ordre, retrait du contenu, ou exclusion du projet.
+Write privately on Discord to **`_vigorz_`**. Reports stay confidential. Depending on the severity: a reminder, removal of the content, or exclusion from the project.
 
-Ce code s'inspire du [Contributor Covenant](https://www.contributor-covenant.org/fr/version/2/1/code_of_conduct/) (version 2.1).
+This code is inspired by the [Contributor Covenant](https://www.contributor-covenant.org/version/2/1/code_of_conduct/) (version 2.1).

@@ -1,8 +1,8 @@
 blank_issues_enabled: true
 contact_links:
-  - name: Discord (bugs, idées, questions)
+  - name: Discord (bugs, ideas, questions)
     url: https://discord.com/
-    about: 'Écris directement à _vigorz_ sur Discord.'
-  - name: Faille de sécurité
+    about: 'Write directly to _vigorz_ on Discord.'
+  - name: Security flaw
     url: https://github.com/vigoRz-c/sillon/security/advisories/new
-    about: Signale-la en privé, jamais dans une issue publique.
+    about: Report it privately, never in a public issue.

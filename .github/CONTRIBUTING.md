@@ -1,45 +1,45 @@
-# Contribuer à Sillon
+# Contributing to Sillon
 
-Merci de vouloir aider ! Sillon est un projet perso en **bêta** : les retours comptent autant que le code.
+Thanks for wanting to help! Sillon is a personal project in **beta**: feedback matters as much as code.
 
-## Signaler un bug ou proposer une idée
+## Reporting a bug or suggesting an idea
 
-- **Le plus simple :** écris-moi sur Discord, **`_vigorz_`**.
-- **Sur GitHub :** ouvre une [issue](https://github.com/vigoRz-c/sillon/issues/new/choose) avec le modèle « Bug » ou « Idée ».
+- **Easiest:** write to me on Discord, **`_vigorz_`**.
+- **On GitHub:** open an [issue](https://github.com/vigoRz-c/sillon/issues/new/choose) with the "Bug" or "Idea" template.
 
-Pour un bug, joins le diagnostic : Paramètres → Diagnostic → « Copier le diagnostic », puis colle-le. Il indique la version, Windows, les écrans et l'état de la scène, sans mot de passe ni jeton.
+For a bug, attach the diagnostic: Settings → Diagnostic → "Copy the diagnostic", then paste it. It gives the version, Windows, the screens and the state of the scene, with no password or token.
 
-Une faille de sécurité ne se signale pas dans une issue publique : voir [SECURITY.md](SECURITY.md).
+A security flaw is not reported in a public issue: see [SECURITY.md](SECURITY.md).
 
-## Proposer une modification du code
+## Proposing a code change
 
-1. Forke le dépôt et crée une branche depuis `main`.
-2. Installe [Node.js](https://nodejs.org) 20+ et [Rust](https://rustup.rs), puis lance :
+1. Fork the repository and create a branch from `main`.
+2. Install [Node.js](https://nodejs.org) 20+ and [Rust](https://rustup.rs), then run:
    ```bash
    npm install
    npm start
    ```
-3. Avant d'envoyer, vérifie que tout passe :
+3. Before sending, check that everything passes:
    ```bash
-   npm run verify        # syntaxe, ESLint, types, Prettier, tests JavaScript, et Rust si cargo est installé
-   npm run verify:rust   # formatage, clippy (avertissements = erreurs) et tests de l'assistant natif
+   npm run verify        # syntax, ESLint, types, Prettier, JavaScript tests, and Rust if cargo is installed
+   npm run verify:rust   # formatting, clippy (warnings = errors) and tests of the native helper
    ```
-   Sans Rust, `npm run verify` saute l'étape Rust avec un message ; la CI, elle, la lance toujours. Si tu modifies `native/sillon-helper`, lance `npm run verify:rust`.
-4. Ouvre une pull request en expliquant le problème réglé et comment tu as vérifié (capture d'écran bienvenue pour un changement visible). La CI relance les mêmes vérifications.
+   Without Rust, `npm run verify` skips the Rust step with a message; the CI always runs it. If you change `native/sillon-helper`, run `npm run verify:rust`.
+4. Open a pull request explaining the problem fixed and how you checked it (a screenshot is welcome for a visible change). The CI runs the same checks again.
 
 ### Conventions
 
-- **Langue :** l'interface, les commentaires et les messages de commit sont en français.
-- **Commits :** un titre court au présent qui dit ce qui change (« Corrige la taille de l'horloge »), puis le détail si besoin.
-- **Style :** indentation de 2 espaces, voir `.editorconfig` et `eslint.config.js`.
-- **Tests :** ajoute un test dans `test/` quand tu touches à la logique (paroles, position, disposition…). Ils se lancent avec `npm test` (runner intégré de Node).
-- **Dépendances :** le moins possible ; justifie tout ajout dans la pull request.
-- **Données :** rien ne doit quitter le PC sans raison (voir « Données et vie privée » dans le README). Aucun secret dans le dépôt.
+- **Language:** code, comments, logs, tests and commit messages are in English. The interface is in English with a French translation: every visible text goes through `src/renderer/shared/locales/en.js` and `fr.js` (`test/i18n.test.js` checks that both have the same keys).
+- **Commits:** a short title in the imperative that says what changes ("Fix the clock size"), then the details if needed.
+- **Style:** 2-space indentation, see `.editorconfig` and `eslint.config.js`.
+- **Tests:** add a test in `test/` when you touch the logic (lyrics, position, layout…). They run with `npm test` (Node's built-in runner).
+- **Dependencies:** as few as possible; justify any addition in the pull request.
+- **Data:** nothing must leave the PC without a reason (see "Data and privacy" in the README). No secret in the repository.
 
-## Publier une version (mainteneur)
+## Publishing a version (maintainer)
 
-Range les entrées de la section « Non publié » de [CHANGELOG.md](../CHANGELOG.md) sous le numéro de la nouvelle version (`## [x.y.z] - AAAA-MM-JJ`) : `npm run release` refuse de publier sans cette section, et l'utilise comme notes de la Release. Le script lance `npm run verify`, construit, puis pousse et publie (voir le README).
+Move the entries of the "Unreleased" section of [CHANGELOG.md](../CHANGELOG.md) under the number of the new version (`## [x.y.z] - YYYY-MM-DD`): `npm run release` refuses to publish without this section, and uses it as the Release notes. The script runs `npm run verify`, builds, then pushes and publishes (see the README).
 
-## Licence
+## License
 
-En contribuant, tu acceptes que ta contribution soit publiée sous [GPL-3.0](../LICENSE), comme le reste du projet.
+By contributing, you agree that your contribution is published under [GPL-3.0](../LICENSE), like the rest of the project.

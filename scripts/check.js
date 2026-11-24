@@ -1,4 +1,4 @@
-// Vérification rapide : syntaxe de tous les fichiers JS du projet.
+// Quick check: syntax of every JS file of the project.
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -7,7 +7,7 @@ const root = path.join(__dirname, '..');
 const files = [];
 (function walk(dir) {
   for (const f of fs.readdirSync(dir)) {
-    // target : sorties de cargo (native/sillon-helper/target), sans JS à vérifier.
+    // target: cargo outputs (native/sillon-helper/target), no JS to check.
     if (f === 'node_modules' || f === 'target' || f.startsWith('.') || f === 'dist') continue;
     const p = path.join(dir, f);
     if (fs.statSync(p).isDirectory()) walk(p);
@@ -24,5 +24,5 @@ for (const f of files) {
     console.error(`✗ ${path.relative(root, f)}\n${e.stderr}`);
   }
 }
-console.log(failed ? `${failed} fichier(s) en erreur` : `✓ ${files.length} fichiers JS OK`);
+console.log(failed ? `${failed} file(s) with errors` : `✓ ${files.length} JS files OK`);
 process.exit(failed ? 1 : 0);

@@ -1,29 +1,29 @@
-# Sécurité
+# Security
 
-## Versions suivies
+## Supported versions
 
-Seule la dernière version publiée sur les [Releases](https://github.com/vigoRz-c/sillon/releases) reçoit des correctifs. La version installée se met à jour toute seule.
+Only the latest version published on the [Releases](https://github.com/vigoRz-c/sillon/releases) gets fixes. The installed version updates on its own.
 
-## Signaler une faille
+## Reporting a flaw
 
-**N'ouvre pas d'issue publique.** Utilise l'un de ces moyens privés :
+**Do not open a public issue.** Use one of these private channels:
 
-- le bouton **« Report a vulnerability »** de l'onglet [Security](https://github.com/vigoRz-c/sillon/security/advisories/new) du dépôt ;
-- un message privé sur Discord : **`_vigorz_`**.
+- the **"Report a vulnerability"** button of the repository's [Security](https://github.com/vigoRz-c/sillon/security/advisories/new) tab;
+- a private message on Discord: **`_vigorz_`**.
 
-Décris la faille, comment la reproduire et la version concernée. Je réponds dès que possible ; le correctif est publié dans une nouvelle version, puis la faille est rendue publique avec ton accord (et ton nom si tu le souhaites).
+Describe the flaw, how to reproduce it and the version concerned. I answer as soon as possible; the fix is published in a new version, then the flaw is made public with your agreement (and your name if you wish).
 
-## Ce que Sillon fait des données
+## What Sillon does with data
 
-- Le son du PC est analysé en direct, jamais enregistré ni envoyé.
-- Les jetons Spotify sont chiffrés par Windows et restent sur le PC (`%APPDATA%/Sillon`).
-- Seules les informations du morceau (artiste, album, titre, durée) partent vers des services publics, pour trouver la pochette et les paroles.
+- The PC's sound is analyzed live, never recorded or sent.
+- The Spotify tokens are encrypted by Windows and stay on the PC (`%APPDATA%/Sillon`).
+- Only the track information (artist, album, title, duration) goes to public services, to find the cover and the lyrics.
 
-Le détail est dans la section « Données et vie privée » du [README](../README.md).
+The details are in the "Data and privacy" section of the [README](../README.md).
 
-## Signature de code et intégrité
+## Code signing and integrity
 
-- **Les installateurs ne sont pas signés** : Sillon n'a pas encore de certificat de signature de code. Sans signature, Windows SmartScreen prévient à l'installation, et la mise à jour automatique fait confiance à ce qui est publié sur GitHub : un compte GitHub compromis suffirait à diffuser un exécutable modifié. C'est le principal risque connu, et la signature (ou une publication depuis la CI seulement) est prévue.
-- **Signer sans changer le code** : electron-builder signe seulement si une variable d'environnement de certificat est présente au moment de `npm run dist` ou `npm run release` : `WIN_CSC_LINK` (ou `CSC_LINK`) désigne le certificat `.pfx`, `WIN_CSC_KEY_PASSWORD` ou `CSC_KEY_PASSWORD` son mot de passe. Sans ces variables, la construction se poursuit sans signature, avec le message « no code signing certificate configured ». Ne jamais committer le certificat ni le mot de passe.
-- **Fusibles Electron** (`build.electronFuses` dans `package.json`) : `runAsNode`, `NODE_OPTIONS` et les arguments `--inspect` sont désactivés, et l'application ne se charge que depuis `app.asar`. La vérification d'intégrité d'`app.asar` (`enableEmbeddedAsarIntegrityValidation`) n'est **pas** activée : avec Electron 45.4.1 et electron-builder 26.18.1, l'application s'arrêtait au lancement sur « ASAR Integrity Violation ». À réexaminer avant de l'activer.
-- La CI vérifie que `sillon-helper.exe` n'embarque pas le runtime VC++ (`VCRUNTIME140`), et lit les fusibles de l'empaquetage de test.
+- **The installers are not signed**: Sillon does not have a code signing certificate yet. Without a signature, Windows SmartScreen warns at install time, and the automatic update trusts what is published on GitHub: a compromised GitHub account would be enough to ship a modified executable. This is the main known risk, and signing (or publishing from the CI only) is planned.
+- **Signing without changing the code**: electron-builder only signs if a certificate environment variable is present when `npm run dist` or `npm run release` runs: `WIN_CSC_LINK` (or `CSC_LINK`) points to the `.pfx` certificate, `WIN_CSC_KEY_PASSWORD` or `CSC_KEY_PASSWORD` to its password. Without these variables, the build goes on unsigned, with the message "no code signing certificate configured". Never commit the certificate or the password.
+- **Electron fuses** (`build.electronFuses` in `package.json`): `runAsNode`, `NODE_OPTIONS` and the `--inspect` arguments are disabled, and the application only loads from `app.asar`. The `app.asar` integrity check (`enableEmbeddedAsarIntegrityValidation`) is **not** enabled: with Electron 45.4.1 and electron-builder 26.18.1, the application stopped at launch on "ASAR Integrity Violation". To be looked at again before enabling it.
+- The CI checks that `sillon-helper.exe` does not ship the VC++ runtime (`VCRUNTIME140`), and reads the fuses of the test package.

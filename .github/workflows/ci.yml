@@ -1,9 +1,9 @@
-# Vérifications automatiques à chaque push et pull request : syntaxe, règles de
-# qualité (ESLint), formatage, tests JavaScript, assistant natif (Rust), audits
-# de dépendances et empaquetage (sans publication).
+# Automatic checks on every push and pull request: syntax, quality
+# rules (ESLint), formatting, JavaScript tests, native helper (Rust), dependency
+# audits and packaging (without publishing).
 #
-# Les actions sont épinglées par SHA de commit (le tag de version est en commentaire) :
-# Dependabot propose leur mise à jour (voir .github/dependabot.yml).
+# The actions are pinned by commit SHA (the version tag is in a comment):
+# Dependabot proposes their updates (see .github/dependabot.yml).
 name: CI
 
 on:
@@ -40,13 +40,13 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
-      - name: Syntaxe
+      - name: Syntax
         run: npm run check
       - name: ESLint
         run: npm run lint
-      - name: Types (JSDoc, fichiers // @ts-check)
+      - name: Types (JSDoc, // @ts-check files)
         run: npm run typecheck
-      - name: Formatage (Prettier)
+      - name: Formatting (Prettier)
         run: npm run format:check
       - name: Tests
         run: npm test
@@ -62,26 +62,26 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: native/sillon-helper
-      # Toutes les commandes cargo tournent dans le dossier du helper : c'est là
-      # que se trouve .cargo/config.toml (+crt-static). --locked : Cargo.lock figé.
-      - name: Formatage (cargo fmt)
+      # Every cargo command runs in the helper's folder: that is where
+      # .cargo/config.toml is (+crt-static). --locked: frozen Cargo.lock.
+      - name: Formatting (cargo fmt)
         working-directory: native/sillon-helper
         run: cargo fmt --check
-      - name: Clippy (avertissements = erreurs)
+      - name: Clippy (warnings = errors)
         working-directory: native/sillon-helper
         run: cargo clippy --locked -- -D warnings
       - name: Tests (cargo test)
         working-directory: native/sillon-helper
         run: cargo test --locked
-      - name: Compilation (release)
+      - name: Build (release)
         working-directory: native/sillon-helper
         run: cargo build --release --locked
-      - name: Pas de runtime VC++ à installer (VCRUNTIME140 absent)
+      - name: No VC++ runtime to install (VCRUNTIME140 absent)
         shell: pwsh
         run: |
           $exe = 'native/sillon-helper/target/release/sillon-helper.exe'
           if (Select-String -Path $exe -Pattern 'VCRUNTIME140' -SimpleMatch -Quiet) {
-            Write-Error "L'assistant dépend du redistribuable Visual C++ (VCRUNTIME140) : vérifie native/sillon-helper/.cargo/config.toml (+crt-static)."
+            Write-Error "The helper depends on the Visual C++ redistributable (VCRUNTIME140): check native/sillon-helper/.cargo/config.toml (+crt-static)."
             exit 1
           }
           Write-Host 'OK : VCRUNTIME140 absent de sillon-helper.exe.'
@@ -101,13 +101,13 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: npm audit (dépendances embarquées)
+      - name: npm audit (shipped dependencies)
         run: npm audit --omit=dev --audit-level=high
-      - name: Installer cargo-audit
+      - name: Install cargo-audit
         uses: taiki-e/install-action@fe3acb53a98b62c772db35de75ce0e4595e7ca8c # v2.90.8
         with:
           tool: cargo-audit
-      - name: cargo audit (assistant natif)
+      - name: cargo audit (native helper)
         working-directory: native/sillon-helper
         run: cargo audit
 
@@ -127,13 +127,13 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: native/sillon-helper
-      # Electron est téléchargé ici : l'empaquetage en a besoin.
+      # Electron is downloaded here: packaging needs it.
       - run: npm ci
-      - name: Assistant natif (release)
+      - name: Native helper (release)
         run: node scripts/build-helper.js --strict
-      - name: Empaquetage Windows (dossier, sans installateur ni publication)
+      - name: Windows packaging (folder, no installer or publishing)
         run: npx electron-builder --win --dir --publish never
-      - name: Fusibles Electron et assistant
+      - name: Electron fuses and helper
         shell: pwsh
         run: |
           $fuses = npx electron-fuses read --app dist/win-unpacked/Sillon.exe | Out-String
@@ -141,11 +141,11 @@ jobs:
           foreach ($want in 'RunAsNode is Disabled', 'EnableNodeOptionsEnvironmentVariable is Disabled',
                             'EnableNodeCliInspectArguments is Disabled', 'OnlyLoadAppFromAsar is Enabled') {
             if (-not $fuses.Contains($want)) {
-              Write-Error "Fusible Electron non appliqué : attendu « $want »."
+              Write-Error "Electron fuse not applied: expected '$want'."
               exit 1
             }
           }
           if (Select-String -Path dist/win-unpacked/resources/sillon-helper.exe -Pattern 'VCRUNTIME140' -SimpleMatch -Quiet) {
-            Write-Error 'sillon-helper.exe dépend encore de VCRUNTIME140.'
+            Write-Error 'sillon-helper.exe still depends on VCRUNTIME140.'
             exit 1
           }

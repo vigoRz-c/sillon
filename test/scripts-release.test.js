@@ -16,9 +16,9 @@ test('bumpVersion: patch, minor, major', () => {
 });
 
 test('bumpVersion: refuses invalid versions and types', () => {
-  assert.throws(() => bumpVersion('0.2', 'patch'), /Version invalide/);
-  assert.throws(() => bumpVersion('0.2.0-beta', 'patch'), /Version invalide/);
-  assert.throws(() => bumpVersion('0.2.0', 'micro'), /Type de version inconnu/);
+  assert.throws(() => bumpVersion('0.2', 'patch'), /Invalid version/);
+  assert.throws(() => bumpVersion('0.2.0-beta', 'patch'), /Invalid version/);
+  assert.throws(() => bumpVersion('0.2.0', 'micro'), /Unknown version type/);
 });
 
 const CHANGELOG = `# Changelog
@@ -58,10 +58,10 @@ test('extractReleaseNotes: handles CRLF line endings', () => {
 });
 
 test('extractReleaseNotes: refuses a missing or empty section', () => {
-  assert.throws(() => extractReleaseNotes(CHANGELOG, '0.3.0'), /absente/);
+  assert.throws(() => extractReleaseNotes(CHANGELOG, '0.3.0'), /missing/);
   // "0.2.0" must not match "0.2.0-beta" or "0.2.01".
-  assert.throws(() => extractReleaseNotes('## [0.2.01] - x\n- a\n', '0.2.0'), /absente/);
-  assert.throws(() => extractReleaseNotes('## [0.2.0] - x\n\n## [0.1.0] - y\n- a\n', '0.2.0'), /vide/);
+  assert.throws(() => extractReleaseNotes('## [0.2.01] - x\n- a\n', '0.2.0'), /missing/);
+  assert.throws(() => extractReleaseNotes('## [0.2.0] - x\n\n## [0.1.0] - y\n- a\n', '0.2.0'), /is empty/);
 });
 
 test('checksumLines: sha256sum format, one line per file', () => {

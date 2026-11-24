@@ -1,4 +1,4 @@
-# Propose chaque semaine les mises à jour des dépendances et des actions GitHub.
+# Proposes the updates of the dependencies and of the GitHub actions every week.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -13,8 +13,8 @@ updates:
     directory: /
     schedule:
       interval: weekly
-    # Actions épinglées par SHA (voir ci.yml) : Dependabot met à jour le SHA et le
-    # commentaire de version, et regroupe les actions en une seule Pull Request.
+    # Actions pinned by SHA (see ci.yml): Dependabot updates the SHA and the
+    # version comment, and groups the actions into a single Pull Request.
     groups:
       actions:
         patterns:
@@ -23,8 +23,8 @@ updates:
     directory: /native/sillon-helper
     schedule:
       interval: weekly
-    # windows-core et windows-future doivent garder la même version que « windows »
-    # (voir Cargo.toml) : on les met à jour à la main, en même temps que windows.
+    # windows-core and windows-future must keep the same version as "windows"
+    # (see Cargo.toml): they are updated by hand, together with windows.
     ignore:
       - dependency-name: windows-core
       - dependency-name: windows-future

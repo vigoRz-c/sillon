@@ -2,7 +2,7 @@
   "name": "sillon",
   "productName": "Sillon",
   "version": "0.4.4",
-  "description": "Visualiseur musical posé sur le fond d'écran Windows, synchronisé avec Spotify (et tout lecteur qui expose ses contrôles média).",
+  "description": "Music visualizer on the Windows wallpaper, synced with Spotify (and any player that exposes its media controls).",
   "main": "src/main/app/main.js",
   "author": "Loïc Restout",
   "repository": {

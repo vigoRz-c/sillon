@@ -1,13 +1,14 @@
-## Ce que ça change
+## What this changes
 
-<!-- Le problème réglé ou la fonction ajoutée, en deux ou trois phrases. -->
+<!-- The problem fixed or the feature added, in two or three sentences. -->
 
-## Comment c'est vérifié
+## How it was checked
 
-<!-- Ce que tu as testé, sur quelle version de Windows ; capture d'écran pour un changement visible. -->
+<!-- What you tested, on which Windows version; a screenshot for a visible change. -->
 
-- [ ] `npm run verify` passe (syntaxe, ESLint, Prettier, tests JavaScript, Rust si cargo est installé)
-- [ ] `npm run verify:rust` passe, si `native/sillon-helper` est modifié
-- [ ] Pour une modification des pages : `demo/index.html` s'affiche toujours (les pages sont chargées telles quelles)
-- [ ] Testé dans l'appli (`npm start`)
-- [ ] CHANGELOG.md mis à jour (section « Non publié », en français)
+- [ ] `npm run verify` passes (syntax, ESLint, Prettier, JavaScript tests, Rust if cargo is installed)
+- [ ] `npm run verify:rust` passes, if `native/sillon-helper` is changed
+- [ ] For a change to the pages: `demo/index.html` still shows (the pages are loaded as they are)
+- [ ] New visible texts added to `src/renderer/shared/locales/en.js` and `fr.js`
+- [ ] Tested in the app (`npm start`)
+- [ ] CHANGELOG.md updated ("Unreleased" section)

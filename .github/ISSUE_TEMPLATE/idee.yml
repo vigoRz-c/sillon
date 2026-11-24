@@ -1,21 +1,21 @@
-name: Idée
-description: Proposer une amélioration ou une nouvelle fonction
+name: Idea
+description: Suggest an improvement or a new feature
 labels: [idée]
 body:
   - type: textarea
     id: idee
     attributes:
-      label: Ton idée
-      description: Ce que tu aimerais voir dans Sillon.
+      label: Your idea
+      description: What you would like to see in Sillon.
     validations:
       required: true
   - type: textarea
     id: pourquoi
     attributes:
-      label: Pourquoi
-      description: Le problème que ça règle ou ce que ça apporterait.
+      label: Why
+      description: The problem it solves or what it would bring.
   - type: textarea
     id: exemples
     attributes:
-      label: Exemples
-      description: Captures, vidéos, liens vers une appli qui fait déjà quelque chose de proche…
+      label: Examples
+      description: Screenshots, videos, links to an app that already does something close…
