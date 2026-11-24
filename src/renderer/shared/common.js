@@ -1,7 +1,7 @@
 /* Logique commune widget / plein écran : réglages, couleurs, morceau en cours. */
 (function () {
   'use strict';
-  const { AudioEngine, Renderer, THEMES, paletteFromImage, paletteFromColor } = window.SV;
+  const { AudioEngine, Renderer, THEMES, paletteFromImage, paletteFromColor, paletteFromCustom } = window.SV;
 
   function createApp(canvas, { onMedia, onPalette, onSettings, onLyrics, transformSettings } = {}) {
     const engine = new AudioEngine();
@@ -20,6 +20,7 @@
       let pal;
       if (t === 'wallpaper') pal = state.wallpaperPalette || state.albumPalette || THEMES.mono;
       else if (t === 'album') pal = state.albumPalette || THEMES.neon;
+      else if (t === 'custom') pal = paletteFromCustom(state.settings.customColor);
       else if (t && t.startsWith('#')) pal = paletteFromColor(t);
       else pal = THEMES[t] || THEMES.neon;
       renderer.palette = pal;

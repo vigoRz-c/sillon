@@ -79,6 +79,17 @@
     return [hsl(h - 28, Math.max(0.6, s), 0.55), hsl(h, Math.max(0.65, s), 0.6), hsl(h + 28, Math.max(0.6, s), 0.72)];
   }
 
+  // Couleur de la roue des couleurs -> palette de 3. Contrairement à
+  // paletteFromColor, la saturation et la luminosité choisies sont respectées :
+  // la principale est la couleur exacte (lueurs, halo), la secondaire une teinte
+  // voisine, l'éclat une version plus claire. Couleur invalide : violet de Sillon.
+  function paletteFromCustom(hex) {
+    if (typeof hex !== 'string' || !/^#[0-9a-f]{6}$/i.test(hex)) hex = '#8b5cf6';
+    const [h, s, l] = rgbToHsl(...hexToRgb(hex));
+    const clamp = (v) => Math.max(0.08, Math.min(0.95, v));
+    return [hex.toLowerCase(), hsl(h + 24, s, clamp(l * 0.95 + 0.04)), hsl(h - 16, s * 0.85, clamp(l + 0.2))];
+  }
+
   // "hsl(10 80% 50%)" ou "#rrggbb" -> même couleur avec une opacité.
   // Le début de la chaîne ("rgba(r, g, b, " ou "hsl(… / ") est calculé une fois
   // par couleur (voir prepareColor, appelé au changement de palette) : à chaque
@@ -102,5 +113,13 @@
     return p === null ? color : p + Math.round(alpha * 1000) / 1000 + ')';
   }
 
-  window.SillonColors = { hexToRgb, paletteFromImage, paletteFromColor, prepareColor, withAlpha };
+  window.SillonColors = {
+    hexToRgb,
+    rgbToHsl,
+    paletteFromImage,
+    paletteFromColor,
+    paletteFromCustom,
+    prepareColor,
+    withAlpha,
+  };
 })();

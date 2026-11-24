@@ -171,3 +171,28 @@ test('store : fichier illisible (autre que ENOENT) -> ni migration ni écriture 
   assert.strictEqual(out.fps, 30);
   assert.strictEqual(out.fps30, true);
 });
+
+test('sanitize : couleur personnalisée (roue des couleurs)', () => {
+  assert.strictEqual(DEFAULTS.customColor, '#8b5cf6');
+  assert.strictEqual(sanitize({ customColor: '#12AbEf' }).customColor, '#12abef'); // rangée en minuscules
+  assert.strictEqual(sanitize({ customColor: '#f0a' }).customColor, '#ff00aa'); // forme courte dépliée
+  for (const bad of ['12abef', '#12abe', '#12abefg', '#gggggg', 'red', 'hsl(10 50% 50%)', '', 42, null, ['#ffffff']])
+    assert.ok(!('customColor' in sanitize({ customColor: bad })), `refusée : ${JSON.stringify(bad)}`);
+  // « custom » est un jeu de couleurs du visualiseur et du disque.
+  assert.strictEqual(sanitize({ theme: 'custom' }).theme, 'custom');
+  assert.strictEqual(sanitize({ discColors: 'custom' }).discColors, 'custom');
+});
+
+test('store : couleur personnalisée invalide dans le fichier -> valeur par défaut', () => {
+  const dir = tmpDir();
+  const file = path.join(dir, 'settings.json');
+  fs.writeFileSync(file, JSON.stringify({ theme: 'custom', customColor: 'javascript:alert(1)' }));
+  const s = new SettingsStore(file, { delay: 5 });
+  assert.strictEqual(s.get('theme'), 'custom');
+  assert.strictEqual(s.get('customColor'), DEFAULTS.customColor);
+  assert.deepStrictEqual(s.change({ customColor: '#00FF88' }).changed, { customColor: '#00ff88' });
+});
+
+test('sanitize : nouveaux visualiseurs acceptés', () => {
+  for (const style of ['spectrum', 'dots', 'sparks', 'rosace']) assert.strictEqual(sanitize({ style }).style, style);
+});

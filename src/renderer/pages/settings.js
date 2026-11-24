@@ -89,9 +89,10 @@
     ['Doux', ['pastel', 'lavender', 'peach', 'mint']],
     ['Naturels', ['forest', 'fire', 'ice', 'desert']],
     ['Sombres', ['gold', 'blood', 'midnight']],
+    ['Roue des couleurs', ['custom']],
   ];
   // Noms courts sous les pastilles « image » (le nom complet du catalogue est trop long).
-  const SHORT = { wallpaper: "Fond d'écran", album: 'Pochette' };
+  const SHORT = { wallpaper: "Fond d'écran", album: 'Pochette', custom: 'Personnalisée' };
 
   function buildSwatches(container, allowed) {
     const names = Catalog.THEME_NAMES;
@@ -139,8 +140,182 @@
   const themeSwatches = buildSwatches($('themeSwatches'), new Set(Catalog.THEME_ORDER));
   const discSwatches = buildSwatches(
     $('discColorSwatches'),
-    new Set(['album', ...Catalog.FIXED_THEMES.map(([id]) => id)]),
+    new Set(['album', 'custom', ...Catalog.FIXED_THEMES.map(([id]) => id)]),
   );
+
+  // ----- Roue des couleurs (réglage customColor, jeu « custom ») -----
+  // Teinte = angle, saturation = distance au centre, luminosité = curseur à côté.
+  // Chaque changement choisit aussi le jeu « custom » pour le visualiseur.
+  const { hexToRgb, rgbToHsl, paletteFromCustom } = window.SillonColors;
+  // Composante (0 à 1) d'une couleur HSL : n = 0 rouge, 8 vert, 4 bleu.
+  function hslChannel(n, h, s, l) {
+    const k = (n + h / 30) % 12;
+    return l - s * Math.min(l, 1 - l) * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+  }
+  const hslToHex = (h, s, l) =>
+    '#' +
+    [0, 8, 4]
+      .map((n) =>
+        Math.round(hslChannel(n, h, s, l) * 255)
+          .toString(16)
+          .padStart(2, '0'),
+      )
+      .join('');
+  const wheel = {
+    el: $('wheel'),
+    canvas: $('wheelCanvas'),
+    thumb: $('wheelThumb'),
+    h: 0,
+    s: 0.7,
+    l: 0.6,
+    hex: '',
+    drawnL: -1,
+    dragging: false,
+    timer: 0,
+    pending: false,
+  };
+  // Pixels de la roue pour une luminosité : recalculés seulement quand elle change.
+  function paintWheel() {
+    const c = wheel.canvas;
+    const css = wheel.el.clientWidth;
+    if (!css) return; // onglet caché : dessinée à l'ouverture (voir selectTab)
+    const size = Math.round(css * (window.devicePixelRatio || 1));
+    if (c.width === size && wheel.drawnL === wheel.l) return;
+    c.width = c.height = size;
+    wheel.drawnL = wheel.l;
+    const ctx = c.getContext('2d');
+    const img = ctx.createImageData(size, size);
+    const px = img.data,
+      R = size / 2,
+      l = wheel.l;
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const dx = x + 0.5 - R,
+          dy = y + 0.5 - R;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d > R) continue;
+        const h = ((Math.atan2(dy, dx) * 180) / Math.PI + 360) % 360;
+        const s = d / R;
+        const i = (y * size + x) * 4;
+        px[i] = hslChannel(0, h, s, l) * 255;
+        px[i + 1] = hslChannel(8, h, s, l) * 255;
+        px[i + 2] = hslChannel(4, h, s, l) * 255;
+        px[i + 3] = Math.min(1, R - d) * 255; // bord adouci
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+  function showWheel() {
+    paintWheel();
+    const r = (wheel.el.clientWidth || 168) / 2;
+    const ang = (wheel.h * Math.PI) / 180;
+    wheel.thumb.style.left = `${r + Math.cos(ang) * wheel.s * r}px`;
+    wheel.thumb.style.top = `${r + Math.sin(ang) * wheel.s * r}px`;
+    wheel.thumb.style.setProperty('--thumb', wheel.hex);
+    wheel.el.setAttribute('aria-valuenow', String(Math.round(wheel.h)));
+    wheel.el.setAttribute(
+      'aria-valuetext',
+      `teinte ${Math.round(wheel.h)} degrés, saturation ${Math.round(wheel.s * 100)} pour cent, couleur ${wheel.hex}`,
+    );
+    $('customLightOut').textContent = pct(wheel.l);
+    $('customLight').setAttribute('aria-valuetext', `${Math.round(wheel.l * 100)} pour cent`);
+    if (document.activeElement !== $('customLight')) $('customLight').value = String(wheel.l);
+    if (document.activeElement !== $('customHex')) $('customHex').value = wheel.hex;
+    paletteFromCustom(wheel.hex).forEach((c, i) => ($(`customChip${i + 1}`).style.background = c));
+  }
+  // Envoi groupé (au plus ~16 fois par seconde pendant un glissé) : chaque envoi
+  // repart vers toutes les fenêtres.
+  function sendColor() {
+    if (wheel.timer) {
+      wheel.pending = true;
+      return;
+    }
+    bridge.setSettings({ customColor: wheel.hex, theme: 'custom' });
+    wheel.timer = setTimeout(() => {
+      wheel.timer = 0;
+      if (wheel.pending) {
+        wheel.pending = false;
+        sendColor();
+      }
+    }, 60);
+  }
+  function setHsl(h, s, l) {
+    wheel.h = ((h % 360) + 360) % 360;
+    wheel.s = Math.max(0, Math.min(1, s));
+    wheel.l = Math.max(0.1, Math.min(0.9, l));
+    wheel.hex = hslToHex(wheel.h, wheel.s, wheel.l);
+    $('customHex').removeAttribute('aria-invalid');
+    $('customHexState').textContent = '';
+    showWheel();
+    sendColor();
+  }
+  // Couleur reçue des réglages : la roue la reprend, sauf pendant qu'on la manipule.
+  function wheelFrom(hex) {
+    if (!hex || hex === wheel.hex || wheel.dragging || wheel.timer) return;
+    const [h, s, l] = rgbToHsl(...hexToRgb(hex));
+    // Gris (saturation nulle) : la teinte ne veut rien dire, on garde la précédente.
+    if (s > 0.001) wheel.h = h;
+    wheel.s = s;
+    wheel.l = Math.max(0.1, Math.min(0.9, l));
+    wheel.hex = hex;
+    showWheel();
+  }
+  function pickAt(e) {
+    const rect = wheel.el.getBoundingClientRect();
+    const r = rect.width / 2;
+    const dx = e.clientX - rect.left - r,
+      dy = e.clientY - rect.top - r;
+    setHsl((Math.atan2(dy, dx) * 180) / Math.PI, Math.hypot(dx, dy) / r, wheel.l);
+  }
+  wheel.el.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    wheel.dragging = true;
+    wheel.el.setPointerCapture(e.pointerId);
+    wheel.el.focus();
+    pickAt(e);
+  });
+  wheel.el.addEventListener('pointermove', (e) => {
+    if (wheel.dragging) pickAt(e);
+  });
+  const endDrag = () => {
+    wheel.dragging = false;
+  };
+  wheel.el.addEventListener('pointerup', endDrag);
+  wheel.el.addEventListener('pointercancel', endDrag);
+  wheel.el.addEventListener('keydown', (e) => {
+    const big = e.shiftKey;
+    const dh = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+    const ds = { ArrowUp: 1, ArrowDown: -1 }[e.key];
+    if (dh === undefined && ds === undefined) return;
+    e.preventDefault();
+    if (dh) setHsl(wheel.h + dh * (big ? 15 : 3), wheel.s, wheel.l);
+    else setHsl(wheel.h, wheel.s + ds * (big ? 0.1 : 0.03), wheel.l);
+  });
+  $('customLight').addEventListener('input', () => setHsl(wheel.h, wheel.s, Number($('customLight').value)));
+  $('customHex').addEventListener('change', () => {
+    let v = $('customHex').value.trim().toLowerCase();
+    if (!v.startsWith('#')) v = `#${v}`;
+    if (/^#[0-9a-f]{3}$/.test(v)) v = `#${[...v.slice(1)].map((x) => x + x).join('')}`;
+    if (!/^#[0-9a-f]{6}$/.test(v)) {
+      $('customHex').setAttribute('aria-invalid', 'true');
+      $('customHexState').textContent = 'Code attendu : # suivi de 6 chiffres hexadécimaux, par exemple #8b5cf6.';
+      return;
+    }
+    $('customHex').removeAttribute('aria-invalid');
+    $('customHexState').textContent = '';
+    wheel.hex = '';
+    wheelFrom(v);
+    sendColor();
+  });
+  // Pastilles « Personnalisée » : aux couleurs de la roue.
+  function paintCustomSwatches(hex) {
+    const pal = paletteFromCustom(hex);
+    for (const b of [...themeSwatches, ...discSwatches]) {
+      if (b.dataset.value !== 'custom') continue;
+      const disc = b.querySelector('.disc');
+      pal.forEach((c, i) => disc.style.setProperty(`--c${i + 1}`, c));
+    }
+  }
 
   // ----- Onglets (menu de gauche) -----
   const tabs = [...document.querySelectorAll('[role="tab"]')];
@@ -155,6 +330,7 @@
     }
     if (focus) tab.focus();
     $('panels').scrollTop = 0;
+    showWheel(); // la roue n'a pas de taille tant que son onglet est caché
     paintSoon();
   }
   for (const t of tabs) {
@@ -227,6 +403,7 @@
         ? `${found} réglage${found > 1 ? 's' : ''} trouvé${found > 1 ? 's' : ''}.`
         : `Aucun réglage ne correspond à « ${$('search').value.trim()} ».`;
     if (on) $('panels').scrollTop = 0;
+    showWheel();
     paintSoon();
   }
   function clearSearch() {
@@ -244,7 +421,7 @@
   });
 
   // ----- Aperçus animés : galerie des styles + aperçu en direct -----
-  const { VISUALIZERS, THEMES, FakeAudio } = window.SV;
+  const { VISUALIZERS, THEMES, FakeAudio, themePalette } = window.SV;
   const gallery = [...document.querySelectorAll('#styleGallery button')];
   let current = {};
   const fake = new FakeAudio();
@@ -309,7 +486,7 @@
   });
   // Palette de l'aperçu : « fond d'écran » et « pochette » dépendent de l'image du
   // moment, inconnue ici ; on montre le violet de Sillon.
-  const paletteOf = (theme) => THEMES[theme] || THEMES.violet;
+  const paletteOf = (s) => themePalette(s.theme, s.customColor) || THEMES.violet;
   function draw(now) {
     frame = 0;
     if (document.hidden) return;
@@ -323,7 +500,7 @@
     lastDraw = now;
     const t = frozen ? 1500 : now;
     const a = fake.frame(t);
-    const pal = paletteOf(current.theme);
+    const pal = paletteOf(current);
     for (const p of visible) {
       const ctx = p.c.getContext('2d');
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -338,7 +515,7 @@
     $('liveStyle').textContent = Catalog.STYLE_NAMES[style] || style;
     $('liveTheme').textContent = Catalog.THEME_NAMES[s.theme] || '';
     live.c.style.opacity = String(Math.max(0.2, Math.min(1, Number(s.opacity) || 1)));
-    document.body.style.setProperty('--pv1', paletteOf(s.theme)[0]);
+    document.body.style.setProperty('--pv1', paletteOf(s)[0]);
   }
 
   function fill(s) {
@@ -358,6 +535,9 @@
     check(gallery, s.style || 'bars', 'style');
     check(themeSwatches, s.theme || 'wallpaper', 'value');
     check(discSwatches, s.discColors || 'album', 'value');
+    const customColor = s.customColor || Catalog.CUSTOM_DEFAULT;
+    wheelFrom(customColor);
+    paintCustomSwatches(customColor);
     showLive(s);
     paintSoon();
     $('launchAtLogin').checked = !!s.launchAtLogin;

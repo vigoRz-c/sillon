@@ -6,8 +6,9 @@ const Catalog = require('../../renderer/shared/catalog');
 const SceneLayout = require('../../renderer/shared/scene-layout');
 
 const DEFAULTS = {
-  style: 'bars', // bars | mirror | blocks | ring | halo | wave | aurora
-  theme: 'wallpaper', // wallpaper | album | spotify | neon | sunset | ocean | violet | mono
+  style: 'bars', // bars | mirror | blocks | ring | halo | wave | aurora | spectrum | dots | sparks | rosace
+  theme: 'wallpaper', // wallpaper | album | custom | un jeu fixe du catalogue (spotify, neon…)
+  customColor: Catalog.CUSTOM_DEFAULT, // couleur de la roue (#rrggbb), utilisée par theme / discColors « custom »
   mode: 'wallpaper', // wallpaper | top | normal
   layout: 'scene', // scene (disque, paroles, panneau) | strip (bandeau)
   showLyrics: true,
@@ -23,7 +24,7 @@ const DEFAULTS = {
   discY: 0.45,
   discSize: 1,
   discRays: 'fine', // rayons du disque : fine (fins, serrés) | bold (épais, espacés)
-  discColors: 'album', // couleurs du disque : album (pochette) | violet | neon | sunset | ocean | spotify | mono
+  discColors: 'album', // couleurs du disque : album (pochette) | custom (roue) | un jeu fixe du catalogue
   discBloom: 0.8, // lueur au centre du disque (0 à 1,5)
   edgeGlow: 0.8, // bord de l'écran lumineux qui pulse (0 = aucun, jusqu'à 2)
   panelRing: true, // anneaux qui vibrent autour de la pochette du panneau
@@ -56,7 +57,7 @@ const ENUMS = {
   sceneScreen: ['primary', 'secondary'],
   audioSource: ['app', 'system'],
   discRays: ['fine', 'bold'],
-  discColors: ['album', ...Catalog.FIXED_THEMES.map(([id]) => id)],
+  discColors: ['album', 'custom', ...Catalog.FIXED_THEMES.map(([id]) => id)],
 };
 
 // Bornes [min, max] des réglages numériques.
@@ -74,6 +75,7 @@ const RANGES = {
 };
 
 const MAX_STRING = 200;
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 const MAX_OFFSETS = 5000;
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -114,6 +116,12 @@ function sanitizeValue(key, v) {
   if (key === 'lyricsOffsets') return sanitizeOffsets(v);
   if (key === 'sceneLayout') return isObject(v) ? ok(SceneLayout.fromSettings({ sceneLayout: v })) : no;
   if (key === 'fps30') return typeof v === 'boolean' ? ok(v) : no;
+  // Couleur « #rrggbb » (forme courte « #rgb » acceptée), rangée en minuscules.
+  if (key === 'customColor') {
+    if (typeof v !== 'string') return no;
+    const c = /^#[0-9a-f]{3}$/i.test(v) ? '#' + [...v.slice(1)].map((x) => x + x).join('') : v;
+    return HEX_COLOR.test(c) ? ok(c.toLowerCase()) : no;
+  }
   if (key === 'fps') return v === 30 || v === 60 ? ok(v) : no;
   if (Object.hasOwn(ENUMS, key)) return ENUMS[key].includes(v) ? ok(v) : no;
   const def = DEFAULTS[key];

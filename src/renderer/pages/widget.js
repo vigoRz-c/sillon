@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  const { currentPosition, fmt, THEMES, VISUALIZERS, drawEdgeGlow, drawCoverRings } = window.SV;
+  const { currentPosition, fmt, themePalette, VISUALIZERS, drawEdgeGlow, drawCoverRings } = window.SV;
   const SL = window.SceneLayout;
   const $ = (id) => document.getElementById(id);
   const bridge = window.bridge;
@@ -170,11 +170,12 @@
     }
   }
 
-  // Couleurs du disque : celles de la pochette, ou un thème fixe.
+  // Couleurs du disque : celles de la pochette, un thème fixe ou la couleur de la roue.
   function discPalette() {
     const st = app.state,
-      c = settings().discColors || 'album';
-    if (c !== 'album' && THEMES[c]) return THEMES[c];
+      s = settings(),
+      fixed = themePalette(s.discColors || 'album', s.customColor);
+    if (fixed) return fixed;
     return st.albumPalette || app.renderer.palette;
   }
 

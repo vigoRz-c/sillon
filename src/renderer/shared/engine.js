@@ -15,11 +15,18 @@
     throw new Error('audio-engine.js, colors.js et visualizers.js doivent être chargés avant engine.js');
 
   const { AudioEngine, FakeAudio } = AUD;
-  const { paletteFromImage, paletteFromColor, prepareColor } = COL;
+  const { paletteFromImage, paletteFromColor, paletteFromCustom, prepareColor } = COL;
   const { VISUALIZERS, drawEdgeGlow, drawCoverRings } = VIS;
 
   // Couleurs des jeux fixes : catalog.js (source unique).
   const THEMES = CAT.PALETTES;
+
+  // Palette d'un jeu qui ne dépend d'aucune image : un jeu fixe, ou « custom »
+  // (couleur de la roue, réglage customColor). null pour wallpaper / album.
+  function themePalette(id, customColor) {
+    if (id === 'custom') return paletteFromCustom(customColor);
+    return Object.hasOwn(THEMES, id) ? THEMES[id] : null;
+  }
 
   // Catalogue partagé (catalog.js, chargé avant ce fichier par toutes les pages).
   const { STYLE_ORDER, THEME_ORDER, STYLE_NAMES, THEME_NAMES } = CAT;
@@ -207,6 +214,8 @@
     THEME_NAMES,
     paletteFromImage,
     paletteFromColor,
+    paletteFromCustom,
+    themePalette,
     currentPosition,
     fmt,
     drawEdgeGlow,

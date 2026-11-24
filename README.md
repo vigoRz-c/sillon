@@ -9,8 +9,8 @@ Visualiseur musical qui vit **sur le fond d'écran Windows**, derrière toutes l
 - Scène sur tout le bureau : pochette en disque avec rayons en soleil et halo (intensité, position et taille réglables), paroles synchronisées en karaoké avec la ligne précédente en fantôme, panneau « en lecture » avec boutons (aléatoire, répéter, masquer…) et file d'attente « À suivre »
 - Écran de veille (**Ctrl + Alt + L** ou après inactivité) qui verrouille la session en sortant
 - Discret : s'arrête pendant un jeu ou une vidéo en plein écran, s'atténue en pause, se masque sans musique
-- 7 visualiseurs pour le bandeau et le plein écran : Barres, Miroir, Blocs, Anneau, Halo, Onde, Aurore
-- 8 jeux de couleurs : Couleurs de la pochette, Couleurs du fond d'écran (tirées de l'image du bureau), Spotify, Néon, Coucher de soleil, Océan, Violet, Blanc
+- 11 visualiseurs pour le bandeau et le plein écran : Barres, Miroir, Blocs, Anneau, Halo, Onde, Aurore, Spectre, Points, Étincelles, Rosace
+- 8 jeux de couleurs : Couleurs de la pochette, Couleurs du fond d'écran (tirées de l'image du bureau), Spotify, Néon, Coucher de soleil, Océan, Violet, Blanc, et une couleur personnalisée choisie sur une roue des couleurs
 - Titre, artiste, pochette et progression du morceau en cours
 - Mode plein écran (**Ctrl + Alt + F**) : pochette au centre, fond flouté qui dérive, ondes sur les basses
 - Réglage « Réduire les animations et les lueurs » pour les personnes sensibles au mouvement ou aux lumières qui pulsent

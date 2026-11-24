@@ -5,7 +5,7 @@ const { sanitize } = require('../src/main/app/settings-schema');
 
 test('chaque jeu de couleurs fixe a trois couleurs hexadécimales', () => {
   for (const id of Catalog.THEME_ORDER) {
-    if (id === 'wallpaper' || id === 'album') continue;
+    if (id === 'wallpaper' || id === 'album' || id === 'custom') continue;
     const pal = Catalog.PALETTES[id];
     assert.ok(Array.isArray(pal) && pal.length === 3, `palette manquante : ${id}`);
     for (const c of pal) assert.match(c, /^#[0-9a-f]{6}$/i, `${id} : ${c}`);

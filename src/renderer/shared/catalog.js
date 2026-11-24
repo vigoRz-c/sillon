@@ -16,6 +16,10 @@
     ['halo', 'Halo'],
     ['wave', 'Onde'],
     ['aurora', 'Aurore'],
+    ['spectrum', 'Spectre'],
+    ['dots', 'Points'],
+    ['sparks', 'Étincelles'],
+    ['rosace', 'Rosace'],
   ];
 
   const THEMES = [
@@ -45,10 +49,13 @@
     ['gold', 'Or et noir'],
     ['blood', 'Rouge sang'],
     ['midnight', 'Minuit'],
+    // Choisie à la roue des couleurs (réglage customColor) : palette calculée.
+    ['custom', 'Couleur personnalisée'],
   ];
 
   // Trois couleurs par jeu : principale (lueurs, halo), secondaire, éclat.
-  // « wallpaper » et « album » sont calculés à partir de l'image.
+  // « wallpaper » et « album » sont calculés à partir de l'image, « custom » à
+  // partir de la couleur choisie (voir paletteFromCustom dans colors.js).
   const PALETTES = {
     spotify: ['#1db954', '#1ed760', '#b8f5cf'],
     neon: ['#7c3aed', '#ec4899', '#22d3ee'],
@@ -78,6 +85,8 @@
     PALETTES,
     // Jeux fixes (sans « wallpaper » ni « album ») : couleurs possibles du disque.
     FIXED_THEMES: THEMES.filter(([id]) => Object.hasOwn(PALETTES, id)),
+    // Couleur par défaut de la roue des couleurs (réglage customColor).
+    CUSTOM_DEFAULT: '#8b5cf6',
     STYLE_ORDER: STYLES.map(([id]) => id),
     THEME_ORDER: THEMES.map(([id]) => id),
     STYLE_NAMES: Object.fromEntries(STYLES),

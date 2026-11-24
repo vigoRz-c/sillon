@@ -4,6 +4,10 @@ Toutes les évolutions notables de Sillon. Format inspiré de [Keep a Changelog]
 
 ## [Non publié]
 
+### Ajouté
+- Roue des couleurs dans les paramètres (onglet Couleurs) : teinte et saturation sur la roue, luminosité au curseur, ou code hexadécimal. La couleur choisie devient le jeu « Couleur personnalisée » du bandeau, du plein écran et de la veille, et peut aussi colorer le disque de la scène (pastille « Personnalisée », ou dans l'éditeur de scène). Utilisable au clavier.
+- Quatre nouveaux visualiseurs : Spectre (courbe lisse remplie), Points (matrice lumineuse), Étincelles (particules qui montent avec le son) et Rosace (pétales de spectre qui tournent). Au choix dans les paramètres, le menu de l'icône et le plein écran (touche V) ; les trois premiers aussi pour l'élément « Barres » de l'éditeur de scène.
+
 ### Sécurité
 - Chaque page ne peut plus demander que ce dont elle a besoin : la fenêtre des boutons ne peut pas déconnecter Spotify, l'écran noir de la veille ne peut que la quitter. Une demande refusée est notée au diagnostic.
 - Les écrans noirs de la veille (écrans secondaires) sont une page de l'app au lieu d'une page `data:`, avec les mêmes règles de sécurité que les autres.

@@ -19,6 +19,7 @@
   const settings = {
     style: 'bars',
     theme: 'wallpaper',
+    customColor: '#8b5cf6',
     mode: 'wallpaper',
     layout: 'scene',
     showLyrics: true,

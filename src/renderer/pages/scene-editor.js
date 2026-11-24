@@ -336,7 +336,7 @@
       let extra = '';
       if (selected === 'disc') {
         extra = `<label class="er">Rayons<select data-o="discRays">${opt('discRays', 'fine', 'Fins et serrés')}${opt('discRays', 'bold', 'Épais et espacés')}</select></label>
-        <label class="er">Couleurs<select data-o="discColors">${opt('discColors', 'album', 'De la pochette')}${window.SillonCatalog.FIXED_THEMES.map(([t, name]) => opt('discColors', t, name)).join('')}</select></label>`;
+        <label class="er">Couleurs<select data-o="discColors">${opt('discColors', 'album', 'De la pochette')}${opt('discColors', 'custom', 'Couleur personnalisée')}${window.SillonCatalog.FIXED_THEMES.map(([t, name]) => opt('discColors', t, name)).join('')}</select></label>`;
       } else if (selected === 'cover') {
         extra = `<label class="ec"><input type="checkbox" data-o="panelRing" ${s.panelRing !== false ? 'checked' : ''}> Anneaux qui vibrent</label>`;
       } else if (selected === 'bars') {
@@ -346,6 +346,9 @@
           ['blocks', 'Blocs'],
           ['wave', 'Onde'],
           ['aurora', 'Aurore'],
+          ['spectrum', 'Spectre'],
+          ['dots', 'Points'],
+          ['sparks', 'Étincelles'],
         ];
         // Style courant absent de la liste (anneau, halo…) : on l'ajoute, sinon « Barres » s'afficherait à tort.
         const cur = s.style;

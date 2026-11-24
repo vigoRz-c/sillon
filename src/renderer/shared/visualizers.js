@@ -1,4 +1,5 @@
-/* Sillon — dessins : visualiseurs (barres, miroir, anneau, halo, disque…),
+/* Sillon — dessins : visualiseurs (barres, miroir, anneau, halo, spectre, points,
+   étincelles, rosace, disque…),
    bord lumineux et anneaux de pochette.
    Script classique : expose window.SillonVisuals. Chargé après colors.js. */
 (function () {
@@ -311,6 +312,228 @@
       ctx.shadowBlur = 0;
     },
 
+    // Courbe lisse du spectre, remplie en dégradé jusqu'en bas : un relief qui
+    // ondule avec la musique.
+    spectrum(ctx, w, h, a, pal, opts) {
+      const n = Math.max(24, Math.min(80, Math.floor(w / 18)));
+      const bands = a.bands(n);
+      const base = opts.reflection === false ? h : h * 0.85;
+      const pts =
+        spectrumState.pts.length === n + 2 ? spectrumState.pts : (spectrumState.pts = new Float32Array(n + 2));
+      // Bords posés au ras du bas : la courbe y entre et en sort en douceur.
+      pts[0] = base;
+      pts[n + 1] = base;
+      for (let i = 0; i < n; i++) pts[i + 1] = base - Math.max(0.01, bands[i]) * base * 0.92;
+      const xAt = (i) => (i === 0 ? 0 : i === n + 1 ? w : ((i - 0.5) / n) * w);
+      const trace = () => {
+        ctx.moveTo(0, pts[0]);
+        for (let i = 1; i <= n; i++) {
+          const mx = (xAt(i) + xAt(i + 1)) / 2,
+            my = (pts[i] + pts[i + 1]) / 2;
+          ctx.quadraticCurveTo(xAt(i), pts[i], mx, my);
+        }
+        ctx.lineTo(w, pts[n + 1]);
+      };
+      const g = ctx.createLinearGradient(0, base * 0.1, 0, base);
+      g.addColorStop(0, withAlpha(pal[2], 0.55));
+      g.addColorStop(0.5, withAlpha(pal[0], 0.35));
+      g.addColorStop(1, withAlpha(pal[0], 0.02));
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      trace();
+      ctx.lineTo(w, base);
+      ctx.lineTo(0, base);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = hGradient(ctx, w, pal);
+      ctx.lineWidth = Math.max(2, Math.min(4, h / 60));
+      ctx.lineJoin = 'round';
+      ctx.shadowColor = pal[1];
+      ctx.shadowBlur = opts.glow ? 14 : 0;
+      ctx.beginPath();
+      trace();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      if (opts.reflection !== false) {
+        // Reflet sous la ligne de base, comme pour les barres.
+        ctx.save();
+        ctx.globalAlpha = 0.18;
+        ctx.translate(0, base * 2 + 4);
+        ctx.scale(1, -1);
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        trace();
+        ctx.lineTo(w, base);
+        ctx.lineTo(0, base);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+    },
+
+    // Matrice de points, façon tableau lumineux : chaque colonne s'allume du bas
+    // vers le haut, les points allumés grossissent.
+    dots(ctx, w, h, a, pal) {
+      const n = Math.max(12, Math.min(64, Math.floor(w / 18)));
+      const rows = Math.max(6, Math.min(20, Math.floor(h / 18)));
+      const bands = a.bands(n);
+      const slot = w / n,
+        gap = h / rows;
+      const rMax = Math.max(1.5, Math.min(slot, gap) * 0.38);
+      // Un tracé par couleur (3) plus un pour les points éteints : quatre remplissages en tout.
+      const lit = [new Path2D(), new Path2D(), new Path2D()];
+      const off = new Path2D();
+      for (let i = 0; i < n; i++) {
+        const level = bands[i] * rows;
+        const x = (i + 0.5) * slot;
+        for (let r = 0; r < rows; r++) {
+          const y = h - (r + 0.5) * gap;
+          const on = Math.min(1, Math.max(0, level - r)); // point à moitié allumé en haut de colonne
+          if (on <= 0.05) {
+            off.moveTo(x + rMax * 0.35, y);
+            off.arc(x, y, rMax * 0.35, 0, Math.PI * 2);
+            continue;
+          }
+          const f = r / rows;
+          const p = lit[f > 0.7 ? 2 : f > 0.35 ? 1 : 0];
+          const rad = rMax * (0.45 + 0.55 * on);
+          p.moveTo(x + rad, y);
+          p.arc(x, y, rad, 0, Math.PI * 2);
+        }
+      }
+      ctx.globalAlpha = 0.12;
+      ctx.fillStyle = pal[0];
+      ctx.fill(off);
+      ctx.globalAlpha = 1;
+      for (let c = 0; c < 3; c++) {
+        ctx.fillStyle = pal[c];
+        ctx.fill(lit[c]);
+      }
+    },
+
+    // Étincelles qui montent du bas, plus nombreuses et plus rapides quand le son
+    // est fort ; une gerbe à chaque battement.
+    sparks(ctx, w, h, a, pal, opts) {
+      const st = sparksStateOf(ctx);
+      const rm = opts.reduceMotion;
+      const t = opts.t || 0;
+      const dt = Math.min(0.1, Math.max(0, (t - (st.last || t)) / 1000));
+      st.last = t;
+      const bands = a.bands(32);
+      const P = st.p,
+        max = rm ? SPARKS_MAX / 3 : SPARKS_MAX;
+      // Naissances : selon le niveau sonore, à l'aplomb des bandes les plus fortes.
+      let births = dt * (rm ? 15 : 45) * (0.3 + a.level * 2.5) + (a.beat ? 18 : 0);
+      for (let i = 0; i < SPARKS_MAX && births > 0; i++) {
+        if (P[i * 6 + 4] > 0 || st.count >= max) continue;
+        if (births < 1 && Math.random() > births) break;
+        births--;
+        const b = Math.floor(Math.random() * 32);
+        const v = bands[b];
+        const o = i * 6;
+        P[o] = (b + Math.random()) / 32; // x (0 à 1)
+        P[o + 1] = 1.02; // y (0 en haut, 1 en bas)
+        P[o + 2] = (Math.random() - 0.5) * 0.06; // vitesse x
+        P[o + 3] = -(0.12 + v * 0.55 + Math.random() * 0.1) * (rm ? 0.4 : 1); // vitesse y
+        P[o + 4] = 1; // vie
+        P[o + 5] = Math.floor(Math.random() * 3); // couleur
+        st.count++;
+      }
+      // Mouvement, puis tracés regroupés par couleur et par palier de vie.
+      const paths = st.paths;
+      for (let k = 0; k < paths.length; k++) paths[k] = null;
+      const size = Math.max(1.2, Math.min(w, h) * 0.012);
+      for (let i = 0; i < SPARKS_MAX; i++) {
+        const o = i * 6;
+        if (P[o + 4] <= 0) continue;
+        P[o] += P[o + 2] * dt;
+        P[o + 1] += P[o + 3] * dt;
+        P[o + 3] *= 1 - 0.35 * dt; // ralentit en montant
+        P[o + 4] -= dt * (0.35 + Math.random() * 0.1);
+        if (P[o + 4] <= 0 || P[o + 1] < -0.05) {
+          P[o + 4] = 0;
+          st.count--;
+          continue;
+        }
+        const life = P[o + 4];
+        const step = Math.min(2, Math.floor(life * 3));
+        const gi = P[o + 5] * 3 + step;
+        const p = paths[gi] || (paths[gi] = new Path2D());
+        const x = P[o] * w,
+          y = P[o + 1] * h,
+          r = size * (0.5 + life * 0.7);
+        p.moveTo(x + r, y);
+        p.arc(x, y, r, 0, Math.PI * 2);
+      }
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.shadowBlur = opts.glow ? 8 : 0;
+      for (let gi = 0; gi < paths.length; gi++) {
+        if (!paths[gi]) continue;
+        const color = pal[Math.floor(gi / 3)];
+        ctx.fillStyle = color;
+        ctx.shadowColor = color;
+        ctx.globalAlpha = 0.3 + 0.35 * (gi % 3);
+        ctx.fill(paths[gi]);
+      }
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+    },
+
+    // Rosace : trois pétales de spectre superposés, symétriques, qui tournent
+    // lentement autour du centre.
+    rosace(ctx, w, h, a, pal, opts) {
+      const cx = opts.cx ?? w / 2,
+        cy = opts.cy ?? h / 2;
+      const m = Math.min(w, h);
+      const rm = opts.reduceMotion;
+      const bands = a.bands(48);
+      const r0 = m * 0.14 * (1 + (rm ? 0 : a.bass * 0.06));
+      const len = m * 0.28;
+      const n = 96;
+      const t = rm ? 0 : opts.t || 0;
+      ctx.lineJoin = 'round';
+      for (let layer = 2; layer >= 0; layer--) {
+        const scale = 1 - layer * 0.22;
+        const rot = t * 0.00006 * (layer % 2 ? -1 : 1) + layer * 0.4;
+        ctx.beginPath();
+        let fx = 0,
+          fy = 0;
+        for (let i = 0; i <= n; i++) {
+          const half = i % n < n / 2 ? i % n : n - (i % n); // symétrique
+          const v = bands[Math.min(47, Math.floor((half / (n / 2)) * 48))];
+          const ang = (i / n) * Math.PI * 2 - Math.PI / 2 + rot;
+          const rr = r0 + (2 + v * len) * scale;
+          const x = cx + Math.cos(ang) * rr,
+            y = cy + Math.sin(ang) * rr;
+          if (i === 0) {
+            fx = x;
+            fy = y;
+            ctx.moveTo(x, y);
+          } else ctx.lineTo(x, y);
+        }
+        ctx.lineTo(fx, fy);
+        ctx.closePath();
+        const color = pal[layer];
+        ctx.fillStyle = withAlpha(color, 0.16 + (2 - layer) * 0.08);
+        ctx.fill();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = Math.max(1.5, m * 0.004);
+        ctx.shadowColor = color;
+        ctx.shadowBlur = opts.glow ? 12 : 0;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+      // Cœur : un cercle qui respire doucement (valeur lissée, jamais de clignotement).
+      ctx.strokeStyle = pal[2];
+      ctx.globalAlpha = 0.4 + (rm ? 0 : a.pulse) * 0.3;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, Math.max(0, r0 - 6), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    },
+
     // Pochette ronde qui tourne, couronne de points et rayons en soleil qui
     // jaillissent avec le son, sur un halo aux couleurs de la pochette.
     // opts : cx, cy, radius, image, spin (lecture en cours), halo (couleur).
@@ -462,6 +685,27 @@
     return coverCache.canvas;
   }
   const blocksState = { peaks: null, groups: new Array(18).fill(null) };
+  const spectrumState = { pts: new Float32Array(0) };
+
+  // Étincelles : 6 valeurs par particule (x, y, vitesse x, vitesse y, vie,
+  // couleur), positions de 0 à 1. Un état par canvas (les aperçus des réglages
+  // en dessinent plusieurs à la fois), pré-rempli pour qu'une image figée
+  // (animations réduites) montre déjà quelque chose.
+  const SPARKS_MAX = 240;
+  const sparksStates = new WeakMap();
+  function sparksStateOf(ctx) {
+    let st = sparksStates.get(ctx);
+    if (!st) {
+      st = { p: new Float32Array(SPARKS_MAX * 6), count: 0, last: 0, paths: new Array(9).fill(null) };
+      for (let i = 0; i < 60; i++) {
+        const o = i * 6;
+        st.p.set([Math.random(), 0.2 + Math.random() * 0.8, 0, -0.15 - Math.random() * 0.2, Math.random(), i % 3], o);
+        st.count++;
+      }
+      sparksStates.set(ctx, st);
+    }
+    return st;
+  }
 
   // ================= Décors de la scène =================
 

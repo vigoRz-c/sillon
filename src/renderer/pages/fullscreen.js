@@ -110,11 +110,11 @@
       rays: st.settings.discRays || 'fine',
       bloom: st.settings.discBloom ?? 0.8,
     };
-    // Couleurs fixes choisies pour le disque (sinon celles de la pochette).
-    const c = st.settings.discColors;
-    if (c && c !== 'album' && window.SV.THEMES[c]) {
-      app.renderer.opts.palette = window.SV.THEMES[c];
-      app.renderer.opts.halo = window.SV.THEMES[c][0];
+    // Couleurs fixes (ou de la roue) choisies pour le disque, sinon celles de la pochette.
+    const fixed = window.SV.themePalette(st.settings.discColors, st.settings.customColor);
+    if (fixed) {
+      app.renderer.opts.palette = fixed;
+      app.renderer.opts.halo = fixed[0];
     }
   }
 
