@@ -1,4 +1,4 @@
-//! Petits outils sur les processus de Windows.
+//! Small tools on Windows processes.
 
 use windows::core::PWSTR;
 use windows::Win32::Foundation::{CloseHandle, HANDLE, WAIT_FAILED, WAIT_OBJECT_0};
@@ -16,7 +16,7 @@ fn wide_to_string(w: &[u16]) -> String {
     String::from_utf16_lossy(&w[..end])
 }
 
-/// Tous les processus : (pid, pid du parent, nom du programme).
+/// Every process: (pid, parent pid, program name).
 pub fn list() -> Vec<(u32, u32, String)> {
     let mut out = Vec::new();
     unsafe {
@@ -40,8 +40,8 @@ pub fn list() -> Vec<(u32, u32, String)> {
     out
 }
 
-/// Processus racine d'un programme : celui dont le parent ne porte pas le même
-/// nom (Spotify et les navigateurs lancent plusieurs processus).
+/// Root process of a program: the one whose parent does not have the same
+/// name (Spotify and the browsers start several processes).
 pub fn root_of(exe: &str) -> Option<u32> {
     let all = list();
     let same: Vec<&(u32, u32, String)> = all.iter().filter(|p| p.2.eq_ignore_ascii_case(exe)).collect();
@@ -49,7 +49,7 @@ pub fn root_of(exe: &str) -> Option<u32> {
     same.iter().find(|p| !ids.contains(&p.1)).or(same.first()).map(|p| p.0)
 }
 
-/// Nom du programme d'un processus (« Spotify.exe »), ou None.
+/// Program name of a process ("Spotify.exe"), or None.
 pub fn name_of(pid: u32) -> Option<String> {
     unsafe {
         let h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
@@ -65,21 +65,21 @@ pub fn name_of(pid: u32) -> Option<String> {
     }
 }
 
-/// Initialise COM pour le fil courant. S_OK et S_FALSE (déjà initialisé) sont
-/// acceptés ; toute autre valeur (ex. mode de cloisonnement différent) est une erreur.
+/// Initializes COM for the current thread. S_OK and S_FALSE (already initialized) are
+/// accepted; any other value (e.g. a different apartment mode) is an error.
 pub fn init_com() -> Result<(), String> {
-    // SAFETY: appel sans pointeur ; le résultat est vérifié.
+    // SAFETY: call without a pointer; the result is checked.
     let hr = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
     hr.ok()
-        .map_err(|e| format!("initialisation COM refusée : {}", e.message()))
+        .map_err(|e| format!("COM initialization refused: {}", e.message()))
 }
 
-/// Vrai si un processus de ce numéro existe encore (sondage par liste des processus).
+/// True if a process with this number still exists (polling the process list).
 pub fn exists(pid: u32) -> bool {
     list().iter().any(|p| p.0 == pid)
 }
 
-/// Poignée pour savoir si un processus s'est terminé.
+/// Handle to know whether a process has ended.
 pub struct Watch {
     handle: HANDLE,
     pid: u32,
@@ -87,15 +87,15 @@ pub struct Watch {
 
 impl Watch {
     pub fn new(pid: u32) -> Option<Watch> {
-        // SAFETY: OpenProcess ne lit aucun pointeur ; la poignée est fermée dans Drop.
+        // SAFETY: OpenProcess reads no pointer; the handle is closed in Drop.
         unsafe { OpenProcess(PROCESS_SYNCHRONIZE, false, pid).ok() }.map(|handle| Watch { handle, pid })
     }
 
     pub fn exited(&self) -> bool {
-        // SAFETY: la poignée est valide tant que `self` existe.
+        // SAFETY: the handle is valid as long as `self` exists.
         let r = unsafe { WaitForSingleObject(self.handle, 0) };
         if r == WAIT_FAILED {
-            // On ne présume pas que le processus est vivant : trace, puis sondage.
+            // We do not assume the process is alive: trace, then polling.
             crate::log("avertissement : attente du processus suivi impossible, sondage de secours");
             return !exists(self.pid);
         }
@@ -103,8 +103,8 @@ impl Watch {
     }
 }
 
-/// Le processus suivi s'est-il terminé ? Sans poignée (OpenProcess refusé), on
-/// sonde l'existence du processus.
+/// Has the followed process ended? Without a handle (OpenProcess refused), the
+/// existence of the process is polled.
 pub fn has_exited(watch: Option<&Watch>, pid: u32) -> bool {
     match watch {
         Some(w) => w.exited(),
@@ -114,7 +114,7 @@ pub fn has_exited(watch: Option<&Watch>, pid: u32) -> bool {
 
 impl Drop for Watch {
     fn drop(&mut self) {
-        // SAFETY: poignée ouverte par `new`, fermée une seule fois ici.
+        // SAFETY: handle opened by `new`, closed only once here.
         unsafe {
             let _ = CloseHandle(self.handle);
         }

@@ -3,17 +3,17 @@ name = "sillon-helper"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.82"
-description = "Assistant système de Sillon : morceau en cours, volume du lecteur, capture du son du lecteur."
+description = "Sillon's system helper: current track, player volume, capture of the player's sound."
 license = "GPL-3.0-only"
 publish = false
 
 [dependencies]
 serde_json = "1"
 base64 = "0.23"
-# Même version que « windows » ci-dessous (utilisé par la macro #[implement]).
-# Dependabot l'ignore : le monter à la main avec windows.
+# Same version as "windows" below (used by the #[implement] macro).
+# Dependabot ignores it: bump it by hand together with windows.
 windows-core = "0.62"
-# Types asynchrones WinRT (IAsyncOperation, AsyncStatus) : version imposée par « windows ».
+# WinRT asynchronous types (IAsyncOperation, AsyncStatus): version set by "windows".
 windows-future = "0.3"
 
 [dependencies.windows]

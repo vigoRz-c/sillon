@@ -1,9 +1,9 @@
-//! Capture du son d'un seul programme (et de ses sous-processus).
+//! Capture of the sound of a single program (and of its child processes).
 //!
-//! Windows 10 (version 2004 et plus) et Windows 11 savent enregistrer la sortie
-//! audio d'un seul processus (« process loopback »). Sillon s'en sert pour
-//! n'analyser que le lecteur suivi et ignorer le chat vocal, les notifications
-//! et les jeux.
+//! Windows 10 (version 2004 and later) and Windows 11 can record the audio
+//! output of a single process ("process loopback"). Sillon uses it to
+//! analyze only the followed player and ignore voice chat, notifications
+//! and games.
 
 use std::io::{Read, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -29,7 +29,7 @@ use crate::process;
 
 const RATE: u32 = 48_000;
 
-/// Drapeau « silence » d'un paquet WASAPI (la valeur est un petit entier positif).
+/// "Silent" flag of a WASAPI packet (the value is a small positive integer).
 #[allow(clippy::cast_sign_loss)]
 const SILENT: u32 = AUDCLNT_BUFFERFLAGS_SILENT.0 as u32;
 
@@ -38,51 +38,51 @@ fn fail(code: i32, msg: &str) -> i32 {
     code
 }
 
-/// Poignée Windows fermée automatiquement (aucune fuite sur les chemins d'erreur).
+/// Windows handle closed automatically (no leak on the error paths).
 struct OwnedHandle(HANDLE);
 
-// SAFETY: une poignée d'événement Windows peut être signalée et fermée depuis n'importe quel fil.
+// SAFETY: a Windows event handle can be signaled and closed from any thread.
 unsafe impl Send for OwnedHandle {}
-// SAFETY: idem ; SetEvent et WaitForSingleObject sont sûrs en accès concurrent.
+// SAFETY: same; SetEvent and WaitForSingleObject are safe with concurrent access.
 unsafe impl Sync for OwnedHandle {}
 
 impl OwnedHandle {
-    /// Événement à réarmement automatique, non signalé.
+    /// Auto-reset event, not signaled.
     fn event() -> WinResult<OwnedHandle> {
-        // SAFETY: aucun pointeur fourni ; la poignée est fermée dans Drop.
+        // SAFETY: no pointer given; the handle is closed in Drop.
         unsafe { CreateEventW(None, false, false, None) }.map(OwnedHandle)
     }
 }
 
 impl Drop for OwnedHandle {
     fn drop(&mut self) {
-        // SAFETY: poignée ouverte par `event`, fermée une seule fois ici.
+        // SAFETY: handle opened by `event`, closed only once here.
         unsafe {
             let _ = CloseHandle(self.0);
         }
     }
 }
 
-/// Signale l'événement à la fin de l'activation. Le gestionnaire garde sa propre
-/// référence (Arc) : si l'attente a expiré, Windows peut encore le signaler sans
-/// toucher une poignée déjà fermée.
+/// Signals the event at the end of the activation. The handler keeps its own
+/// reference (Arc): if the wait timed out, Windows can still signal it without
+/// touching an already closed handle.
 #[implement(IActivateAudioInterfaceCompletionHandler, IAgileObject)]
 struct Done(Arc<OwnedHandle>);
 
 impl IActivateAudioInterfaceCompletionHandler_Impl for Done_Impl {
     fn ActivateCompleted(&self, _op: Ref<IActivateAudioInterfaceAsyncOperation>) -> WinResult<()> {
-        // SAFETY: la poignée est valide tant que l'Arc existe.
+        // SAFETY: the handle is valid as long as the Arc exists.
         unsafe { SetEvent(self.0 .0) }
     }
 }
 
-// Objet « agile » : Windows peut l'appeler depuis n'importe quel fil.
+// "Agile" object: Windows may call it from any thread.
 impl IAgileObject_Impl for Done_Impl {}
 
-/// Client audio branché sur la sortie du processus `pid` et de ses enfants.
+/// Audio client plugged into the output of process `pid` and of its children.
 ///
 /// # Safety
-/// COM doit être initialisé sur le fil appelant.
+/// COM must be initialized on the calling thread.
 unsafe fn activate(pid: u32) -> std::result::Result<IAudioClient, String> {
     let mut params = AUDIOCLIENT_ACTIVATION_PARAMS {
         ActivationType: AUDIOCLIENT_ACTIVATION_TYPE_PROCESS_LOOPBACK,
@@ -94,8 +94,8 @@ unsafe fn activate(pid: u32) -> std::result::Result<IAudioClient, String> {
         },
     };
     let size = u32::try_from(std::mem::size_of::<AUDIOCLIENT_ACTIVATION_PARAMS>()).map_err(|_| "taille".to_string())?;
-    // ManuallyDrop : sinon Rust « libère » à la fin les paramètres, qui sont
-    // sur la pile (PropVariantClear) et le programme plante.
+    // ManuallyDrop: otherwise Rust "frees" the parameters at the end, which are
+    // on the stack (PropVariantClear), and the program crashes.
     let pv = std::mem::ManuallyDrop::new(PROPVARIANT {
         Anonymous: PROPVARIANT_0 {
             Anonymous: std::mem::ManuallyDrop::new(PROPVARIANT_0_0 {
@@ -103,8 +103,8 @@ unsafe fn activate(pid: u32) -> std::result::Result<IAudioClient, String> {
                 Anonymous: PROPVARIANT_0_0_0 {
                     blob: BLOB {
                         cbSize: size,
-                        // `params` vit jusqu'à la fin de la fonction, donc pendant tout
-                        // l'appel à ActivateAudioInterfaceAsync qui le copie.
+                        // `params` lives until the end of the function, so during the whole
+                        // call to ActivateAudioInterfaceAsync, which copies it.
                         pBlobData: std::ptr::addr_of_mut!(params).cast::<u8>(),
                     },
                 },
@@ -114,28 +114,28 @@ unsafe fn activate(pid: u32) -> std::result::Result<IAudioClient, String> {
     });
     let event = Arc::new(OwnedHandle::event().map_err(|e| e.message())?);
     let handler: IActivateAudioInterfaceCompletionHandler = Done(Arc::clone(&event)).into();
-    // SAFETY: `pv` et `handler` sont valides pour la durée de l'appel ; en cas d'échec,
-    // l'événement est fermé par Drop (aucune fuite).
+    // SAFETY: `pv` and `handler` are valid for the duration of the call; on failure,
+    // the event is closed by Drop (no leak).
     let op = ActivateAudioInterfaceAsync(
         VIRTUAL_AUDIO_DEVICE_PROCESS_LOOPBACK,
         &IAudioClient::IID,
         Some(&*pv),
         &handler,
     )
-    .map_err(|e| format!("activation refusée : {}", e.message()))?;
-    // Si l'attente expire, l'événement reste ouvert tant que le gestionnaire (Arc) existe.
+    .map_err(|e| format!("activation refused: {}", e.message()))?;
+    // If the wait times out, the event stays open as long as the handler (Arc) exists.
     let waited = WaitForSingleObject(event.0, 5000);
     if waited == WAIT_FAILED {
-        return Err("attente de l'activation impossible".into());
+        return Err("could not wait for the activation".into());
     }
     if waited != WAIT_OBJECT_0 {
-        return Err("activation sans réponse".into());
+        return Err("activation without an answer".into());
     }
     let mut hr = windows::core::HRESULT(0);
     let mut iface = None;
     op.GetActivateResult(&mut hr, &mut iface).map_err(|e| e.message())?;
     if hr.is_err() {
-        return Err(format!("activation refusée 0x{:08X}", hr.0));
+        return Err(format!("activation refused 0x{:08X}", hr.0));
     }
     iface
         .ok_or_else(|| "activation vide".to_string())?
@@ -143,8 +143,8 @@ unsafe fn activate(pid: u32) -> std::result::Result<IAudioClient, String> {
         .map_err(|e| e.message())
 }
 
-/// Ajoute `frames` échantillons mono (moyenne des deux canaux) à `buf`. Sans
-/// données (`None`, tampon silencieux ou illisible), ajoute autant de zéros.
+/// Appends `frames` mono samples (average of the two channels) to `buf`. Without
+/// data (`None`, silent or unreadable buffer), appends as many zeros.
 fn push_mono(buf: &mut Vec<u8>, stereo: Option<&[i16]>, frames: usize) {
     for f in 0..frames {
         let v = match stereo {
@@ -158,13 +158,13 @@ fn push_mono(buf: &mut Vec<u8>, stereo: Option<&[i16]>, frames: usize) {
     }
 }
 
-/// Lit tous les paquets disponibles et les ajoute à `buf` en mono.
+/// Reads every available packet and appends them to `buf` in mono.
 ///
 /// # Safety
-/// `capture` doit provenir d'un client audio démarré, au format 16 bits stéréo.
+/// `capture` must come from a started audio client, in 16-bit stereo format.
 unsafe fn drain(capture: &IAudioCaptureClient, buf: &mut Vec<u8>) -> std::result::Result<(), String> {
     loop {
-        // Une erreur ici (ex. périphérique invalidé) n'est pas « pas de données » : on la remonte.
+        // An error here (e.g. invalidated device) is not "no data": pass it up.
         let pending = capture.GetNextPacketSize().map_err(|e| e.message())?;
         if pending == 0 {
             return Ok(());
@@ -176,7 +176,7 @@ unsafe fn drain(capture: &IAudioCaptureClient, buf: &mut Vec<u8>) -> std::result
             .GetBuffer(&mut data, &mut frames, &mut flags, None, None)
             .map_err(|e| e.message())?;
         if frames == 0 {
-            // Rien à lire (AUDCLNT_S_BUFFER_EMPTY) : pas une erreur.
+            // Nothing to read (AUDCLNT_S_BUFFER_EMPTY): not an error.
             let _ = capture.ReleaseBuffer(0);
             return Ok(());
         }
@@ -186,8 +186,8 @@ unsafe fn drain(capture: &IAudioCaptureClient, buf: &mut Vec<u8>) -> std::result
         let samples = if silent || data.is_null() || !typed.is_aligned() {
             None
         } else {
-            // SAFETY: GetBuffer a rendu un tampon non nul de `frames` trames stéréo 16 bits
-            // (2 × i16 par trame), aligné (vérifié), valide jusqu'au ReleaseBuffer ci-dessous.
+            // SAFETY: GetBuffer returned a non-null buffer of `frames` 16-bit stereo frames
+            // (2 × i16 per frame), aligned (checked), valid until the ReleaseBuffer below.
             Some(std::slice::from_raw_parts(typed.cast_const(), n * 2))
         };
         push_mono(buf, samples, n);
@@ -195,26 +195,26 @@ unsafe fn drain(capture: &IAudioCaptureClient, buf: &mut Vec<u8>) -> std::result
     }
 }
 
-/// Nom de programme accepté : « quelquechose.exe », sans chemin ni caractère spécial.
+/// Accepted program name: "something.exe", without a path or special character.
 fn valid_exe_name(exe: &str) -> bool {
     exe.len() > 4
         && exe.to_ascii_lowercase().ends_with(".exe")
         && exe.chars().all(|c| c.is_alphanumeric() || "._- ".contains(c))
 }
 
-/// Fil qui lit l'entrée jusqu'à sa fin, puis lève `gone` et réveille la boucle de capture.
+/// Thread that reads the input until its end, then raises `gone` and wakes the capture loop.
 fn watch_parent(gone: Arc<AtomicBool>, wake: Arc<OwnedHandle>) {
     std::thread::spawn(move || {
         wait_end_of_input(std::io::stdin().lock());
         gone.store(true, Ordering::Relaxed);
-        // SAFETY: la poignée reste valide tant que l'Arc existe.
+        // SAFETY: the handle stays valid as long as the Arc exists.
         unsafe {
             let _ = SetEvent(wake.0);
         }
     });
 }
 
-/// Lit et jette tout ce qui arrive, jusqu'à la fin du flux (ou une erreur).
+/// Reads and throws away everything that arrives, until the end of the stream (or an error).
 fn wait_end_of_input<R: Read>(mut input: R) {
     let mut sink = [0u8; 64];
     while matches!(input.read(&mut sink), Ok(n) if n > 0) {}
@@ -222,16 +222,16 @@ fn wait_end_of_input<R: Read>(mut input: R) {
 
 pub fn run(exe: &str) -> i32 {
     if !valid_exe_name(exe) {
-        return fail(4, "nom de programme refusé");
+        return fail(4, "program name refused");
     }
     let Some(pid) = process::root_of(exe) else {
-        return fail(4, &format!("{exe} n'est pas lancé"));
+        return fail(4, &format!("{exe} is not running"));
     };
     if let Err(e) = process::init_com() {
         return fail(2, &e);
     }
 
-    // SAFETY: COM est initialisé ; les interfaces restent sur ce fil.
+    // SAFETY: COM is initialized; the interfaces stay on this thread.
     unsafe {
         let client = match activate(pid) {
             Ok(c) => c,
@@ -258,42 +258,42 @@ pub fn run(exe: &str) -> i32 {
             Err(e) => return fail(2, &e.message()),
         };
         let Ok(ready) = OwnedHandle::event().map(Arc::new) else {
-            return fail(2, "événement");
+            return fail(2, "event");
         };
         if client.SetEventHandle(ready.0).is_err() || client.Start().is_err() {
-            return fail(2, "démarrage refusé");
+            return fail(2, "start refused");
         }
 
-        // Sillon est le seul à écrire sur notre entrée (un tuyau, jamais rien dessus) :
-        // sa fin signifie que Sillon est fermé ou mort, on s'arrête sans rester orphelin.
+        // Sillon is the only one writing to our input (a pipe, never anything on it):
+        // its end means Sillon is closed or dead, so we stop without staying orphaned.
         let parent_gone = Arc::new(AtomicBool::new(false));
         watch_parent(Arc::clone(&parent_gone), Arc::clone(&ready));
 
         let target = process::Watch::new(pid);
         if target.is_none() {
-            crate::log("avertissement : suivi du processus impossible, sondage toutes les secondes");
+            crate::log("warning: could not follow the process, polling every second");
         }
         let mut out = std::io::stdout().lock();
         let mut buf: Vec<u8> = Vec::with_capacity(RATE as usize * 2);
         let mut last_check = Instant::now();
         let code = loop {
             if WaitForSingleObject(ready.0, 100) == WAIT_FAILED {
-                break fail(7, "périphérique audio perdu : attente impossible");
+                break fail(7, "audio device lost: could not wait");
             }
             if parent_gone.load(Ordering::Relaxed) {
                 break 0; // Sillon a disparu : fin normale
             }
             buf.clear();
             if let Err(e) = drain(&capture, &mut buf) {
-                break fail(7, &format!("périphérique audio perdu : {e}"));
+                break fail(7, &format!("audio device lost: {e}"));
             }
             if !buf.is_empty() && (out.write_all(&buf).is_err() || out.flush().is_err()) {
-                break 0; // Sillon a fermé le tuyau : fin normale
+                break 0; // Sillon closed the pipe: normal end
             }
             if last_check.elapsed() >= Duration::from_secs(1) {
                 last_check = Instant::now();
                 if process::has_exited(target.as_ref(), pid) {
-                    break fail(3, "application fermée");
+                    break fail(3, "application closed");
                 }
             }
         };
@@ -307,7 +307,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn nom_exe_valide() {
+    fn valid_exe_name_accepted() {
         assert!(valid_exe_name("Spotify.exe"));
         assert!(valid_exe_name("chrome.EXE"));
         assert!(valid_exe_name("my app-1_2.exe"));
@@ -315,7 +315,7 @@ mod tests {
     }
 
     #[test]
-    fn nom_exe_refuse() {
+    fn invalid_exe_name_refused() {
         assert!(!valid_exe_name(""));
         assert!(!valid_exe_name(".exe"));
         assert!(!valid_exe_name("Spotify"));
@@ -331,29 +331,29 @@ mod tests {
     }
 
     #[test]
-    fn mono_moyenne_des_deux_canaux() {
+    fn mono_averages_both_channels() {
         let mut buf = Vec::new();
         push_mono(&mut buf, Some(&[100, 200, -50, 50, i16::MAX, i16::MAX]), 3);
         assert_eq!(samples_of(&buf), vec![150, 0, i16::MAX]);
     }
 
     #[test]
-    fn mono_sans_donnees_donne_des_zeros() {
+    fn mono_without_data_gives_zeros() {
         let mut buf = Vec::new();
         push_mono(&mut buf, None, 4);
         assert_eq!(buf, vec![0u8; 8]);
     }
 
     #[test]
-    fn mono_tampon_trop_court_complete_par_des_zeros() {
+    fn mono_short_buffer_padded_with_zeros() {
         let mut buf = Vec::new();
         push_mono(&mut buf, Some(&[10, 20]), 2);
         assert_eq!(samples_of(&buf), vec![15, 0]);
     }
 
     #[test]
-    fn fin_de_l_entree_detectee() {
-        // Des octets puis la fin : la lecture se termine (sinon ce test ne finirait pas).
+    fn end_of_input_detected() {
+        // Some bytes then the end: the reading finishes (otherwise this test would not end).
         wait_end_of_input(std::io::Cursor::new(
             b"du bruit
 encore"
@@ -363,7 +363,7 @@ encore"
     }
 
     #[test]
-    fn mono_zero_trame() {
+    fn mono_zero_frames() {
         let mut buf = Vec::new();
         push_mono(&mut buf, Some(&[]), 0);
         assert!(buf.is_empty());

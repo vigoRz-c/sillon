@@ -1,11 +1,11 @@
-//! Morceau en cours (contrôles média de Windows, SMTC) et volume du lecteur.
+//! Current track (Windows media controls, SMTC) and player volume.
 //!
-//! Même source que le panneau média de Windows : Spotify, un onglet YouTube,
-//! VLC… sans compte ni API. Envoie un événement JSON par changement.
+//! Same source as the Windows media panel: Spotify, a YouTube tab,
+//! VLC… with no account or API. Sends one JSON event per change.
 //!
-//! Les changements sont signalés par les événements SMTC (session courante,
-//! propriétés, état de lecture, chronologie) ; un sondage lent (2 s) sert de
-//! filet de sécurité. Tous les appels WinRT asynchrones ont un délai maximal.
+//! Changes are reported by the SMTC events (current session,
+//! properties, playback state, timeline); a slow poll (2 s) serves as a
+//! safety net. Every asynchronous WinRT call has a maximum delay.
 
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -28,24 +28,24 @@ use windows::Media::MediaPlaybackAutoRepeatMode;
 use windows::Storage::Streams::DataReader;
 use windows_future::{AsyncStatus, IAsyncOperation};
 
-/// Version du protocole annoncée dans le message « ready » (voir main.rs).
+/// Protocol version announced in the "ready" message (see main.rs).
 const PROTOCOL: u32 = 1;
-/// Longueur maximale d'une ligne de commande reçue (le reste est ignoré).
+/// Maximum length of a received command line (the rest is ignored).
 const MAX_LINE: usize = 4096;
-/// Taille maximale d'une pochette (au-delà, on n'en envoie pas).
+/// Maximum size of a cover (beyond it, none is sent).
 const MAX_COVER: u32 = 8 * 1024 * 1024;
-/// Délai maximal d'une commande (lecture, pause…) auprès du lecteur.
+/// Maximum delay of a command (play, pause…) to the player.
 const CMD_TIMEOUT: Duration = Duration::from_secs(4);
-/// Délai maximal de lecture des propriétés du morceau.
+/// Maximum delay to read the track properties.
 const PROPS_TIMEOUT: Duration = Duration::from_secs(4);
-/// Délai maximal pour ouvrir et lire la pochette (par étape).
+/// Maximum delay to open and read the cover (per step).
 const COVER_TIMEOUT: Duration = Duration::from_secs(5);
-/// Délai maximal de démarrage du gestionnaire SMTC.
+/// Maximum delay to start the SMTC manager.
 const INIT_TIMEOUT: Duration = Duration::from_secs(5);
-/// Sondage de secours : les événements SMTC déclenchent la lecture immédiatement.
+/// Fallback poll: the SMTC events trigger the reading immediately.
 const FALLBACK_POLL: Duration = Duration::from_secs(2);
 
-/// Passe à vrai quand l'écriture sur stdout échoue : Sillon est parti.
+/// Becomes true when writing to stdout fails: Sillon is gone.
 static STDOUT_BROKEN: AtomicBool = AtomicBool::new(false);
 
 fn emit(v: &Value) {
@@ -55,21 +55,21 @@ fn emit(v: &Value) {
     }
 }
 
-/// Message envoyé à la boucle principale.
+/// Message sent to the main loop.
 enum Msg {
-    /// Une ligne de commande (4 Ko au plus).
+    /// A command line (4 KB at most).
     Line(String),
-    /// Une ligne plus longue que 4 Ko : refusée (tronquée, elle changerait de sens).
+    /// A line longer than 4 KB: refused (truncated, it would change meaning).
     TooLong(String),
-    /// Fin de l'entrée : Sillon est parti.
+    /// End of the input: Sillon is gone.
     Eof,
-    /// Erreur d'E/S sur l'entrée.
+    /// I/O error on the input.
     InputError(String),
-    /// Un événement SMTC demande une relecture.
+    /// An SMTC event asks for a new reading.
     Wake,
 }
 
-/// Commande reçue de Sillon.
+/// Command received from Sillon.
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Cmd {
     PlayPause,
@@ -84,8 +84,8 @@ enum Cmd {
     Volume(i32),
 }
 
-/// Analyse une ligne de commande (sans toucher à Windows). `None` si elle est
-/// vide ou inconnue ; un volume est borné à 0-100.
+/// Parses a command line (without touching Windows). `None` if it is
+/// empty or unknown; a volume is bounded to 0-100.
 fn parse_command(line: &str) -> Option<Cmd> {
     let line = line.trim();
     match line {
@@ -110,16 +110,16 @@ fn parse_command(line: &str) -> Option<Cmd> {
     None
 }
 
-/// Ligne lue sur l'entrée : ses octets (au plus `cap`) et si elle a été coupée.
+/// Line read from the input: its bytes (at most `cap`) and whether it was cut.
 #[derive(Debug, PartialEq, Eq)]
 struct Line {
     bytes: Vec<u8>,
     truncated: bool,
 }
 
-/// Lit une ligne (sans le `\n`) en gardant au plus `cap` octets : le reste de
-/// la ligne est lu puis ignoré, et la ligne est marquée `truncated`.
-/// `Ok(None)` à la fin de l'entrée.
+/// Reads a line (without the `\n`) keeping at most `cap` bytes: the rest of
+/// the line is read then ignored, and the line is marked `truncated`.
+/// `Ok(None)` at the end of the input.
 fn read_line_capped<R: BufRead>(r: &mut R, cap: usize) -> std::io::Result<Option<Line>> {
     let mut line = Vec::new();
     let mut any = false;
@@ -131,7 +131,7 @@ fn read_line_capped<R: BufRead>(r: &mut R, cap: usize) -> std::io::Result<Option
             Err(e) => return Err(e),
         };
         if chunk.is_empty() {
-            // Fin de l'entrée : une dernière ligne sans `\n` compte quand même.
+            // End of the input: a last line without `\n` still counts.
             return Ok(any.then_some(Line { bytes: line, truncated }));
         }
         any = true;
@@ -148,40 +148,40 @@ fn read_line_capped<R: BufRead>(r: &mut R, cap: usize) -> std::io::Result<Option
     }
 }
 
-/// Début d'une chaîne (en caractères), pour ne pas renvoyer 4 Ko dans un message.
+/// Start of a string (in characters), so as not to send back 4 KB in a message.
 fn truncate_chars(s: &str, max: usize) -> String {
     s.chars().take(max).collect()
 }
 
-/// Attend la fin d'une opération WinRT, au plus `timeout`. Au-delà, l'opération
-/// est annulée et l'attente est un échec.
+/// Waits for the end of a WinRT operation, at most `timeout`. Beyond it, the operation
+/// is cancelled and the wait is a failure.
 fn wait<T: RuntimeType + 'static>(op: &IAsyncOperation<T>, timeout: Duration) -> Result<T, String> {
     let start = Instant::now();
     loop {
         match op.Status() {
             Ok(AsyncStatus::Started) => {}
-            // Terminée, annulée ou en erreur : GetResults donne le résultat ou l'erreur.
+            // Completed, cancelled or in error: GetResults gives the result or the error.
             Ok(_) => return op.GetResults().map_err(|e| e.message()),
             Err(e) => return Err(e.message()),
         }
         if start.elapsed() >= timeout {
             let _ = op.Cancel();
-            return Err("délai dépassé".to_string());
+            return Err("timed out".to_string());
         }
         std::thread::sleep(Duration::from_millis(5));
     }
 }
 
-/// Intervalle (unités de 100 ns) en secondes, arrondi au dixième.
+/// Interval (units of 100 ns) in seconds, rounded to the tenth.
 fn secs(ticks: i64) -> f64 {
-    // Perte de précision sans effet : l'intervalle est ensuite arrondi au dixième.
+    // Loss of precision without effect: the interval is then rounded to the tenth.
     #[allow(clippy::cast_precision_loss)]
     {
         (ticks as f64 / 1e6).round() / 10.0
     }
 }
 
-/// Date Windows (100 ns depuis 1601) en millisecondes Unix.
+/// Windows date (100 ns since 1601) in Unix milliseconds.
 fn unix_ms(universal_time: i64) -> i64 {
     (universal_time - 116_444_736_000_000_000) / 10_000
 }
@@ -211,7 +211,7 @@ fn repeat_name(m: MediaPlaybackAutoRepeatMode) -> &'static str {
     }
 }
 
-/// Mode suivant : aucune -> playlist -> morceau -> aucune.
+/// Next mode: none -> playlist -> track -> none.
 fn next_repeat(m: MediaPlaybackAutoRepeatMode) -> MediaPlaybackAutoRepeatMode {
     match m {
         MediaPlaybackAutoRepeatMode::List => MediaPlaybackAutoRepeatMode::Track,
@@ -234,8 +234,8 @@ fn repeat_of(s: &Session) -> MediaPlaybackAutoRepeatMode {
         .unwrap_or(MediaPlaybackAutoRepeatMode::None)
 }
 
-/// Type d'image sûr à recopier dans une « data URL » : seulement des formats
-/// bitmap connus (pas de SVG, qui peut contenir du script), sinon `image/png`.
+/// Image type safe to copy into a "data URL": only known bitmap
+/// formats (no SVG, which may contain script), otherwise `image/png`.
 fn clean_mime(raw: &str) -> String {
     const ALLOWED: [&str; 6] = [
         "image/png",
@@ -253,20 +253,20 @@ fn clean_mime(raw: &str) -> String {
     }
 }
 
-/// Une taille de pochette acceptable (non nulle, 8 Mo au plus).
+/// An acceptable cover size (not zero, 8 MB at most).
 fn cover_size(size: u64) -> Option<u32> {
     u32::try_from(size).ok().filter(|&s| s > 0 && s <= MAX_COVER)
 }
 
-/// Résultat de la lecture d'une pochette.
+/// Result of reading a cover.
 enum CoverRead {
-    /// Identique à la précédente (non ré-encodée).
+    /// Same as the previous one (not re-encoded).
     Same,
-    /// Nouvelle image : empreinte et « data URL ».
+    /// New image: checksum and "data URL".
     New(u64, String),
 }
 
-/// Pochette (octets bruts lus, plafonnés et délai respecté), ou None.
+/// Cover (raw bytes read, capped and within the delay), or None.
 fn fetch_cover(props: &Props) -> Option<(String, Vec<u8>)> {
     let thumb = props.Thumbnail().ok()?;
     let stream = wait(&thumb.OpenReadAsync().ok()?, COVER_TIMEOUT).ok()?;
@@ -279,7 +279,7 @@ fn fetch_cover(props: &Props) -> Option<(String, Vec<u8>)> {
     Some((mime, buf))
 }
 
-/// Lit la pochette. Si son empreinte est `previous`, renvoie `Same` sans l'encoder en base64.
+/// Reads the cover. If its checksum is `previous`, returns `Same` without encoding it in base64.
 fn read_cover(props: &Props, previous: Option<u64>) -> Option<CoverRead> {
     let (mime, bytes) = fetch_cover(props)?;
     let mut h = DefaultHasher::new();
@@ -296,10 +296,10 @@ fn read_cover(props: &Props, previous: Option<u64>) -> Option<CoverRead> {
     Some(CoverRead::New(hash, url))
 }
 
-/// Abonnement aux événements d'une session (retiré à la destruction).
+/// Subscription to the events of a session (removed on destruction).
 struct Subscription {
     session: Session,
-    /// Identité de la session (voir `identity`).
+    /// Identity of the session (see `identity`).
     id: usize,
     tokens: [i64; 3],
 }
@@ -322,7 +322,7 @@ impl Subscription {
         ) {
             Ok(t) => t,
             Err(e) => {
-                // Abonnement partiel : on retire ce qui est déjà inscrit.
+                // Partial subscription: remove what is already registered.
                 let _ = session.RemoveMediaPropertiesChanged(props);
                 return Err(e);
             }
@@ -367,25 +367,25 @@ struct State {
     last_cover: Option<String>,
     last_cover_hash: Option<u64>,
     cover_checks: Vec<Instant>,
-    /// Relecture immédiate demandée (changement de lecteur préféré).
+    /// Immediate new reading asked (change of preferred player).
     poll_now: bool,
     volume_exe: String,
     volume_wanted: Option<i32>,
     last_volume: Option<i32>,
     last_volume_read: Option<Instant>,
-    /// Session dont on écoute les événements (liée à l'objet session lui-même :
-    /// une même application peut en changer, Spotify relancé, autre onglet).
+    /// Session whose events are listened to (tied to the session object itself:
+    /// the same application may change it, Spotify restarted, another tab).
     events: Option<Subscription>,
 }
 
-/// Identité d'une session (adresse canonique de l'objet) ; 0 si elle est inconnue.
+/// Identity of a session (canonical address of the object); 0 if it is unknown.
 fn identity(s: &Session) -> usize {
     s.cast::<IUnknown>().map_or(0, |u| u.as_raw() as usize)
 }
 
-/// La session de l'application préférée passe-t-elle avant les autres ? Oui si
-/// elle joue, ou si aucune autre ne joue (sinon on afficherait « en pause »
-/// alors qu'un autre lecteur joue).
+/// Does the preferred application's session come before the others? Yes if
+/// it is playing, or if no other one is playing (otherwise "paused" would be shown
+/// while another player is playing).
 fn prefer_preferred(preferred_playing: bool, other_playing: bool) -> bool {
     preferred_playing || !other_playing
 }
@@ -395,7 +395,7 @@ fn is_playing(s: &Session) -> bool {
 }
 
 impl State {
-    /// Session préférée (ex. Spotify), sinon celle que Windows met en avant.
+    /// Preferred session (e.g. Spotify), otherwise the one Windows puts forward.
     fn session(&self) -> Option<Session> {
         if !self.prefer.is_empty() {
             if let Ok(list) = self.manager.GetSessions() {
@@ -416,8 +416,8 @@ impl State {
                     if prefer_preferred(is_playing(&p), other_playing.is_some()) {
                         return Some(p);
                     }
-                    // Le préféré est en pause et un autre lecteur joue : on suit celui
-                    // que Windows met en avant s'il joue, sinon le premier qui joue.
+                    // The preferred one is paused and another player is playing: follow the one
+                    // Windows puts forward if it is playing, otherwise the first one playing.
                     return self
                         .manager
                         .GetCurrentSession()
@@ -430,7 +430,7 @@ impl State {
         self.manager.GetCurrentSession().ok()
     }
 
-    /// Exécute une ligne de commande : analyse d'abord, session ensuite.
+    /// Runs a command line: parsing first, session next.
     fn command(&mut self, line: &str) {
         let line = line.trim();
         if line.is_empty() {
@@ -438,7 +438,7 @@ impl State {
         }
         let name = truncate_chars(line, 64);
         let Some(cmd) = parse_command(line) else {
-            emit(&json!({ "type": "cmd", "cmd": name, "ok": false, "reason": "commande inconnue" }));
+            emit(&json!({ "type": "cmd", "cmd": name, "ok": false, "reason": "unknown command" }));
             return;
         };
         match cmd {
@@ -447,7 +447,7 @@ impl State {
                 self.last_key.clear();
                 self.poll_now = true;
             }
-            // Volume : on ne garde que la dernière valeur demandée (glissement continu).
+            // Volume: only the last requested value is kept (continuous drag).
             Cmd::VolumeTarget(exe) => {
                 self.volume_exe = exe;
                 self.last_volume = None;
@@ -458,11 +458,11 @@ impl State {
         }
     }
 
-    /// Envoie une commande de lecture à la session ; la réponse (pour le
-    /// diagnostic) dit si le lecteur l'a acceptée.
+    /// Sends a playback command to the session; the answer (for the
+    /// diagnostic) says whether the player accepted it.
     fn media_command(&self, cmd: &Cmd, name: &str) {
         let Some(s) = self.session() else {
-            emit(&json!({ "type": "cmd", "cmd": name, "ok": false, "reason": "aucune session média" }));
+            emit(&json!({ "type": "cmd", "cmd": name, "ok": false, "reason": "no media session" }));
             return;
         };
         let started = match cmd {
@@ -473,7 +473,7 @@ impl State {
             Cmd::Previous => s.TrySkipPreviousAsync(),
             Cmd::Shuffle => s.TryChangeShuffleActiveAsync(!shuffle_of(&s)),
             Cmd::Repeat => s.TryChangeAutoRepeatModeAsync(next_repeat(repeat_of(&s))),
-            // Les autres commandes sont traitées dans `command`.
+            // The other commands are handled in `command`.
             _ => return,
         };
         let result = started.map_err(|e| e.message()).and_then(|op| wait(&op, CMD_TIMEOUT));
@@ -481,13 +481,13 @@ impl State {
         match result {
             Ok(true) => emit(&json!({ "type": "cmd", "cmd": name, "ok": true, "app": app })),
             Ok(false) => emit(&json!({
-                "type": "cmd", "cmd": name, "ok": false, "app": app, "reason": "refusée par le lecteur"
+                "type": "cmd", "cmd": name, "ok": false, "app": app, "reason": "refused by the player"
             })),
             Err(reason) => emit(&json!({ "type": "cmd", "cmd": name, "ok": false, "app": app, "reason": reason })),
         }
     }
 
-    /// Volume du lecteur : appliqué tout de suite, relu chaque seconde.
+    /// Player volume: applied right away, read again every second.
     fn volume(&mut self) {
         if self.volume_exe.is_empty() {
             return;
@@ -510,8 +510,8 @@ impl State {
         }
     }
 
-    /// Écoute les événements de la session suivie (on change d'abonnement avec
-    /// elle, même si c'est la même application : l'objet session change).
+    /// Listens to the events of the followed session (the subscription changes with
+    /// it, even if it is the same application: the session object changes).
     fn subscribe(&mut self, s: &Session) {
         let id = identity(s);
         if id != 0 && self.events.as_ref().is_some_and(|sub| sub.id == id) {
@@ -520,7 +520,7 @@ impl State {
         self.events = Subscription::new(s, &self.tx).ok();
     }
 
-    /// Prochaine échéance interne (relecture de pochette, relecture du volume).
+    /// Next internal deadline (cover re-read, volume re-read).
     fn next_deadline(&self, next_poll: Instant) -> Instant {
         let mut d = next_poll;
         if let Some(t) = self.cover_checks.first() {
@@ -539,9 +539,9 @@ impl State {
         self.cover_checks.first().is_some_and(|t| Instant::now() >= *t)
     }
 
-    /// Relecture de pochette échue mais impossible (plus de session, lecteur
-    /// muet) : on la consomme, sinon l'échéance passée ferait tourner la
-    /// boucle en continu.
+    /// Cover re-read due but impossible (no more session, silent
+    /// player): it is consumed, otherwise the past deadline would make the
+    /// loop spin continuously.
     fn skip_due_cover_check(&mut self) {
         if self.cover_check_due() {
             self.cover_checks.remove(0);
@@ -598,10 +598,10 @@ impl State {
                 self.last_cover = None;
                 self.last_cover_hash = None;
             }
-            // Spotify publie le nouveau titre avant la nouvelle pochette : la
-            // première lecture renvoie souvent l'image du morceau précédent.
-            // On relit la pochette plusieurs fois dans les secondes qui suivent
-            // (sans ré-encoder une image identique).
+            // Spotify publishes the new title before the new cover: the
+            // first reading often returns the picture of the previous track.
+            // The cover is read again several times in the following seconds
+            // (without re-encoding an identical image).
             let now = Instant::now();
             self.cover_checks = [700, 1500, 3000, 6000, 12000]
                 .iter()
@@ -636,11 +636,11 @@ impl State {
     }
 }
 
-/// Lit les commandes sur stdin (autre fil : la boucle n'attend jamais l'entrée).
+/// Reads the commands on stdin (another thread: the loop never waits for the input).
 ///
-/// Le canal est borné (64 messages) : si la boucle principale est occupée, ce
-/// fil attend au lieu de laisser grossir la mémoire. Les réveils SMTC, eux,
-/// sont abandonnés quand le canal est plein (la relecture arrive de toute façon).
+/// The channel is bounded (64 messages): if the main loop is busy, this
+/// thread waits instead of letting the memory grow. The SMTC wake-ups
+/// are dropped when the channel is full (the new reading arrives anyway).
 fn spawn_stdin_reader(tx: SyncSender<Msg>) {
     std::thread::spawn(move || {
         let mut input = std::io::stdin().lock();
@@ -665,7 +665,7 @@ fn spawn_stdin_reader(tx: SyncSender<Msg>) {
     });
 }
 
-/// Suite à donner à un message.
+/// What to do with a message.
 enum Flow {
     Continue,
     Exit(i32),
@@ -678,12 +678,12 @@ fn handle(st: &mut State, msg: Msg, woke: &mut bool) -> Flow {
             "type": "cmd",
             "cmd": truncate_chars(l.trim(), 64),
             "ok": false,
-            "reason": "ligne trop longue",
+            "reason": "line too long",
         })),
         Msg::Wake => *woke = true,
         Msg::Eof => return Flow::Exit(0),
         Msg::InputError(e) => {
-            crate::log(&format!("ERR 6 lecture de l'entrée impossible : {e}"));
+            crate::log(&format!("ERR 6 could not read the input: {e}"));
             return Flow::Exit(6);
         }
     }
@@ -709,7 +709,7 @@ pub fn run() -> i32 {
     let (tx, rx) = mpsc::sync_channel::<Msg>(64);
     spawn_stdin_reader(tx.clone());
 
-    // Changement de session courante ou de liste des sessions : relecture immédiate.
+    // Change of current session or of the session list: immediate new reading.
     let t1 = tx.clone();
     let t2 = tx.clone();
     let events = manager
@@ -728,11 +728,8 @@ pub fn run() -> i32 {
             )),
         );
     if let Err(e) = events {
-        // Le sondage de secours continue de fonctionner, en plus lent à réagir.
-        crate::log(&format!(
-            "avertissement : événements SMTC indisponibles : {}",
-            e.message()
-        ));
+        // The fallback poll keeps working, slower to react.
+        crate::log(&format!("warning: SMTC events unavailable: {}", e.message()));
     }
 
     let mut st = State {
@@ -756,9 +753,9 @@ pub fn run() -> i32 {
     let mut next_poll = Instant::now();
     loop {
         if STDOUT_BROKEN.load(Ordering::Relaxed) {
-            return 0; // Sillon n'écoute plus : fin normale
+            return 0; // Sillon no longer listens: normal end
         }
-        // Attente : une commande ou un événement réveille la boucle tout de suite.
+        // Waiting: a command or an event wakes the loop right away.
         let wait_for = st
             .next_deadline(next_poll)
             .saturating_duration_since(Instant::now())
@@ -769,7 +766,7 @@ pub fn run() -> i32 {
             Err(RecvTimeoutError::Timeout) => None,
             Err(RecvTimeoutError::Disconnected) => return 0,
         };
-        // Tout ce qui est en attente, d'un coup.
+        // Everything pending, at once.
         for msg in first.into_iter().chain(std::iter::from_fn(|| rx.try_recv().ok())) {
             if let Flow::Exit(code) = handle(&mut st, msg, &mut woke) {
                 return code;
@@ -789,15 +786,15 @@ mod tests {
     use std::io::Cursor;
 
     #[test]
-    fn lecteur_prefere_seulement_s_il_joue_ou_si_rien_d_autre_ne_joue() {
+    fn preferred_player_only_if_playing_or_nothing_else_plays() {
         assert!(prefer_preferred(true, true));
         assert!(prefer_preferred(true, false));
-        assert!(prefer_preferred(false, false)); // tous en pause : le préféré
-        assert!(!prefer_preferred(false, true)); // un autre joue : lui
+        assert!(prefer_preferred(false, false)); // all paused: the preferred one
+        assert!(!prefer_preferred(false, true)); // another one plays: that one
     }
 
     #[test]
-    fn commandes_simples() {
+    fn simple_commands() {
         assert_eq!(parse_command("playpause"), Some(Cmd::PlayPause));
         assert_eq!(parse_command("play"), Some(Cmd::Play));
         assert_eq!(parse_command("pause"), Some(Cmd::Pause));
@@ -808,18 +805,18 @@ mod tests {
     }
 
     #[test]
-    fn commandes_avec_espaces_et_fin_de_ligne() {
+    fn commands_with_spaces_and_line_ends() {
         assert_eq!(parse_command("  next \r"), Some(Cmd::Next));
     }
 
     #[test]
-    fn commande_prefer() {
+    fn prefer_command() {
         assert_eq!(parse_command("prefer: Spotify "), Some(Cmd::Prefer("spotify".into())));
         assert_eq!(parse_command("prefer:"), Some(Cmd::Prefer(String::new())));
     }
 
     #[test]
-    fn commande_volume_target() {
+    fn volume_target_command() {
         assert_eq!(
             parse_command("volume-target: Spotify.exe "),
             Some(Cmd::VolumeTarget("Spotify.exe".into()))
@@ -827,7 +824,7 @@ mod tests {
     }
 
     #[test]
-    fn commande_volume_bornes() {
+    fn volume_command_bounds() {
         assert_eq!(parse_command("volume:0"), Some(Cmd::Volume(0)));
         assert_eq!(parse_command("volume:100"), Some(Cmd::Volume(100)));
         assert_eq!(parse_command("volume: 42"), Some(Cmd::Volume(42)));
@@ -837,7 +834,7 @@ mod tests {
     }
 
     #[test]
-    fn commande_volume_invalide() {
+    fn invalid_volume_command() {
         assert_eq!(parse_command("volume:"), None);
         assert_eq!(parse_command("volume:abc"), None);
         assert_eq!(parse_command("volume:1.5"), None);
@@ -845,7 +842,7 @@ mod tests {
     }
 
     #[test]
-    fn commande_inconnue_ou_vide() {
+    fn unknown_or_empty_command() {
         assert_eq!(parse_command(""), None);
         assert_eq!(parse_command("   "), None);
         assert_eq!(parse_command("stop"), None);
@@ -854,7 +851,7 @@ mod tests {
     }
 
     #[test]
-    fn secondes_arrondies_au_dixieme() {
+    fn seconds_rounded_to_the_tenth() {
         assert!((secs(0) - 0.0).abs() < 1e-9);
         assert!((secs(10_000_000) - 1.0).abs() < 1e-9);
         assert!((secs(12_340_000) - 1.2).abs() < 1e-9);
@@ -864,14 +861,14 @@ mod tests {
     }
 
     #[test]
-    fn date_windows_en_millisecondes_unix() {
-        // 1970-01-01 en date Windows.
+    fn windows_date_in_unix_milliseconds() {
+        // 1970-01-01 as a Windows date.
         assert_eq!(unix_ms(116_444_736_000_000_000), 0);
         assert_eq!(unix_ms(116_444_736_000_000_000 + 10_000_000), 1000);
     }
 
     #[test]
-    fn cycle_de_repetition() {
+    fn repeat_cycle() {
         use MediaPlaybackAutoRepeatMode as M;
         assert_eq!(next_repeat(M::None), M::List);
         assert_eq!(next_repeat(M::List), M::Track);
@@ -879,7 +876,7 @@ mod tests {
     }
 
     #[test]
-    fn noms_de_repetition() {
+    fn repeat_names() {
         use MediaPlaybackAutoRepeatMode as M;
         assert_eq!(repeat_name(M::None), "None");
         assert_eq!(repeat_name(M::List), "List");
@@ -887,7 +884,7 @@ mod tests {
     }
 
     #[test]
-    fn mime_valide_conserve() {
+    fn valid_mime_kept() {
         assert_eq!(clean_mime("image/jpeg"), "image/jpeg");
         assert_eq!(clean_mime("image/svg+xml"), "image/png");
         assert_eq!(clean_mime("IMAGE/PNG"), "image/png");
@@ -895,7 +892,7 @@ mod tests {
     }
 
     #[test]
-    fn mime_invalide_remplace_par_png() {
+    fn invalid_mime_replaced_by_png() {
         assert_eq!(clean_mime(""), "image/png");
         assert_eq!(clean_mime("image/"), "image/png");
         assert_eq!(clean_mime("text/html"), "image/png");
@@ -905,7 +902,7 @@ mod tests {
     }
 
     #[test]
-    fn taille_de_pochette_bornee() {
+    fn cover_size_bounded() {
         assert_eq!(cover_size(0), None);
         assert_eq!(cover_size(1), Some(1));
         assert_eq!(cover_size(u64::from(MAX_COVER)), Some(MAX_COVER));
@@ -914,7 +911,7 @@ mod tests {
     }
 
     #[test]
-    fn lecture_de_lignes() {
+    fn reading_lines() {
         let mut r = Cursor::new(b"play\nnext\r\nlast".to_vec());
         assert_eq!(read_line_capped(&mut r, 100).unwrap(), Some(ok_line(b"play")));
         assert_eq!(read_line_capped(&mut r, 100).unwrap(), Some(ok_line(b"next\r")));
@@ -923,26 +920,26 @@ mod tests {
     }
 
     #[test]
-    fn lecture_ligne_vide_et_fin() {
+    fn reading_empty_line_and_end() {
         let mut r = Cursor::new(b"\n".to_vec());
         assert_eq!(read_line_capped(&mut r, 100).unwrap(), Some(ok_line(b"")));
         assert_eq!(read_line_capped(&mut r, 100).unwrap(), None);
     }
 
     #[test]
-    fn lecture_ligne_trop_longue_marquee() {
+    fn reading_too_long_line_marked() {
         let mut data = vec![b'a'; 10_000];
         data.extend_from_slice(b"\nnext\n");
         let mut r = Cursor::new(data);
         let first = read_line_capped(&mut r, MAX_LINE).unwrap().unwrap();
         assert_eq!(first.bytes.len(), MAX_LINE);
-        assert!(first.truncated, "ligne coupée : à refuser, pas à exécuter");
-        // La ligne suivante reste intacte.
+        assert!(first.truncated, "cut line: to refuse, not to run");
+        // The next line stays intact.
         assert_eq!(read_line_capped(&mut r, MAX_LINE).unwrap(), Some(ok_line(b"next")));
     }
 
     #[test]
-    fn lecture_ligne_de_taille_exacte_non_marquee() {
+    fn reading_line_of_exact_size_not_marked() {
         let mut data = vec![b'a'; MAX_LINE];
         data.push(b'\n');
         let line = read_line_capped(&mut Cursor::new(data), MAX_LINE).unwrap().unwrap();
@@ -958,7 +955,7 @@ mod tests {
     }
 
     #[test]
-    fn lecture_octets_invalides_tolerée() {
+    fn reading_invalid_bytes_tolerated() {
         let mut r = Cursor::new(vec![0xff, 0xfe, b'\n']);
         let line = read_line_capped(&mut r, 100).unwrap().unwrap();
         assert!(!String::from_utf8_lossy(&line.bytes).is_empty());

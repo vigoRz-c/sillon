@@ -1,9 +1,9 @@
-//! Volume d'un seul programme dans le mélangeur de volume de Windows : ne touche
-//! ni au volume général ni aux autres applications.
+//! Volume of a single program in the Windows volume mixer: touches
+//! neither the general volume nor the other applications.
 //!
-//! L'énumérateur de périphériques et les contrôles de session sont gardés en
-//! cache (le volume est relu chaque seconde) ; le cache est vidé à la moindre
-//! erreur ou au bout de quelques secondes (nouvelles sessions).
+//! The device enumerator and the session controls are kept in
+//! cache (the volume is read again every second); the cache is emptied on the slightest
+//! error or after a few seconds (new sessions).
 
 use std::cell::RefCell;
 use std::time::{Duration, Instant};
@@ -17,7 +17,7 @@ use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_ALL};
 
 use crate::process;
 
-/// Durée de vie des contrôles de session en cache.
+/// Lifetime of the cached session controls.
 const SESSIONS_TTL: Duration = Duration::from_secs(5);
 
 struct CachedSessions {
@@ -31,31 +31,31 @@ thread_local! {
     static SESSIONS: RefCell<Option<CachedSessions>> = const { RefCell::new(None) };
 }
 
-/// Vide les caches (après une erreur COM : périphérique changé, session fermée…).
+/// Empties the caches (after a COM error: device changed, session closed…).
 fn invalidate() {
     ENUMERATOR.with(|c| *c.borrow_mut() = None);
     SESSIONS.with(|c| *c.borrow_mut() = None);
 }
 
-/// Énumérateur de périphériques, créé une seule fois.
+/// Device enumerator, created only once.
 fn enumerator() -> Option<IMMDeviceEnumerator> {
     ENUMERATOR.with(|c| {
         let mut slot = c.borrow_mut();
         if slot.is_none() {
-            // SAFETY: création COM sans pointeur fourni par nous.
+            // SAFETY: COM creation without a pointer given by us.
             *slot = unsafe { CoCreateInstance::<_, IMMDeviceEnumerator>(&MMDeviceEnumerator, None, CLSCTX_ALL) }.ok();
         }
         slot.clone()
     })
 }
 
-/// Volumes de toutes les sessions audio du programme, sur toutes les sorties actives.
+/// Volumes of every audio session of the program, on every active output.
 fn enumerate(exe: &str) -> Vec<ISimpleAudioVolume> {
     let mut found = Vec::new();
     let Some(en) = enumerator() else {
         return found;
     };
-    // SAFETY: interfaces COM obtenues et utilisées sur ce seul fil, sans pointeur brut.
+    // SAFETY: COM interfaces obtained and used on this single thread, without a raw pointer.
     unsafe {
         let Ok(devices) = en.EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE) else {
             invalidate();
@@ -90,7 +90,7 @@ fn enumerate(exe: &str) -> Vec<ISimpleAudioVolume> {
     found
 }
 
-/// Sessions du programme, depuis le cache si possible. `fresh` force une nouvelle énumération.
+/// Sessions of the program, from the cache if possible. `fresh` forces a new enumeration.
 fn sessions(exe: &str, fresh: bool) -> Vec<ISimpleAudioVolume> {
     if !fresh {
         let cached = SESSIONS.with(|c| {
@@ -104,7 +104,7 @@ fn sessions(exe: &str, fresh: bool) -> Vec<ISimpleAudioVolume> {
         }
     }
     let volumes = enumerate(exe);
-    // Une liste vide n'est pas gardée : un lecteur qui démarre doit être vu tout de suite.
+    // An empty list is not kept: a player that starts must be seen right away.
     SESSIONS.with(|c| {
         *c.borrow_mut() = (!volumes.is_empty()).then(|| CachedSessions {
             exe: exe.to_string(),
@@ -115,21 +115,21 @@ fn sessions(exe: &str, fresh: bool) -> Vec<ISimpleAudioVolume> {
     volumes
 }
 
-/// Volume 0-100 (0 si coupé) d'après le niveau et l'état muet.
+/// Volume 0-100 (0 if muted) from the level and the mute state.
 fn percent(level: f32, muted: bool) -> i32 {
     if muted {
         return 0;
     }
-    // Niveau borné à 0..=1 : le résultat tient dans 0..=100.
+    // Level bounded to 0..=1: the result fits in 0..=100.
     #[allow(clippy::cast_possible_truncation)]
     {
         (level.clamp(0.0, 1.0) * 100.0).round() as i32
     }
 }
 
-/// Niveau 0.0-1.0 pour un pourcentage (borné à 0-100).
+/// Level 0.0-1.0 for a percentage (bounded to 0-100).
 fn level_of(percent: i32) -> f32 {
-    // Valeur bornée à 0..=100 : conversion exacte en f32.
+    // Value bounded to 0..=100: exact conversion to f32.
     #[allow(clippy::cast_precision_loss)]
     {
         percent.clamp(0, 100) as f32 / 100.0
@@ -137,7 +137,7 @@ fn level_of(percent: i32) -> f32 {
 }
 
 fn read(v: &ISimpleAudioVolume) -> Option<i32> {
-    // SAFETY: appels COM sans pointeur fourni par nous.
+    // SAFETY: COM calls without a pointer given by us.
     unsafe {
         let level = v.GetMasterVolume().ok()?;
         let muted = v.GetMute().ok()?.as_bool();
@@ -145,8 +145,8 @@ fn read(v: &ISimpleAudioVolume) -> Option<i32> {
     }
 }
 
-/// Volume 0-100 (0 si coupé), ou -1 si le programme n'a pas de son ouvert
-/// ou si la lecture échoue (volume inconnu).
+/// Volume 0-100 (0 if muted), or -1 if the program has no open sound
+/// or if the reading fails (unknown volume).
 pub fn get(exe: &str) -> i32 {
     for fresh in [false, true] {
         let Some(v) = sessions(exe, fresh).into_iter().next() else {
@@ -160,14 +160,14 @@ pub fn get(exe: &str) -> i32 {
     -1
 }
 
-/// Règle le volume (0-100). Faux si le programme n'a pas de son ouvert ou si
-/// aucune session n'a accepté la valeur.
+/// Sets the volume (0-100). False if the program has no open sound or if
+/// no session accepted the value.
 pub fn set(exe: &str, percent: i32) -> bool {
     let level = level_of(percent);
     for fresh in [false, true] {
         let mut any = false;
         for v in sessions(exe, fresh) {
-            // SAFETY: appels COM ; un pointeur nul pour le contexte d'événement est permis.
+            // SAFETY: COM calls; a null pointer for the event context is allowed.
             unsafe {
                 let mut ok = v.SetMasterVolume(level, std::ptr::null()).is_ok();
                 if level > 0.0 {
@@ -189,7 +189,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn percent_arrondit_et_borne() {
+    fn percent_rounds_and_bounds() {
         assert_eq!(percent(0.0, false), 0);
         assert_eq!(percent(1.0, false), 100);
         assert_eq!(percent(0.456, false), 46);
@@ -198,12 +198,12 @@ mod tests {
     }
 
     #[test]
-    fn percent_muet_vaut_zero() {
+    fn muted_percent_is_zero() {
         assert_eq!(percent(0.8, true), 0);
     }
 
     #[test]
-    fn level_of_borne_les_valeurs() {
+    fn level_of_bounds_the_values() {
         assert!((level_of(-5) - 0.0).abs() < f32::EPSILON);
         assert!((level_of(50) - 0.5).abs() < f32::EPSILON);
         assert!((level_of(900) - 1.0).abs() < f32::EPSILON);

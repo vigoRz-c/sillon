@@ -1,35 +1,35 @@
-//! Assistant système de Sillon (remplace les anciens scripts PowerShell).
+//! Sillon's system helper (replaces the old PowerShell scripts).
 //!
-//! # Protocole (version 1)
+//! # Protocol (version 1)
 //!
-//! Deux modes :
+//! Two modes:
 //!
-//! * `sillon-helper media` : lit le morceau en cours dans les contrôles média
-//!   de Windows (SMTC) et règle le volume du lecteur dans le mélangeur.
-//!   * Sortie : une ligne JSON par événement. Le premier est
-//!     `{"type":"ready","protocol":1}` ; le numéro de protocole change à chaque
-//!     modification incompatible des messages ou des commandes.
-//!     Autres types : `media`, `volume`, `cmd` (réponse à une commande, avec
-//!     `ok` et, en cas d'échec, `reason`) et `error`.
-//!   * Entrée : une commande par ligne, 4 Ko au plus (`playpause`, `next`,
-//!     `previous`, `play`, `pause`, `shuffle`, `repeat`, `prefer:<texte>`,
-//!     `volume-target:<programme.exe>`, `volume:<0-100>`). Une commande
-//!     inconnue reçoit `{"type":"cmd","ok":false,"reason":"commande inconnue"}`,
-//!     une ligne de plus de 4 Ko `{"type":"cmd","ok":false,"reason":"ligne trop longue"}`
-//!     (elle n'est pas exécutée).
-//!   * Codes de sortie : 0 = fin normale (entrée ou sortie fermée),
-//!     1 = SMTC ou COM indisponible, 6 = erreur de lecture de l'entrée.
-//!     Erreur interne (panique) : ligne « ERR 5 … » sur stderr, puis arrêt
-//!     brutal (panic = "abort" : code Windows 0xC0000409, pas 5).
+//! * `sillon-helper media`: reads the current track in the Windows media
+//!   controls (SMTC) and sets the player's volume in the mixer.
+//!   * Output: one JSON line per event. The first one is
+//!     `{"type":"ready","protocol":1}`; the protocol number changes with every
+//!     incompatible change of the messages or commands.
+//!     Other types: `media`, `volume`, `cmd` (answer to a command, with
+//!     `ok` and, on failure, `reason`) and `error`.
+//!   * Input: one command per line, 4 KB at most (`playpause`, `next`,
+//!     `previous`, `play`, `pause`, `shuffle`, `repeat`, `prefer:<text>`,
+//!     `volume-target:<program.exe>`, `volume:<0-100>`). An unknown
+//!     command gets `{"type":"cmd","ok":false,"reason":"unknown command"}`,
+//!     a line of more than 4 KB `{"type":"cmd","ok":false,"reason":"line too long"}`
+//!     (it is not run).
+//!   * Exit codes: 0 = normal end (input or output closed),
+//!     1 = SMTC or COM unavailable, 6 = error reading the input.
+//!     Internal error (panic): line "ERR 5 …" on stderr, then abrupt
+//!     stop (panic = "abort": Windows code 0xC0000409, not 5).
 //!
-//! * `sillon-helper capture <programme.exe>` : enregistre le son de ce seul
-//!   programme (« process loopback », Windows 10 2004+ / 11).
-//!   * Sortie : son brut mono 48 000 Hz, entiers 16 bits petit-boutistes.
-//!   * Erreur : une ligne « ERR <code> <message> » sur stderr. Codes de sortie :
-//!     2 = capture impossible sur ce Windows, 7 = périphérique audio perdu
-//!     (changement de sortie : nouvel essai possible),
-//!     3 = programme fermé, 4 = programme introuvable ou nom refusé.
-//!     Panique : « ERR 5 … » sur stderr puis arrêt brutal (code 0xC0000409).
+//! * `sillon-helper capture <program.exe>`: records the sound of this single
+//!   program ("process loopback", Windows 10 2004+ / 11).
+//!   * Output: raw mono sound at 48,000 Hz, 16-bit little-endian integers.
+//!   * Error: a line "ERR <code> <message>" on stderr. Exit codes:
+//!     2 = capture impossible on this Windows, 7 = audio device lost
+//!     (output change: a new attempt is possible),
+//!     3 = program closed, 4 = program not found or name refused.
+//!     Panic: "ERR 5 …" on stderr then abrupt stop (code 0xC0000409).
 
 mod capture;
 mod media;
@@ -38,12 +38,12 @@ mod volume;
 
 use std::io::Write;
 
-/// Écrit une ligne sur stderr ; une erreur d'écriture (tuyau fermé) est ignorée.
+/// Writes a line on stderr; a write error (closed pipe) is ignored.
 pub fn log(msg: &str) {
     let _ = writeln!(std::io::stderr(), "{msg}");
 }
 
-/// Une panique est annoncée au format des autres erreurs : « ERR 5 <message> ».
+/// A panic is reported in the format of the other errors: "ERR 5 <message>".
 fn install_panic_hook() {
     std::panic::set_hook(Box::new(|info| {
         let payload = info.payload();
@@ -56,7 +56,7 @@ fn install_panic_hook() {
             .location()
             .map(|l| format!(" ({}:{})", l.file(), l.line()))
             .unwrap_or_default();
-        // Une seule ligne, pour que Node puisse l'analyser.
+        // A single line, so that Node can parse it.
         let line = format!("ERR 5 {text}{place}").replace(['\r', '\n'], " ");
         log(&line);
     }));

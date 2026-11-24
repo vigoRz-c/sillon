@@ -1,3 +1,3 @@
-# Runtime C intégré à l'exécutable : rien à installer chez l'utilisateur.
+# C runtime built into the executable: nothing to install for the user.
 [target.x86_64-pc-windows-msvc]
 rustflags = ["-C", "target-feature=+crt-static"]
