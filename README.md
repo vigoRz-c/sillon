@@ -1,55 +1,58 @@
 # Sillon
 
-[![CI](https://github.com/vigoRz-c/sillon/actions/workflows/ci.yml/badge.svg)](https://github.com/vigoRz-c/sillon/actions/workflows/ci.yml) [![Dernière version](https://img.shields.io/github/v/release/vigoRz-c/sillon?label=version)](https://github.com/vigoRz-c/sillon/releases/latest) [![Licence GPL-3.0](https://img.shields.io/badge/licence-GPL--3.0-blue)](LICENSE)
+**English** · [Français](README.fr.md)
 
-Visualiseur musical qui vit **sur le fond d'écran Windows**, derrière toutes les fenêtres, et réagit à ce que tu écoutes sur Spotify.
+[![CI](https://github.com/vigoRz-c/sillon/actions/workflows/ci.yml/badge.svg)](https://github.com/vigoRz-c/sillon/actions/workflows/ci.yml) [![Latest version](https://img.shields.io/github/v/release/vigoRz-c/sillon?label=version)](https://github.com/vigoRz-c/sillon/releases/latest) [![License GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 
-> **Projet en bêta (version 0.2).** Sillon évolue encore : des bugs sont possibles. Si tu en trouves un, ou si tu as une idée pour l'améliorer, contacte-moi sur Discord : **`_vigorz_`**. Voir aussi [CONTRIBUTING.md](.github/CONTRIBUTING.md), la [politique de sécurité](.github/SECURITY.md) et le [journal des versions](CHANGELOG.md).
+A music visualizer that lives **on the Windows wallpaper**, behind every window, and reacts to what you listen to on Spotify.
 
-- Scène sur tout le bureau : pochette en disque avec rayons en soleil et halo (intensité, position et taille réglables), paroles synchronisées en karaoké avec la ligne précédente en fantôme, panneau « en lecture » avec boutons (aléatoire, répéter, masquer…) et file d'attente « À suivre »
-- Écran de veille (**Ctrl + Alt + L** ou après inactivité) qui verrouille la session en sortant
-- Discret : s'arrête pendant un jeu ou une vidéo en plein écran, s'atténue en pause, se masque sans musique
-- 11 visualiseurs pour le bandeau et le plein écran : Barres, Miroir, Blocs, Anneau, Halo, Onde, Aurore, Spectre, Points, Étincelles, Rosace
-- 8 jeux de couleurs : Couleurs de la pochette, Couleurs du fond d'écran (tirées de l'image du bureau), Spotify, Néon, Coucher de soleil, Océan, Violet, Blanc, et une couleur personnalisée choisie sur une roue des couleurs
-- Titre, artiste, pochette et progression du morceau en cours
-- Mode plein écran (**Ctrl + Alt + F**) : pochette au centre, fond flouté qui dérive, ondes sur les basses
-- Réglage « Réduire les animations et les lueurs » pour les personnes sensibles au mouvement ou aux lumières qui pulsent
-- Aucun compte : fonctionne avec Spotify **et** tout lecteur qui s'affiche dans les contrôles média de Windows (YouTube dans le navigateur, VLC…)
+> **Beta project (version 0.2).** Sillon is still changing: bugs are possible. If you find one, or have an idea to improve it, contact me on Discord: **`_vigorz_`**. See also [CONTRIBUTING.md](.github/CONTRIBUTING.md), the [security policy](.github/SECURITY.md) and the [changelog](CHANGELOG.md).
 
-Windows 10 et 11.
+- A scene across the whole desktop: the cover as a disc with sun rays and a halo (intensity, position and size can be set), synced karaoke lyrics with the previous line as a ghost, a "now playing" panel with buttons (shuffle, repeat, hide…) and an "Up next" queue
+- Screen saver (**Ctrl + Alt + L** or after inactivity) that locks the session when you leave it
+- Discreet: stops during a full-screen game or video, dims on pause, hides when there is no music
+- 11 visualizers for the strip and the full screen: Bars, Mirror, Blocks, Ring, Halo, Wave, Aurora, Spectrum, Dots, Sparks, Rosette
+- 8 color sets: Cover colors, Wallpaper colors (taken from the desktop image), Spotify, Neon, Sunset, Ocean, Violet, White, and a custom color picked on a color wheel
+- Title, artist, cover and progress of the current track
+- Full-screen mode (**Ctrl + Alt + F**): cover in the center, a drifting blurred background, waves on the bass
+- A "Reduce animations and glows" setting for people sensitive to motion or pulsing lights
+- No account: works with Spotify **and** any player shown in the Windows media controls (YouTube in the browser, VLC…)
+- In English or French: follows the Windows language, or set it in Settings → Advanced → Language
 
-## Lancer le projet
+Windows 10 and 11.
 
-Prérequis :
+## Running the project
 
-- [Node.js](https://nodejs.org) 20 ou plus ;
-- [Rust](https://rustup.rs) (toolchain **MSVC**, celle par défaut de rustup sous Windows) pour l'assistant natif `native/sillon-helper`, compilé automatiquement par `npm start` ;
-- **Visual Studio Build Tools** avec le composant **« Développement Desktop en C++ »** : la chaîne MSVC (linker et Windows SDK) en a besoin pour compiler Rust sous Windows. Le binaire produit n'a pas besoin du redistribuable Visual C++ : il est lié statiquement (`native/sillon-helper/.cargo/config.toml`).
+Requirements:
+
+- [Node.js](https://nodejs.org) 20 or later;
+- [Rust](https://rustup.rs) (**MSVC** toolchain, rustup's default on Windows) for the native helper `native/sillon-helper`, built automatically by `npm start`;
+- **Visual Studio Build Tools** with the **"Desktop development with C++"** workload: the MSVC toolchain (linker and Windows SDK) needs it to build Rust on Windows. The resulting binary does not need the Visual C++ redistributable: it is statically linked (`native/sillon-helper/.cargo/config.toml`).
 
 ```bash
 npm install
 npm start
 ```
 
-Sans Rust, `npm start` démarre quand même, mais sans morceau en cours ni son du lecteur seul : un message l'indique.
+Without Rust, `npm start` still starts, but without the current track or the player-only sound: a message says so.
 
-L'icône Sillon apparaît dans la zone de notification (en bas à droite). Tout se règle depuis son menu.
+The Sillon icon appears in the notification area (bottom right). Everything is set from its menu.
 
-Créer l'installateur et la version portable (dans `dist/`) :
+Build the installer and the portable version (in `dist/`):
 
 ```bash
 npm run dist
 ```
 
-`npm run dist` **exige Rust** : l'assistant doit être compilé pour être inclus dans l'installateur (`build-helper --strict`).
+`npm run dist` **requires Rust**: the helper must be built to be included in the installer (`build-helper --strict`).
 
-`Sillon-Setup-<version>.exe` installe l'app ; `Sillon-<version>-portable.exe` se lance sans installation. Ils ne sont pas signés : Windows SmartScreen peut demander « Informations complémentaires → Exécuter quand même ». La préparation de la signature de code est décrite dans la [politique de sécurité](.github/SECURITY.md).
+`Sillon-Setup-<version>.exe` installs the app; `Sillon-<version>-portable.exe` runs without installing. They are not signed: Windows SmartScreen may ask "More info → Run anyway". Preparing code signing is described in the [security policy](.github/SECURITY.md).
 
-### Mises à jour automatiques
+### Automatic updates
 
-La version **installée** cherche les nouvelles versions sur les [Releases GitHub](https://github.com/vigoRz-c/sillon/releases) au démarrage puis toutes les 4 heures, les télécharge en arrière-plan et les installe à la fermeture (ou tout de suite via « Redémarrer pour installer » dans le menu de l'icône). Réglable dans Paramètres → Général. La version portable et `npm start` ne se mettent pas à jour.
+The **installed** version looks for new versions on the [GitHub Releases](https://github.com/vigoRz-c/sillon/releases) at startup and then every 4 hours, downloads them in the background and installs them on exit (or right away with "Restart to install" in the icon menu). Can be turned off in Settings → Advanced. The portable version and `npm start` do not update.
 
-Publier une nouvelle version (dépôt **public**, GitHub CLI connecté, branche `main` propre et à jour) :
+Publish a new version (**public** repository, GitHub CLI signed in, clean and up-to-date `main` branch):
 
 ```bash
 npm run release              # 0.2.0 -> 0.2.1
@@ -57,170 +60,176 @@ npm run release -- minor     # 0.2.0 -> 0.3.0
 npm run release -- major     # 0.2.0 -> 1.0.0
 ```
 
-Avant de lancer, la section `## [x.y.z]` correspondant à la nouvelle version doit exister dans `CHANGELOG.md` : son contenu sert de notes de la Release. Le script lance `npm run verify` (tests, lint, formatage, Rust si présent), passe la version et crée le commit et le tag **en local**, construit l'installateur et la version portable, calcule `SHA256SUMS.txt`, puis seulement pousse le commit et le tag et publie la Release. Si la construction ou le push échoue, le commit et le tag locaux sont annulés. Les amis qui ont installé Sillon reçoivent la mise à jour tout seuls.
+Before running it, the `## [x.y.z]` section for the new version must exist in `CHANGELOG.md`: its content becomes the Release notes. The script runs `npm run verify` (tests, lint, formatting, Rust if present), bumps the version and creates the commit and the tag **locally**, builds the installer and the portable version, computes `SHA256SUMS.txt`, and only then pushes the commit and the tag and publishes the Release. If the build or the push fails, the local commit and tag are undone. Friends who installed Sillon get the update on their own.
 
-### Vérifications
+### Checks
 
 ```bash
-npm run verify        # syntaxe, ESLint, types, Prettier, tests, et Rust si cargo est installé
-npm run typecheck     # vérification des types (JSDoc) des fichiers marqués // @ts-check
-npm run verify:rust   # formatage, clippy (avertissements = erreurs) et tests Rust ; échoue sans cargo
-npm test              # tests JavaScript seuls (node --test)
+npm run verify        # syntax, ESLint, types, Prettier, tests, and Rust if cargo is installed
+npm run typecheck     # type checking (JSDoc) of the files marked // @ts-check
+npm run verify:rust   # formatting, clippy (warnings = errors) and Rust tests; fails without cargo
+npm test              # JavaScript tests only (node --test)
 ```
 
-À chaque commit, un hook (installé par `npm install`, voir `simple-git-hooks` dans `package.json`) vérifie ESLint et le formatage des fichiers modifiés.
+On each commit, a hook (installed by `npm install`, see `simple-git-hooks` in `package.json`) checks ESLint and the formatting of the changed files.
 
-Ce qu'exécute la CI (`.github/workflows/ci.yml`) est la même chose : tests JavaScript sous Node 20 et 22, Rust, audits (`npm audit`, `cargo audit`), empaquetage sans publication et vérification que l'assistant n'embarque pas le runtime VC++.
+The CI (`.github/workflows/ci.yml`) runs the same: JavaScript tests on Node 20 and 22, Rust, audits (`npm audit`, `cargo audit`), packaging without publishing, and a check that the helper does not ship the VC++ runtime.
 
-Prévisualiser les visuels dans un navigateur, sans Windows et avec un son de synthèse : sers le dépôt depuis sa racine (par exemple `npx --yes http-server -p 8080`), puis ouvre **http://localhost:8080/demo/**. La démo affiche les vraies pages de `src/renderer/pages` avec un faux pont (`demo/fake-bridge.js`) : elle ne peut donc pas diverger de l'application. Le son démarre après un clic dans la page.
+Preview the visuals in a browser, without Windows and with a synthetic sound: serve the repository from its root (for example `npx --yes http-server -p 8080`), then open **http://localhost:8080/demo/**. The demo shows the real pages of `src/renderer/pages` with a fake bridge (`demo/fake-bridge.js`), so it cannot drift from the application. The sound starts after a click in the page.
 
-## Utilisation
+## Usage
 
-Menu de l'icône dans la zone de notification :
+Menu of the icon in the notification area:
 
-| Entrée | Effet |
+| Entry | Effect |
 |---|---|
-| Lecture / pause, Suivant, Précédent, Aléatoire, Répéter | Pilote Spotify (ou le lecteur actif) |
-| Paroles de ce morceau | Décale les paroles (±0,25 s) quand LRCLIB a celles d'une autre version ; mémorisé par morceau |
-| Réafficher Sillon | Après « masquer » depuis le panneau |
-| Style | Choix du visualiseur |
-| Couleurs | Pochette, Fond d'écran, Spotify, Néon, Coucher de soleil, Océan, Violet, Blanc |
-| Position | Sur le fond d'écran · Toujours au premier plan · Fenêtre normale |
-| Réglages | Morceau affiché ou non, sensibilité, opacité, images/s, lecteur suivi, lancement au démarrage |
-| Déplacer / redimensionner… | Le widget passe devant : glisse-le, tire le coin, puis « Terminé » |
-| Plein écran | Identique à Ctrl + Alt + F |
-| Écran de veille | Identique à Ctrl + Alt + L |
-| Paramètres… | Tous les réglages, dont le disque (intensité, taille, position), l'écran de la scène, le mode jeu, la veille, « Réduire les animations et les lueurs » et le compte Spotify |
+| Play / pause, Next, Previous, Shuffle, Repeat | Controls Spotify (or the active player) |
+| Lyrics of this track | Shifts the lyrics (±0.25 s) when LRCLIB has those of another version; remembered per track |
+| Show Sillon on the desktop again | After "hide" from the panel |
+| Style | Choice of visualizer |
+| Colors | Cover, Wallpaper, Spotify, Neon, Sunset, Ocean, Violet, White |
+| Position | On the wallpaper · Always on top · Normal window |
+| Options | Track shown or not, sensitivity, opacity, frames per second, followed player, launch at startup |
+| Move / resize… | The widget comes to the front: drag it, pull the corner, then "Done" |
+| Full screen | Same as Ctrl + Alt + F |
+| Screen saver | Same as Ctrl + Alt + L |
+| Settings… | All settings, including the disc (intensity, size, position), the scene's screen, game mode, the screen saver, "Reduce animations and glows", the language and the Spotify account |
 
-En plein écran : **Espace** lecture/pause · **← →** morceau précédent/suivant · **V** visualiseur suivant · **C** couleurs suivantes · **[ ]** décaler les paroles · **?** afficher l'aide des raccourcis · **Échap** quitter.
+In full screen: **Space** play/pause · **← →** previous/next track · **V** next visualizer · **C** next colors · **[ ]** shift the lyrics · **?** show the shortcuts help · **Esc** quit.
 
-## Comment ça marche
+## How it works
 
-| Besoin | Solution |
+| Need | Solution |
 |---|---|
-| Savoir ce qui joue | Les contrôles média de Windows (SMTC), lus par l'assistant natif `native/sillon-helper` (Rust). C'est la même source que le panneau média du volume Windows : pas de connexion à Spotify. |
-| Afficher la bonne pochette | Spotify transmet parfois à Windows une image du clip au lieu de la pochette. `src/main/media/cover-lookup.js` cherche sur la recherche publique de Deezer (sans compte) la pochette de l'album studio où figure le morceau, à défaut celle de l'EP ou du single : seuls l'artiste, l'album et le titre sont envoyés. Rien de fiable trouvé : on garde l'image de Windows. |
-| Paroles synchronisées | `src/main/media/lyrics.js` les demande à [LRCLIB](https://lrclib.net) (gratuit, sans compte), mot par mot quand c'est disponible : seuls l'artiste, le titre, l'album et la durée sont envoyés. Pas de paroles synchronisées : le titre s'affiche à la place. |
-| File d'attente | `src/main/media/spotify-api.js` : API Web Spotify (facultative), connexion PKCE sans secret, jetons chiffrés par Windows. Le propriétaire de l'app développeur Spotify doit être Premium (règle de Spotify depuis février 2026). |
-| Hors ligne | `src/main/media/disk-cache.js` garde pochettes et paroles déjà trouvées dans `%APPDATA%/Sillon/cache`. |
-| Mode jeu | `SHQueryUserNotificationState` (plein écran signalé par Windows) + la fenêtre au premier plan couvre l'écran de la scène. |
-| Boutons de la scène | La scène est sous les icônes du bureau et ne reçoit pas les clics : les boutons du panneau sont une petite fenêtre à part (`controls.html`), gardée tout en bas de la pile des fenêtres. |
-| Réagir au son | **Par application** : l'assistant natif capte seulement le son du lecteur suivi (Spotify, navigateur…), ce qui laisse de côté le chat vocal, les notifications et les jeux. **Repli** : si Windows ne permet pas la capture par application, Sillon écoute tout le son du PC (capture « loopback » d'Electron, `getDisplayMedia` + `audio: 'loopback'`). Jamais le micro. Le son n'est ni enregistré ni envoyé nulle part. Réglage : Paramètres → « Son analysé ». |
-| Être sur le fond d'écran | `src/main/windows/wallpaper.js` place la fenêtre dans le `WorkerW` d'Explorer (via `koffi` + `user32.dll`), avec une variante pour Windows 11 24H2. Ré-accroche automatique si Explorer redémarre. |
-| Dessiner | Canvas 2D (`src/renderer/shared/visualizers.js`, boucle dans `engine.js`), analyse FFT en bandes logarithmiques (35 Hz → 16 kHz). Les visualiseurs et les couleurs viennent d'un catalogue unique, `src/renderer/shared/catalog.js`. |
+| Know what is playing | The Windows media controls (SMTC), read by the native helper `native/sillon-helper` (Rust). It is the same source as the media panel of the Windows volume flyout: no connection to Spotify. |
+| Show the right cover | Spotify sometimes gives Windows a picture of the video instead of the cover. `src/main/media/cover-lookup.js` looks up, on Deezer's public search (no account), the cover of the studio album the track is on, or else that of the EP or single: only the artist, album and title are sent. Nothing reliable found: the Windows picture is kept. |
+| Synced lyrics | `src/main/media/lyrics.js` asks [LRCLIB](https://lrclib.net) (free, no account) for them, word by word when available: only the artist, title, album and duration are sent. No synced lyrics: the title is shown instead. |
+| Queue | `src/main/media/spotify-api.js`: Spotify Web API (optional), PKCE sign-in without a secret, tokens encrypted by Windows. The owner of the Spotify developer app must be Premium (Spotify's rule since February 2026). |
+| Offline | `src/main/media/disk-cache.js` keeps the covers and lyrics already found in `%APPDATA%/Sillon/cache`. |
+| Game mode | `SHQueryUserNotificationState` (full screen reported by Windows) + the foreground window covers the scene's screen. |
+| Scene buttons | The scene is under the desktop icons and gets no clicks: the panel buttons are a small separate window (`controls.html`), kept at the very bottom of the window stack. |
+| React to the sound | **Per application**: the native helper captures only the sound of the followed player (Spotify, browser…), which leaves out voice chat, notifications and games. **Fallback**: if Windows does not allow per-application capture, Sillon listens to all the PC's sound (Electron's "loopback" capture, `getDisplayMedia` + `audio: 'loopback'`). Never the microphone. The sound is neither recorded nor sent anywhere. Setting: Settings → "Analyzed sound". |
+| Be on the wallpaper | `src/main/windows/wallpaper.js` puts the window in Explorer's `WorkerW` (via `koffi` + `user32.dll`), with a variant for Windows 11 24H2. Re-attaches automatically if Explorer restarts. |
+| Draw | Canvas 2D (`src/renderer/shared/visualizers.js`, loop in `engine.js`), FFT analysis in logarithmic bands (35 Hz → 16 kHz). The visualizers and colors come from a single catalog, `src/renderer/shared/catalog.js`. |
+| Languages | English is the source language. `src/renderer/shared/i18n.js` translates the pages from `src/renderer/shared/locales/` (`en.js`, `fr.js`); the main process (`src/main/app/i18n.js`) uses the same texts for the menu and notifications, and tells the pages when the language changes. |
 
 ```
 src/
   main/
     app/
-      main.js            assemblage, démarrage, instance unique
-      state.js           état partagé entre modules
-      ipc.js             enregistrement des canaux IPC (chacun vérifie l'expéditeur)
-      ipc-guard.js       contrôle des expéditeurs IPC (seulement nos pages)
-      settings.js        réglages sauvegardés (%APPDATA%/Sillon/settings.json)
-      settings-schema.js valeurs par défaut et validation des réglages
-      settings-store.js  lecture tolérante et écriture atomique des réglages
-      preload.js         pont sécurisé page ↔ processus principal
-      rest.js            repos de la scène (mise en veille quand la musique s'arrête)
-      diagnostic.js      rapport copiable pour les signalements
-      updater.js         mises à jour automatiques
+      main.js            wiring, startup, single instance
+      state.js           state shared between modules
+      ipc.js             registration of the IPC channels (each checks the sender)
+      ipc-guard.js       IPC sender checks (only our pages)
+      settings.js        saved settings (%APPDATA%/Sillon/settings.json)
+      settings-schema.js default values and validation of the settings
+      settings-store.js  tolerant reading and atomic writing of the settings
+      preload.js         secure page ↔ main process bridge
+      i18n.js            language of the main process (menu, notifications) and of the pages
+      shortcuts.js       global Ctrl+Alt keyboard shortcuts
+      rest.js            scene rest (sleeps when the music stops)
+      diagnostic.js      copyable report for bug reports
+      updater.js         automatic updates
     windows/
-      widget-window.js   scène / bandeau sur le fond d'écran
-      controls-window.js boutons du panneau de la scène
-      windows.js         plein écran et paramètres
-      layout-editor.js   personnalisation de la scène
-      veille.js          écran de veille
-      tray.js            menu de l'icône
-      wallpaper.js       accroche au fond d'écran et appels Win32
-      secure.js          durcissement des fenêtres (aucune nouvelle fenêtre, pas de navigation)
+      widget-window.js   scene / strip on the wallpaper
+      controls-window.js buttons of the scene panel
+      windows.js         full screen and settings
+      layout-editor.js   scene customization
+      veille.js          screen saver
+      tray.js            icon menu
+      wallpaper.js       wallpaper attachment and Win32 calls
+      secure.js          window hardening (no new window, no navigation)
     media/
-      media.js           source « morceau en cours » + position de lecture
-      now-playing.js     morceau en cours, pochette, paroles, décalage
-      queue.js           file d'attente (API Spotify)
-      cover-lookup.js    pochette officielle (Deezer)
-      lyrics.js          paroles synchronisées (LRCLIB)
-      spotify-api.js     connexion à l'API Spotify (PKCE)
-      text-norm.js       normalisation des titres et artistes (recherches Deezer et LRCLIB)
-      disk-cache.js      cache disque des pochettes et paroles
+      media.js           "now playing" source + playback position
+      now-playing.js     current track, cover, lyrics, offset
+      queue.js           queue (Spotify API)
+      cover-lookup.js    official cover (Deezer)
+      lyrics.js          synced lyrics (LRCLIB)
+      spotify-api.js     connection to the Spotify API (PKCE)
+      text-norm.js       normalization of titles and artists (Deezer and LRCLIB searches)
+      disk-cache.js      disk cache of covers and lyrics
     audio/
-      app-audio.js       son analysé : seulement le lecteur, ou tout le PC
-      app-ids.js         correspondance entre la session média et le programme écouté
-      audio-utils.js     fonctions audio pures, délais de relance de l'assistant
-      capture.js         son du système, couleurs du fond d'écran
-      helper.js          lance l'assistant natif (sillon-helper.exe)
+      app-audio.js       analyzed sound: only the player, or the whole PC
+      app-ids.js         mapping between the media session and the listened program
+      audio-utils.js     pure audio functions, helper restart delays
+      capture.js         system sound, wallpaper colors
+      helper.js          starts the native helper (sillon-helper.exe)
   renderer/
     pages/
-      widget.*           la scène et le bandeau
-      scene-editor.js    éditeur de disposition de la scène (widget.html?edit=1)
-      controls.*         boutons du panneau
-      fullscreen.*       plein écran et écran de veille
-      settings.*         fenêtre de paramètres
+      widget.*           the scene and the strip
+      scene-editor.js    scene layout editor (widget.html?edit=1)
+      controls.*         panel buttons
+      fullscreen.*       full screen and screen saver
+      settings.*         settings window
     shared/
-      catalog.js         visualiseurs et jeux de couleurs (source unique)
-      audio-engine.js    analyse audio (capture, bandes, battement), audio simulé
-      colors.js          palettes (pochette, couleur), opacité des couleurs
-      visualizers.js     visualiseurs (dont le disque), bord lumineux, anneaux
-      engine.js          boucle de rendu, position du morceau, assemble window.SV
-      common.js          logique partagée widget / plein écran
-      lyrics-view.js     paroles en karaoké
-      scene-layout.js    disposition de la scène (modèles, placement)
-      volume-control.js  barre de volume du lecteur
-      pcm-worklet.js     lecture du son capturé pour l'analyse
-    style.css            styles de toutes les pages
+      catalog.js         visualizers and color sets (single source)
+      audio-engine.js    audio analysis (capture, bands, beat), simulated audio
+      colors.js          palettes (cover, color), color opacity
+      visualizers.js     visualizers (including the disc), glowing edge, rings
+      engine.js          render loop, track position, builds window.SV
+      common.js          logic shared by the widget and the full screen
+      lyrics-view.js     karaoke lyrics
+      scene-layout.js    scene layout (templates, placement)
+      volume-control.js  player volume bar
+      pcm-worklet.js     reads the captured sound for the analysis
+      shortcuts.js       list of keyboard shortcuts (single source)
+      i18n.js            page translation (English by default, French)
+      locales/           interface texts: en.js, fr.js
+    style.css            styles of every page
 native/
-  sillon-helper/       assistant natif en Rust : morceau en cours (SMTC),
-                       volume du lecteur, capture du son du seul lecteur
-                       (.cargo/config.toml : runtime C lié statiquement)
-scripts/               build de l'assistant, vérifications, publication
-  build-helper.js      compile l'assistant (cargo, depuis son dossier)
-  check.js             syntaxe de tous les fichiers JavaScript
-  verify-rust.js       formatage, clippy et tests Rust
-  release.js           publication (voir « Mises à jour automatiques »)
-  release-lib.js       fonctions pures de la publication (version, notes, SHA-256)
+  sillon-helper/       native helper in Rust: current track (SMTC),
+                       player volume, capture of the player's sound only
+                       (.cargo/config.toml: statically linked C runtime)
+scripts/               helper build, checks, publishing
+  build-helper.js      builds the helper (cargo, from its folder)
+  check.js             syntax of every JavaScript file
+  verify-rust.js       Rust formatting, clippy and tests
+  release.js           publishing (see "Automatic updates")
+  release-lib.js       pure publishing functions (version, notes, SHA-256)
 test/                  tests (node --test)
-demo/                  aperçu navigateur : vraies pages + faux pont + son de synthèse
-.github/               CI, Dependabot, modèles d'issue et de pull request, sécurité
+demo/                  browser preview: real pages + fake bridge + synthetic sound
+.github/               CI, Dependabot, issue and pull request templates, security
 ```
 
-## Connecter Spotify (file d'attente, facultatif)
+## Connecting Spotify (queue, optional)
 
-**Simple** : Paramètres → **Compte Spotify** → **Se connecter à Spotify**, puis accepte dans le navigateur. Sillon utilise son app Spotify intégrée.
+**Simple**: Settings → **Spotify account** → **Sign in to Spotify**, then accept in the browser. Sillon uses its built-in Spotify app.
 
-Spotify limite cette app intégrée (mode développement) à **5 comptes**, que son propriétaire ajoute un par un dans *User Management* de son [tableau de bord](https://developer.spotify.com/dashboard). Un compte non ajouté est refusé, avec un message qui l'explique.
+Spotify limits this built-in app (development mode) to **5 accounts**, which its owner adds one by one in *User Management* of the [dashboard](https://developer.spotify.com/dashboard). An account that was not added is refused, with a message that explains it.
 
-**Avec ta propre app** (si tu n'es pas dans ces 5 comptes, ou si tu as récupéré Sillon sur GitHub) :
+**With your own app** (if you are not one of these 5 accounts, or if you got Sillon from GitHub):
 
-1. Coche **Utiliser mon propre Client ID** et ouvre le lien vers le [tableau de bord développeurs](https://developer.spotify.com/dashboard). Il faut un compte **Premium** (règle de Spotify depuis février 2026).
-2. **Create app** : coche **Web API**, ajoute la Redirect URI `http://127.0.0.1:43821/callback`.
-3. Colle le **Client ID** dans Sillon, puis **Se connecter à Spotify**.
+1. Tick **Use my own Client ID** and open the link to the [developer dashboard](https://developer.spotify.com/dashboard). A **Premium** account is needed (Spotify's rule since February 2026).
+2. **Create app**: tick **Web API**, add the Redirect URI `http://127.0.0.1:43821/callback`.
+3. Paste the **Client ID** into Sillon, then **Sign in to Spotify**.
 
-Le Client ID intégré dans le code n'est pas un secret : avec la connexion PKCE, il identifie seulement l'app.
+The Client ID built into the code is not a secret: with PKCE sign-in, it only identifies the app.
 
-La même connexion pourrait servir plus tard au like ou à l'ajout à une playlist.
+The same connection could later be used to like a track or add it to a playlist.
 
-## Données et vie privée
+## Data and privacy
 
-Sillon n'a pas de serveur et ne collecte rien. Ce qui sort de ton PC :
+Sillon has no server and collects nothing. What leaves your PC:
 
-| Vers | Quoi | Pourquoi |
+| To | What | Why |
 |---|---|---|
-| [Deezer](https://developers.deezer.com/api) (API publique) | artiste, album, titre | trouver la pochette de l'album |
-| [LRCLIB](https://lrclib.net) | artiste, titre, album, durée | trouver les paroles synchronisées |
-| [Spotify](https://developer.spotify.com/documentation/web-api) (seulement si tu connectes ton compte) | jeton d'accès | lire la file d'attente, régler aléatoire et répétition |
-| [GitHub](https://github.com/vigoRz-c/sillon/releases) (version installée, mises à jour activées) | rien de personnel | savoir s'il existe une nouvelle version |
+| [Deezer](https://developers.deezer.com/api) (public API) | artist, album, title | find the album cover |
+| [LRCLIB](https://lrclib.net) | artist, title, album, duration | find the synced lyrics |
+| [Spotify](https://developer.spotify.com/documentation/web-api) (only if you connect your account) | access token | read the queue, set shuffle and repeat |
+| [GitHub](https://github.com/vigoRz-c/sillon/releases) (installed version, updates on) | nothing personal | know whether a new version exists |
 
-Sillon s'appelait auparavant Spoti-View : au premier lancement, il reprend les réglages et le cache de `%APPDATA%/Spoti-View` (il faut seulement reconnecter le compte Spotify).
+Sillon used to be called Spoti-View: on first launch, it takes over the settings and cache of `%APPDATA%/Spoti-View` (only the Spotify account needs to be connected again).
 
-Le son du PC est analysé en direct et jamais enregistré ni envoyé. Les réglages, le cache et les jetons Spotify (chiffrés par Windows) restent dans `%APPDATA%/Sillon`.
+The PC's sound is analyzed live and never recorded or sent. The settings, the cache and the Spotify tokens (encrypted by Windows) stay in `%APPDATA%/Sillon`.
 
-## État du projet
+## Project status
 
-**Bêta** (version 0.2). Bugs, idées, retours : écris-moi sur Discord, **`_vigorz_`**. Pour un bug, joins si possible le diagnostic (Paramètres → Diagnostic → « Copier le diagnostic ») : il ne contient ni mot de passe ni jeton.
+**Beta** (version 0.2). Bugs, ideas, feedback: write to me on Discord, **`_vigorz_`**. For a bug, attach the diagnostic if you can (Settings → Diagnostic → "Copy the diagnostic"): it contains no password or token.
 
-Testée sur Windows 11 24H2 avec Electron 45 : accroche au fond d'écran (y compris avec Wallpaper Engine), deux écrans, capture du son, contrôles média, paroles, file d'attente, écran de veille et version empaquetée. Si l'accroche au fond d'écran ne marche pas sur ta version de Windows, le mode « Toujours au premier plan » ou « Fenêtre normale » reste utilisable.
+Tested on Windows 11 24H2 with Electron 45: wallpaper attachment (including with Wallpaper Engine), two screens, sound capture, media controls, lyrics, queue, screen saver and packaged version. If the wallpaper attachment does not work on your Windows version, the "Always on top" or "Normal window" mode remains usable.
 
-## Licence
+## License
 
-[GPL-3.0](LICENSE) : tu peux utiliser, étudier, modifier et redistribuer Sillon ; toute version modifiée que tu diffuses doit rester sous GPL-3.0, avec son code source.
+[GPL-3.0](LICENSE): you may use, study, change and redistribute Sillon; any changed version you distribute must stay under GPL-3.0, with its source code.
 
-Projet indépendant, sans lien avec Spotify, Deezer ou LRCLIB. Spotify est une marque de Spotify AB. Les pochettes et les paroles affichées appartiennent à leurs ayants droit.
+Independent project, not affiliated with Spotify, Deezer or LRCLIB. Spotify is a trademark of Spotify AB. The covers and lyrics shown belong to their rights holders.
