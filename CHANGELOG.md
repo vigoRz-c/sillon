@@ -4,6 +4,10 @@ Toutes les évolutions notables de Sillon. Format inspiré de [Keep a Changelog]
 
 ## [Non publié]
 
+## [0.4.0] - 2026-11-24
+
+Personnalisation (roue des couleurs, quatre nouveaux visualiseurs) et seconde passe de l'audit de la version 0.3.0 : chaque page limitée à ses propres messages, cache disque sans blocage, vérification des types.
+
 ### Ajouté
 - Roue des couleurs dans les paramètres (onglet Couleurs) : teinte et saturation sur la roue, luminosité au curseur, ou code hexadécimal. La couleur choisie devient le jeu « Couleur personnalisée » du bandeau, du plein écran et de la veille, et peut aussi colorer le disque de la scène (pastille « Personnalisée », ou dans l'éditeur de scène). Utilisable au clavier.
 - Quatre nouveaux visualiseurs : Spectre (courbe lisse remplie), Points (matrice lumineuse), Étincelles (particules qui montent avec le son) et Rosace (pétales de spectre qui tournent). Au choix dans les paramètres, le menu de l'icône et le plein écran (touche V) ; les trois premiers aussi pour l'élément « Barres » de l'éditeur de scène.
@@ -174,7 +178,8 @@ Nouveaux jeux de couleurs, fenêtre des paramètres refaite, audit complet de la
 
 Première version publique : visualiseur sur le fond d'écran Windows, scène (disque, paroles synchronisées, panneau « en lecture », file d'attente), écran de veille, plein écran, connexion Spotify.
 
-[Non publié]: https://github.com/vigoRz-c/sillon/compare/v0.3.1...HEAD
+[Non publié]: https://github.com/vigoRz-c/sillon/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/vigoRz-c/sillon/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/vigoRz-c/sillon/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/vigoRz-c/sillon/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/vigoRz-c/sillon/compare/v0.1.9...v0.2.0
