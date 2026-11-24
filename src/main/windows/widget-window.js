@@ -1,8 +1,9 @@
-// Le widget : la scène (tout le bureau) ou le bandeau, accroché au fond d'écran.
+// The widget: the scene (whole desktop) or the strip, attached to the wallpaper.
 
 const { BrowserWindow, screen } = require('electron');
 const path = require('path');
 const S = require('../app/state');
+const { t } = require('../app/i18n');
 const { WallpaperAttacher } = require('./wallpaper');
 const { secureWindow, SAFE_PREFS } = require('./secure');
 const diagnostic = require('../app/diagnostic');
@@ -19,22 +20,22 @@ function defaultBounds() {
   };
 }
 
-// La scène occupe toute la zone de travail d'un écran. Elle n'a de sens que
-// sur le fond d'écran : en mode "premier plan" ou "fenêtre", elle couvrirait
-// tout, on revient alors au bandeau.
+// The scene takes the whole work area of a screen. It only makes sense
+// on the wallpaper: in "top" or "window" mode, it would cover
+// everything, so we fall back to the strip.
 function isScene() {
   return S.settings.get('layout') !== 'strip' && S.settings.get('mode') === 'wallpaper';
 }
 
-// Écran de la scène : le principal de Windows, ou le premier autre écran.
+// Scene's screen: Windows' primary one, or the first other screen.
 function sceneDisplay() {
   const primary = screen.getPrimaryDisplay();
   if (S.settings.get('sceneScreen') !== 'secondary') return primary;
   return screen.getAllDisplays().find((d) => d.id !== primary.id) || primary;
 }
 
-// Le bandeau suit l'écran principal choisi dans Windows : sa position est
-// enregistrée relativement à la zone de travail de cet écran (rx, ry).
+// The strip follows the primary screen chosen in Windows: its position is
+// saved relative to the work area of that screen (rx, ry).
 function widgetBounds() {
   if (isScene()) {
     const { workArea: wa } = sceneDisplay();
@@ -43,7 +44,7 @@ function widgetBounds() {
   const b = S.settings.get('bounds');
   if (!b) return defaultBounds();
   const { workArea: wa } = screen.getPrimaryDisplay();
-  if (!('rx' in b)) return defaultBounds(); // ancien format absolu : on repart du défaut
+  if (!('rx' in b)) return defaultBounds(); // old absolute format: start again from the default
   const width = Math.min(b.width, wa.width);
   const height = Math.min(b.height, wa.height);
   return {
@@ -67,8 +68,8 @@ function createWidget() {
     backgroundColor: '#00000000',
     hasShadow: false,
     skipTaskbar: true,
-    // Les fenêtres transparentes ne se redimensionnent pas bien sous Windows :
-    // le coin de redimensionnement est géré dans la page (mode placement).
+    // Transparent windows do not resize well on Windows:
+    // the resize corner is handled in the page (placement mode).
     resizable: false,
     show: false,
     title: 'Sillon',
@@ -85,17 +86,17 @@ function createWidget() {
     S.actions.startWallpaperSampling();
   });
 
-  // Page plantée : on la recharge, puis (did-finish-load) on lui rend tout
-  // son état et on relance le son. Au plus 3 plantages par minute, pour ne
-  // pas tourner en boucle.
+  // Crashed page: reload it, then (did-finish-load) give it back all
+  // its state and restart the sound. At most 3 crashes per minute, so as not
+  // to loop.
   let reloading = false;
   let crashes = [];
   widget.webContents.on('render-process-gone', (_e, d) => {
     const now = Date.now();
     crashes = crashes.filter((t) => now - t < 60000);
     crashes.push(now);
-    console.error(`Page de la scène plantée (${d.reason}).`);
-    diagnostic.note('scène', `page plantée (${d.reason})${crashes.length > 3 ? ' : abandon' : ' : rechargement'}`);
+    console.error(`Scene page crashed (${d.reason}).`);
+    diagnostic.note('scene', `page crashed (${d.reason})${crashes.length > 3 ? ': giving up' : ': reloading'}`);
     if (crashes.length > 3) return;
     reloading = true;
     setTimeout(() => S.alive(widget) && widget.reload(), 500);
@@ -122,7 +123,7 @@ function applyMode() {
   if (S.settings.get('sceneHidden') && !S.editing) {
     widget.hide();
   } else if (S.editing) {
-    // Placement : le bandeau est masqué, la fenêtre de placement le remplace.
+    // Placement: the strip is hidden, the placement window replaces it.
     widget.hide();
   } else if (mode === 'wallpaper') {
     widget.setIgnoreMouseEvents(true);
@@ -130,9 +131,9 @@ function applyMode() {
     widget.setBounds(bounds);
     try {
       const layout = S.attacher.attach(bounds);
-      console.log("Accroché au fond d'écran, disposition :", layout);
+      console.log('Attached to the wallpaper, layout:', layout);
     } catch (e) {
-      // Pas d'accroche possible : on reste une fenêtre au fond de la pile.
+      // No attachment possible: we stay a window at the bottom of the stack.
       console.error(e.message);
       widget.showInactive();
     }
@@ -147,13 +148,13 @@ function applyMode() {
   S.actions.updateControls();
 }
 
-// Placement du bandeau (« Déplacer / redimensionner ») : une fenêtre à part,
-// au premier plan, qui montre le bandeau (widget.html?place=1), comme
-// l'éditeur de la scène. La fenêtre du bandeau reste accrochée au fond
-// d'écran (masquée) : pas de décrochage / ré-accrochage à chaque placement.
+// Strip placement ("Move / resize"): a separate window,
+// in the foreground, that shows the strip (widget.html?place=1), like
+// the scene editor. The strip window stays attached to the
+// wallpaper (hidden): no detaching / re-attaching on every placement.
 let placeStart = null;
 
-// Dimensions choisies dans la fenêtre de placement, sans l'arrondi de Windows.
+// Size chosen in the placement window, without Windows' rounding.
 function placedBounds(win) {
   const b = win.getBounds();
   if (!placeStart) return b;
@@ -177,12 +178,12 @@ function openPlacer() {
     transparent: true,
     backgroundColor: '#00000000',
     hasShadow: false,
-    resizable: false, // poignée gérée dans la page (voir widget:resize)
+    resizable: false, // handle managed in the page (see widget:resize)
     minimizable: false,
     maximizable: false,
     alwaysOnTop: true,
     show: false,
-    title: 'Placer le bandeau · Sillon',
+    title: t('window.place'),
     icon: path.join(S.ASSETS, 'icon.png'),
     webPreferences: { ...SAFE_PREFS, preload: S.PRELOAD, backgroundThrottling: false },
   });
@@ -194,15 +195,15 @@ function openPlacer() {
     S.send([win], 'editing', true);
     S.actions.startAudio(win);
   });
-  // Avec une échelle d'affichage fractionnaire (125 %…), Windows arrondit une
-  // fenêtre transparente à quelques pixels de plus que demandé : on retient
-  // l'écart pour ne pas faire grandir le bandeau à chaque placement.
+  // With a fractional display scale (125 %…), Windows rounds a
+  // transparent window to a few pixels more than asked: we remember
+  // the difference so as not to grow the strip on every placement.
   placeStart = { target, actual: win.getBounds() };
   win.once('ready-to-show', () => {
     win.show();
     win.focus();
   });
-  // Fermée autrement que par « Terminé » (Alt+F4…) : le placement s'arrête aussi.
+  // Closed other than with "Done" (Alt+F4…): placement stops too.
   win.on('closed', () => {
     if (S.placeWin !== win) return;
     S.placeWin = null;
@@ -211,10 +212,10 @@ function openPlacer() {
 }
 
 function setEditing(on) {
-  if (on && isScene()) return; // la scène occupe tout l'écran : rien à placer
+  if (on && isScene()) return; // the scene fills the whole screen: nothing to place
   if (!on && S.alive(S.placeWin)) {
-    // Si la disposition est devenue la scène pendant le placement, ce ne sont
-    // plus les dimensions du bandeau : on ne les enregistre pas.
+    // If the layout became the scene during placement, these are no
+    // longer the strip's dimensions: they are not saved.
     if (!isScene()) saveWidgetBounds(placedBounds(S.placeWin));
     const win = S.placeWin;
     S.placeWin = null;

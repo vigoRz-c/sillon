@@ -1,5 +1,5 @@
-// Durcissement commun des fenêtres : aucune nouvelle fenêtre, aucune
-// navigation hors de la page chargée.
+// Common window hardening: no new window, no
+// navigation away from the loaded page.
 
 function secureWindow(win) {
   const wc = win.webContents;
@@ -11,9 +11,9 @@ function secureWindow(win) {
   return win;
 }
 
-// Préférences de sécurité écrites noir sur blanc : ce sont les valeurs par
-// défaut d'Electron aujourd'hui, mais un changement de défaut ou une option
-// ajoutée par erreur ne doit pas les défaire sans qu'on le voie.
+// Security preferences written out in full: they are Electron's defaults
+// today, but a change of default or an option added by mistake must not
+// undo them without anyone noticing.
 const SAFE_PREFS = Object.freeze({
   contextIsolation: true,
   sandbox: true,

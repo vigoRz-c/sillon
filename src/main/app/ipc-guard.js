@@ -1,29 +1,29 @@
 // @ts-check
-// Contrôle des messages reçus des pages (IPC).
+// Checks of the messages received from the pages (IPC).
 //
-// Un handler ne doit obéir qu'aux pages de Sillon : l'expéditeur doit être une
-// de nos fenêtres, chargée depuis le dossier des pages de l'app.
+// A handler must only obey Sillon's pages: the sender must be one
+// of our windows, loaded from the app's pages folder.
 
 const { pathToFileURL } = require('url');
 
-// Les commandes média acceptées (celles que comprend l'assistant natif).
+// The accepted media commands (those the native helper understands).
 const { MEDIA_COMMANDS } = require('../audio/helper-protocol');
 
 const norm = (u) => String(u).replace(/\\/g, '/').toLowerCase();
 
-// `url` est-elle une page de l'app (file://) sous le dossier `root` ?
+// Is `url` an app page (file://) under the `root` folder?
 function isAppUrl(url, root) {
   if (typeof url !== 'string' || !root) return false;
   const base = norm(pathToFileURL(root).href).replace(/\/+$/, '') + '/';
   return norm(url).startsWith(base);
 }
 
-// Valide un nombre fini dans [min, max] ; renvoie null sinon.
+// Validates a finite number in [min, max]; returns null otherwise.
 function finite(v, min = -Infinity, max = Infinity) {
   return typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max ? v : null;
 }
 
-// Rectangle { x, y, width, height } de nombres finis, ou null.
+// Rectangle { x, y, width, height } of finite numbers, or null.
 function validRect(r) {
   if (!r || typeof r !== 'object') return null;
   const { x, y, width, height } = r;
@@ -31,11 +31,11 @@ function validRect(r) {
   return { x, y, width, height };
 }
 
-// Canaux que chaque page peut envoyer au processus principal (moindre
-// privilège) : la fenêtre des boutons ne peut pas déconnecter Spotify, l'écran
-// noir de la veille ne peut que la quitter. Une page absente de la liste n'a
-// droit à rien. test/ipc-contract.test.js vérifie que chaque page a bien les
-// canaux des méthodes du pont qu'elle utilise.
+// Channels each page may send to the main process (least
+// privilege): the buttons window cannot disconnect Spotify, the black
+// screen of the screen saver can only leave it. A page missing from the list
+// gets nothing. test/ipc-contract.test.js checks that each page has the
+// channels of the bridge methods it uses.
 const PAGE_CHANNELS = {
   'widget.html': [
     'i18n:language',
@@ -78,7 +78,7 @@ const PAGE_CHANNELS = {
   'veille-black.html': ['veille:exit'],
 };
 
-// Nom du fichier de la page (« widget.html »), en minuscules ; '' si l'adresse est invalide.
+// File name of the page ("widget.html"), lowercase; '' if the address is invalid.
 function pageOf(url) {
   try {
     return decodeURIComponent(new URL(url).pathname.split('/').pop()).toLowerCase();
@@ -87,7 +87,7 @@ function pageOf(url) {
   }
 }
 
-// La page à l'adresse `url` a-t-elle le droit d'envoyer sur `channel` ?
+// May the page at `url` send on `channel`?
 function allowedFor(url, channel) {
   const list = Object.hasOwn(PAGE_CHANNELS, pageOf(url)) ? PAGE_CHANNELS[pageOf(url)] : null;
   return !!list && list.includes(channel);

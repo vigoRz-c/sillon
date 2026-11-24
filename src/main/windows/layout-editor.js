@@ -1,21 +1,22 @@
-// Éditeur de disposition de la scène.
+// Scene layout editor.
 //
-// Une fenêtre au premier plan, de la taille de l'écran de la scène, qui
-// affiche la même page que la scène en mode édition (widget.html?edit=1), sur
-// le fond d'écran de Windows. « Terminé » enregistre la disposition,
-// « Annuler » (ou Échap) ferme sans rien changer.
+// A foreground window, the size of the scene's screen, that
+// shows the same page as the scene in edit mode (widget.html?edit=1), over
+// the Windows wallpaper. "Done" saves the layout,
+// "Cancel" (or Esc) closes without changing anything.
 
 const { BrowserWindow, nativeImage, screen } = require('electron');
 const { execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const S = require('../app/state');
+const { t } = require('../app/i18n');
 const diagnostic = require('../app/diagnostic');
 const ipc = require('../app/ipc');
 const { secureWindow, SAFE_PREFS } = require('./secure');
 const SceneLayout = require('../../renderer/shared/scene-layout');
 
-// Chemin du fond d'écran de Windows (registre), ou sa copie interne.
+// Path of the Windows wallpaper (registry), or its internal copy.
 function wallpaperPath() {
   return new Promise((resolve) => {
     execFile('reg', ['query', 'HKCU\\Control Panel\\Desktop', '/v', 'WallPaper'], { windowsHide: true }, (err, out) => {
@@ -28,8 +29,8 @@ function wallpaperPath() {
   });
 }
 
-// Une seule image peut couvrir tous les écrans (mode « étendre » de Windows,
-// Wallpaper Engine) : on n'en garde que la partie de l'écran voulu.
+// A single image may cover every screen (Windows' "span" mode,
+// Wallpaper Engine): only the part of the wanted screen is kept.
 function cropToDisplay(img, display) {
   const all = screen.getAllDisplays().map((d) => screen.dipToScreenRect(null, d.bounds));
   if (all.length < 2) return img;
@@ -38,7 +39,7 @@ function cropToDisplay(img, display) {
   const vw = Math.max(...all.map((r) => r.x + r.width)) - vx;
   const vh = Math.max(...all.map((r) => r.y + r.height)) - vy;
   const { width: iw, height: ih } = img.getSize();
-  // L'image a-t-elle les proportions du bureau entier plutôt que d'un écran ?
+  // Does the image have the proportions of the whole desktop rather than of one screen?
   if (Math.abs(iw / ih - vw / vh) > 0.02) return img;
   const r = screen.dipToScreenRect(null, display.bounds);
   const k = iw / vw;
@@ -59,8 +60,8 @@ async function wallpaperDataUrl(display) {
     img = cropToDisplay(img, display);
     return img.resize({ width: Math.min(img.getSize().width, 1920), quality: 'good' }).toDataURL();
   } catch (e) {
-    console.error("Lecture du fond d'écran impossible :", e.message);
-    diagnostic.note('éditeur', `lecture du fond d'écran impossible (${e.message})`);
+    console.error('Could not read the wallpaper:', e.message);
+    diagnostic.note('editor', `could not read the wallpaper (${e.message})`);
     return S.wallpaperSample;
   }
 }
@@ -87,7 +88,7 @@ function openLayoutEditor() {
     skipTaskbar: false,
     backgroundColor: '#0b0b10',
     show: false,
-    title: 'Personnaliser la scène · Sillon',
+    title: t('window.editor'),
     icon: path.join(S.ASSETS, 'icon.png'),
     webPreferences: { ...SAFE_PREFS, preload: S.PRELOAD, backgroundThrottling: false },
   });
@@ -101,11 +102,11 @@ function openLayoutEditor() {
       S.actions.startAudio(win);
       setTimeout(S.actions.sampleWallpaper, 800);
       const background = await wallpaperDataUrl(display);
-      if (!S.alive(win)) return; // fermée pendant la lecture du fond d'écran
+      if (!S.alive(win)) return; // closed while the wallpaper was being read
       S.send([win], 'editor-background', background);
     } catch (e) {
-      console.error('Éditeur : chargement de la page :', e.message);
-      diagnostic.note('éditeur', `chargement de la page : ${e.message}`);
+      console.error('Editor: loading the page:', e.message);
+      diagnostic.note('editor', `loading the page: ${e.message}`);
     }
   });
   win.once('ready-to-show', () => {
@@ -128,7 +129,7 @@ ipc.on('layout:cancel', (e) => {
 });
 ipc.on('layout:done', (e, patch) => {
   if (!fromEditor(e) || !patch || typeof patch !== 'object') return;
-  // Seules ces clés peuvent venir de l'éditeur.
+  // Only these keys may come from the editor.
   const allowed = ['sceneLayout', 'discRays', 'discColors', 'panelRing', 'style'];
   const clean = {};
   for (const k of allowed) if (k in patch) clean[k] = patch[k];

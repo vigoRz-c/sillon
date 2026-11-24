@@ -314,6 +314,9 @@
     'spotify.portBusy': 'Port {port} unavailable: {error}',
     'spotify.expired': 'Spotify sign-in expired',
     'main.startFailed': 'Sillon could not start: {error}',
+    'window.editor': 'Customize the scene · Sillon',
+    'window.place': 'Place the strip · Sillon',
+    'window.settings': 'Settings · Sillon',
   };
 
   if (typeof module === 'object' && module.exports) module.exports = en;

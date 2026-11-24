@@ -1,10 +1,10 @@
 // @ts-check
-// Raccourcis clavier globaux (Ctrl+Alt+<touche>), actifs même quand Sillon
-// n'a pas le focus. La liste et les libellés sont dans
-// src/renderer/shared/shortcuts.js ; ici, seulement l'enregistrement.
+// Global keyboard shortcuts (Ctrl+Alt+<key>), active even when Sillon
+// does not have the focus. The list and the labels are in
+// src/renderer/shared/shortcuts.js; here, only the registration.
 //
-// Sans dépendance directe à Electron : globalShortcut et les actions sont
-// passés à createShortcuts (testé à part, voir test/shortcuts.test.js).
+// No direct dependency on Electron: globalShortcut and the actions are
+// passed to createShortcuts (tested separately, see test/shortcuts.test.js).
 
 const { SHORTCUTS, BY_ID, TEXT } = require('../../renderer/shared/shortcuts');
 
@@ -17,10 +17,10 @@ const { SHORTCUTS, BY_ID, TEXT } = require('../../renderer/shared/shortcuts');
  */
 function createShortcuts({ globalShortcut, actions, note = () => {} }) {
   let enabled = false;
-  const registered = new Set(); // identifiants enregistrés avec succès
-  const taken = new Set(); // identifiants refusés (combinaison prise ailleurs)
+  const registered = new Set(); // ids registered successfully
+  const taken = new Set(); // ids refused (combination taken elsewhere)
 
-  // Une erreur dans une action ne doit pas remonter jusqu'à Electron.
+  // An error in an action must not reach Electron.
   const run = (id) => () => {
     try {
       actions[id]();
@@ -44,7 +44,7 @@ function createShortcuts({ globalShortcut, actions, note = () => {} }) {
         registered.add(s.id);
         taken.delete(s.id);
       } else if (!taken.has(s.id)) {
-        // Noté une seule fois par combinaison, pas à chaque nouvel essai.
+        // Noted only once per combination, not on every new attempt.
         taken.add(s.id);
         console.error(TEXT.takenLog(s.display));
         note(TEXT.takenLog(s.display));
@@ -65,15 +65,15 @@ function createShortcuts({ globalShortcut, actions, note = () => {} }) {
     taken.clear();
   }
 
-  // Active ou désactive tous les raccourcis (réglage globalShortcuts).
+  // Turns all the shortcuts on or off (globalShortcuts setting).
   function apply(on) {
     enabled = !!on;
     if (enabled) registerMissing();
     else unregisterAll();
   }
 
-  // État de chaque raccourci : ok | taken | off. retry : réessaie ceux qui
-  // étaient pris (l'autre application a pu les libérer depuis).
+  // State of each shortcut: ok | taken | off. retry: tries again those that
+  // were taken (the other application may have freed them since).
   function status({ retry = false } = {}) {
     if (enabled && retry) registerMissing();
     return {
@@ -85,7 +85,7 @@ function createShortcuts({ globalShortcut, actions, note = () => {} }) {
     };
   }
 
-  // Combinaison d'un raccourci actif (affichée dans le menu de l'icône), sinon undefined.
+  // Combination of an active shortcut (shown in the icon menu), otherwise undefined.
   const acceleratorOf = (id) => (registered.has(id) ? BY_ID[id].accelerator : undefined);
 
   return { apply, status, unregisterAll, acceleratorOf };

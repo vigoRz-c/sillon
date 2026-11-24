@@ -1,18 +1,18 @@
-// Accrocher une fenêtre Electron sous les icônes du bureau.
+// Attaching an Electron window under the desktop icons.
 //
-// Explorer dessine le fond d'écran dans une fenêtre "WorkerW". Le message
-// 0x052C envoyé à "Progman" la fait apparaître ; on s'y glisse avec SetParent.
+// Explorer draws the wallpaper in a "WorkerW" window. The message
+// 0x052C sent to "Progman" makes it appear; we slip into it with SetParent.
 // Deux dispositions existent :
-//   - Windows 10 / 11 avant 24H2 : WorkerW est une fenêtre de premier niveau,
-//     juste derrière celle qui contient les icônes (SHELLDLL_DefView).
-//   - Windows 11 24H2 et + : WorkerW est un enfant de Progman, sous DefView.
-//     On se place alors dans Progman, entre les icônes et le fond.
+//   - Windows 10 / 11 before 24H2: WorkerW is a top-level window,
+//     just behind the one that holds the icons (SHELLDLL_DefView).
+//   - Windows 11 24H2 and later: WorkerW is a child of Progman, under DefView.
+//     We then go into Progman, between the icons and the background.
 
 const { screen } = require('electron');
 
 let api = null;
-// Journalise un échec une seule fois par origine (ces appels tournent en
-// boucle : une panne ne doit pas remplir la console).
+// Logs a failure only once per origin (these calls run in a
+// loop: a breakdown must not fill the console).
 const reported = new Set();
 function reportOnce(what, e) {
   if (reported.has(what)) return;
@@ -22,7 +22,7 @@ function reportOnce(what, e) {
 
 function win32() {
   if (api) return api;
-  if (process.platform !== 'win32') throw new Error("Mode fond d'écran : Windows uniquement.");
+  if (process.platform !== 'win32') throw new Error('Wallpaper mode: Windows only.');
   const koffi = require('koffi');
   const user32 = koffi.load('user32.dll');
   koffi.struct('POINT', { x: 'long', y: 'long' });
@@ -70,13 +70,13 @@ function hwndOf(win) {
   return buf.length >= 8 ? Number(buf.readBigUInt64LE(0)) : buf.readUInt32LE(0);
 }
 
-// Renvoie { parent, insertAfter } où insérer notre fenêtre, ou null.
+// Returns { parent, insertAfter } where to insert our window, or null.
 function findWallpaperHost() {
   const w = win32();
   const progman = w.FindWindowW('Progman', null);
   if (!progman) return null;
 
-  // Demande à Explorer de créer le WorkerW (sans effet s'il existe déjà).
+  // Asks Explorer to create the WorkerW (no effect if it already exists).
   const out = [0];
   w.SendMessageTimeoutW(progman, 0x052c, 0xd, 0x1, SMTO_NORMAL, 1000, out);
   w.SendMessageTimeoutW(progman, 0x052c, 0, 0, SMTO_NORMAL, 1000, out);
@@ -88,7 +88,7 @@ function findWallpaperHost() {
     return { parent: progman, insertAfter: defView || 0, layout: '24H2' };
   }
 
-  // Disposition classique : le WorkerW qui suit la fenêtre contenant les icônes.
+  // Classic layout: the WorkerW that follows the window holding the icons.
   let worker = 0;
   w.EnumWindows((hwnd) => {
     const defView = w.FindWindowExW(hwnd, 0, 'SHELLDLL_DefView', null);
@@ -100,7 +100,7 @@ function findWallpaperHost() {
   }, 0);
   if (worker) return { parent: worker, insertAfter: 0, layout: 'classic' };
 
-  // Dernier recours : directement dans Progman.
+  // Last resort: directly in Progman.
   return { parent: progman, insertAfter: 0, layout: 'progman' };
 }
 
@@ -114,25 +114,25 @@ class WallpaperAttacher {
   attach(bounds) {
     const w = win32();
     const host = findWallpaperHost();
-    if (!host) throw new Error('Impossible de trouver la fenêtre du bureau (Progman).');
+    if (!host) throw new Error('Could not find the desktop window (Progman).');
     const hwnd = hwndOf(this.win);
     w.SetParent(hwnd, host.parent);
-    // Sous 24H2, une fenêtre "layered" glissée dans Progman reste invisible tant
-    // que ses attributs d'opacité ne sont pas posés (la page tourne, mais rien
-    // n'est composé à l'écran). Wallpaper Engine fait de même.
+    // On 24H2, a "layered" window slipped into Progman stays invisible as long
+    // as its opacity attributes are not set (the page runs, but nothing
+    // is composited on screen). Wallpaper Engine does the same.
     const ex = Number(w.GetWindowLongPtrW(hwnd, GWL_EXSTYLE));
     w.SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex | WS_EX_LAYERED);
     w.SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA);
     this.host = host;
-    // Electron repositionne la fenêtre en coordonnées écran quand il l'affiche ;
-    // devenue enfant de Progman, Windows lit ces coordonnées par rapport au bureau
-    // et la fenêtre file sur un autre écran. On l'affiche d'abord, puis on la place.
+    // Electron repositions the window in screen coordinates when it shows it;
+    // once a child of Progman, Windows reads these coordinates relative to the desktop
+    // and the window runs off to another screen. So we show it first, then place it.
     this.win.showInactive();
     this.place(bounds);
-    // Les dimensions peuvent avoir changé pendant ces 300 ms : on prend les dernières.
+    // The size may have changed during these 300 ms: take the latest.
     setTimeout(() => !this.win.isDestroyed() && this.host && this.place(this.lastBounds), 300);
 
-    // Si Explorer redémarre ou que le fond change, on se ré-accroche.
+    // If Explorer restarts or the background changes, we attach again.
     clearInterval(this.watch);
     this.watch = setInterval(() => {
       if (this.win.isDestroyed()) return clearInterval(this.watch);
@@ -141,23 +141,23 @@ class WallpaperAttacher {
         try {
           this.attach(this.lastBounds);
         } catch (e) {
-          reportOnce("Ré-accrochage au fond d'écran (nouvel essai dans 5 s)", e);
+          reportOnce('Re-attaching to the wallpaper (new attempt in 5 s)', e);
         }
       }
     }, 5000);
     return host.layout;
   }
 
-  // bounds en DIP (coordonnées Electron) -> pixels physiques relatifs au parent.
+  // bounds in DIP (Electron coordinates) -> physical pixels relative to the parent.
   place(bounds) {
     if (!this.host) return;
     this.lastBounds = bounds;
     const w = win32();
-    // dipToScreenRect(null, …) : conversion selon l'écran visé par bounds, pas
-    // celui où la fenêtre se trouve actuellement (sinon mauvais écran / mauvaise échelle).
+    // dipToScreenRect(null, …): conversion for the screen that bounds targets, not
+    // the one the window is currently on (otherwise wrong screen / wrong scale).
     const px = screen.dipToScreenRect(null, bounds);
-    // Coordonnées relatives au parent : on laisse Windows faire la conversion
-    // plutôt que de supposer que Progman commence au coin de l'écran virtuel.
+    // Coordinates relative to the parent: we let Windows do the conversion
+    // rather than assume that Progman starts at the corner of the virtual screen.
     const pt = { x: px.x, y: px.y };
     w.ScreenToClient(this.host.parent, pt);
     w.SetWindowPos(
@@ -180,8 +180,8 @@ class WallpaperAttacher {
   }
 }
 
-// Place une fenêtre tout en bas de la pile (au-dessus du bureau, sous toutes
-// les applications), sans l'activer.
+// Puts a window at the very bottom of the stack (above the desktop, under every
+// application), without activating it.
 const HWND_BOTTOM = 1;
 const SWP_NOSIZE = 0x0001;
 const SWP_NOMOVE = 0x0002;
@@ -190,13 +190,13 @@ function sendToBottom(win) {
   try {
     win32().SetWindowPos(hwndOf(win), HWND_BOTTOM, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
   } catch (e) {
-    console.error('Fenêtre au fond :', e.message);
+    console.error('Window to the bottom:', e.message);
   }
 }
 
-// Une application occupe-t-elle l'écran (jeu Direct3D, vidéo ou présentation
-// en plein écran) ? SHQueryUserNotificationState : 2 = occupé (plein écran),
-// 3 = jeu Direct3D plein écran, 4 = mode présentation.
+// Is an application taking the screen (Direct3D game, full-screen video or
+// presentation)? SHQueryUserNotificationState: 2 = busy (full screen),
+// 3 = full-screen Direct3D game, 4 = presentation mode.
 let shell32 = null;
 function fullscreenAppRunning() {
   if (process.platform !== 'win32') return false;
@@ -210,12 +210,12 @@ function fullscreenAppRunning() {
     if (shell32.query(out) !== 0) return false;
     return out[0] === 2 || out[0] === 3 || out[0] === 4;
   } catch (e) {
-    reportOnce('Détection du plein écran (koffi)', e);
+    reportOnce('Full-screen detection (koffi)', e);
     return false;
   }
 }
 
-// Rectangle (pixels physiques) de la fenêtre au premier plan, ou null.
+// Rectangle (physical pixels) of the foreground window, or null.
 let rectApi = null;
 function foregroundRect() {
   if (process.platform !== 'win32') return null;
@@ -235,30 +235,30 @@ function foregroundRect() {
     if (!rectApi.rect(h, r)) return null;
     return { x: r.left, y: r.top, width: r.right - r.left, height: r.bottom - r.top };
   } catch (e) {
-    reportOnce('Fenêtre au premier plan (koffi)', e);
+    reportOnce('Foreground window (koffi)', e);
     return null;
   }
 }
 
-// Place une fenêtre juste au-dessus du bureau (Progman), sous toutes les
-// applications. Plus sûr que HWND_BOTTOM seul, qui peut la glisser sous le
-// bureau : elle devient alors invisible et les clics tombent sur le fond.
+// Puts a window just above the desktop (Progman), under every
+// application. Safer than HWND_BOTTOM alone, which can slip it under the
+// desktop: it then becomes invisible and the clicks fall on the background.
 function placeAboveDesktop(win) {
   if (process.platform !== 'win32' || !win || win.isDestroyed()) return;
   try {
     const w = win32();
     const me = hwndOf(win);
     const progman = w.FindWindowW('Progman', null);
-    const above = progman ? w.GetWindow(progman, 3) : 0; // GW_HWNDPREV : la fenêtre juste au-dessus
-    if (above === me) return; // déjà à la bonne place
-    // « Insérer après X » = juste sous X, donc juste au-dessus de Progman.
+    const above = progman ? w.GetWindow(progman, 3) : 0; // GW_HWNDPREV: the window just above
+    if (above === me) return; // already in the right place
+    // "Insert after X" = just under X, so just above Progman.
     w.SetWindowPos(me, above || HWND_BOTTOM, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
   } catch (e) {
-    console.error('Fenêtre au-dessus du bureau :', e.message);
+    console.error('Window above the desktop:', e.message);
   }
 }
 
-// Fenêtre sous un point de l'écran (pixels physiques), pour le diagnostic.
+// Window under a point of the screen (physical pixels), for the diagnostic.
 function windowAt(pt) {
   if (process.platform !== 'win32') return null;
   try {
@@ -273,12 +273,12 @@ function windowAt(pt) {
     const root = w.GetAncestor(hwnd, 2); // GA_ROOT
     return { hwnd, root, cls: cls(hwnd), rootCls: cls(root) };
   } catch (e) {
-    reportOnce('Fenêtre sous un point (koffi)', e);
+    reportOnce('Window under a point (koffi)', e);
     return null;
   }
 }
 
-// Équivaut à Windows + L.
+// Same as Windows + L.
 function lockWorkstation() {
   if (process.platform !== 'win32') return false;
   try {

@@ -1,9 +1,9 @@
-// Boutons du panneau de la scène.
+// Buttons of the scene panel.
 //
-// La scène vit sous les icônes du bureau : elle ne reçoit aucun clic. Les
-// boutons sont donc une petite fenêtre à part, posée exactement au-dessus
-// d'eux et maintenue tout en bas de la pile des fenêtres (au-dessus du bureau,
-// sous toutes les applications). Elle ne prend jamais le focus.
+// The scene lives under the desktop icons: it gets no clicks. The
+// buttons are therefore a small separate window, laid exactly over
+// them and kept at the very bottom of the window stack (above the desktop,
+// under every application). It never takes the focus.
 
 const { BrowserWindow } = require('electron');
 const path = require('path');
@@ -13,9 +13,9 @@ const { sendToBottom, windowAt, hwndOf, placeAboveDesktop } = require('./wallpap
 const diagnostic = require('../app/diagnostic');
 const { secureWindow, SAFE_PREFS } = require('./secure');
 
-// Surveillance : si le bureau repasse au-dessus des boutons (verrouillage,
-// redémarrage d'Explorer…), ils deviennent invisibles et les clics tombent sur
-// le fond d'écran. On le détecte et on les remet au-dessus du bureau.
+// Watch: if the desktop goes back above the buttons (lock,
+// Explorer restart…), they become invisible and the clicks fall on
+// the wallpaper. We detect it and put them back above the desktop.
 const DESKTOP = /^(Progman|WorkerW)$/;
 let watching = null;
 function watchControls() {
@@ -24,7 +24,7 @@ function watchControls() {
     const win = S.controlsWin;
     if (!S.alive(win)) return;
     if (win.isMinimized() || !win.isVisible()) {
-      diagnostic.note('boutons', 'fenêtre réduite ou masquée : réaffichée');
+      diagnostic.note('buttons', 'window minimized or hidden: shown again');
       win.showInactive();
       placeAboveDesktop(win);
       return;
@@ -32,7 +32,7 @@ function watchControls() {
     const b = win.getBounds();
     const hit = windowAt(screen.dipToScreenPoint({ x: b.x + b.width / 2, y: b.y + b.height / 2 }));
     if (hit && hit.root !== hwndOf(win) && DESKTOP.test(hit.rootCls)) {
-      diagnostic.note('boutons', `passés sous le bureau (${hit.rootCls}) : remis au-dessus`);
+      diagnostic.note('buttons', `went under the desktop (${hit.rootCls}): put back above`);
       placeAboveDesktop(win);
     }
   }, 2000);
@@ -41,10 +41,10 @@ function watchControls() {
 function updateControls() {
   const { isScene, widgetBounds } = S.actions;
   const rect = S.controlsRect;
-  const wanted = isScene() && !S.editing && !S.settings.get('sceneHidden') && rect && !S.alive(S.editorWin); // l'éditeur a ses propres boutons factices
+  const wanted = isScene() && !S.editing && !S.settings.get('sceneHidden') && rect && !S.alive(S.editorWin); // the editor has its own dummy buttons
   if (!wanted) {
-    // destroy() plutôt que close() : la fenêtre disparaît tout de suite, une
-    // demande rapide de recréation ne retombe pas sur une fenêtre à moitié fermée.
+    // destroy() rather than close(): the window disappears right away, a
+    // quick request to recreate it does not land on a half-closed window.
     const old = S.controlsWin;
     S.controlsWin = null;
     if (S.alive(old)) old.destroy();
@@ -64,15 +64,15 @@ function updateControls() {
       transparent: true,
       backgroundColor: '#00000000',
       hasShadow: false,
-      // Non activable : un clic sur un bouton ne la fait pas passer devant les
-      // autres fenêtres et ne vole pas le focus.
+      // Not activatable: a click on a button does not bring it in front of the
+      // other windows and does not steal the focus.
       resizable: false,
       minimizable: false,
       maximizable: false,
       skipTaskbar: true,
       focusable: false,
       show: false,
-      title: 'Sillon · boutons',
+      title: 'Sillon · buttons',
       webPreferences: { ...SAFE_PREFS, preload: S.PRELOAD, backgroundThrottling: false },
     });
     S.controlsWin = win;
@@ -80,13 +80,13 @@ function updateControls() {
     win.loadFile(path.join(S.RENDERER, 'controls.html'));
     win.webContents.on('did-finish-load', () => {
       if (!S.alive(win)) return;
-      S.send([win], 'media', { ...S.lastMedia, cover: undefined }); // les boutons n'affichent pas la pochette
+      S.send([win], 'media', { ...S.lastMedia, cover: undefined }); // the buttons do not show the cover
       win.showInactive();
       sendToBottom(win);
       placeAboveDesktop(win);
     });
     win.webContents.on('render-process-gone', (_e, d) =>
-      diagnostic.note('boutons', `page plantée (${d.reason}) : rechargement`),
+      diagnostic.note('buttons', `page crashed (${d.reason}): reloading`),
     );
     win.webContents.on('render-process-gone', () => setTimeout(() => S.alive(win) && win.reload(), 500));
     watchControls();

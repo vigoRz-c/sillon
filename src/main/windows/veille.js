@@ -1,9 +1,9 @@
-// Écran de veille.
+// Screen saver.
 //
-// Windows + L ouvre un bureau sécurisé où aucune application ne peut dessiner.
-// À la place : après un temps d'inactivité (ou avec Ctrl+Alt+L), la scène
-// s'affiche en plein écran par-dessus tout ; au premier mouvement ou à la
-// première touche, elle se ferme et la session est verrouillée.
+// Windows + L opens a secure desktop where no application can draw.
+// Instead: after some inactivity (or with Ctrl+Alt+L), the scene
+// shows in full screen over everything; on the first move or the
+// first key, it closes and the session is locked.
 
 const { BrowserWindow, screen, powerMonitor } = require('electron');
 const path = require('path');
@@ -28,7 +28,7 @@ function startVeille() {
       alwaysOnTop: true,
       skipTaskbar: true,
       show: false,
-      title: 'Sillon · veille',
+      title: 'Sillon · screen saver',
       webPreferences: { ...SAFE_PREFS, preload: S.PRELOAD, backgroundThrottling: false },
     });
     secureWindow(win);
@@ -39,9 +39,9 @@ function startVeille() {
         S.replayTo(win);
         S.actions.startAudio(win);
       });
-      S.fullscreen = win; // reçoit les mises à jour du morceau, des paroles et des réglages
+      S.fullscreen = win; // gets the updates of the track, lyrics and settings
     } else {
-      // Les autres écrans : noirs, et ils réveillent aussi.
+      // The other screens: black, and they wake up too.
       win.loadFile(path.join(S.RENDERER, 'veille-black.html'));
     }
     win.once('ready-to-show', () => {
@@ -57,7 +57,7 @@ function startVeille() {
   }
 }
 
-// Ferme toutes les fenêtres de veille ; verrouille la session si demandé.
+// Closes every screen saver window; locks the session if asked.
 function closeAll(lock) {
   const wins = S.veilleWins;
   S.veilleWins = [];
@@ -74,17 +74,17 @@ function watchIdle() {
   setInterval(() => {
     const delay = Number(S.settings.get('veilleDelay')) || 0;
     if (!delay || veilleActive() || S.editing) return;
-    if (S.alive(S.fullscreen)) return; // déjà en plein écran Sillon
+    if (S.alive(S.fullscreen)) return; // already in Sillon's full screen
     const m = S.lastMedia;
     if (S.settings.get('veilleOnlyPlaying') !== false && !(m.active && m.status === 'Playing')) return;
     if (powerMonitor.getSystemIdleTime() < delay * 60) return;
-    // Une vidéo ou un jeu en plein écran ne fait pas bouger la souris (Windows
-    // ne compte pas la vidéo comme une activité) : l'écran de veille la
-    // couvrirait, puis le premier mouvement verrouillerait le PC.
+    // A full-screen video or game does not move the mouse (Windows
+    // does not count video as activity): the screen saver would
+    // cover it, then the first move would lock the PC.
     if (S.gamePaused || fullscreenAppRunning()) return;
     startVeille();
   }, 5000);
-  // Session verrouillée ou mise en veille par ailleurs : on range sans reverrouiller.
+  // Session locked or put to sleep elsewhere: tidy up without locking again.
   const quiet = () => {
     if (S.veilleWins.length) closeAll(false);
   };

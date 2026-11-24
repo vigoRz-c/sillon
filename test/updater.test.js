@@ -42,7 +42,7 @@ test('téléchargement sans progression pendant 10 min : retour à « idle », n
   assert.equal(updater.status().state, 'downloading');
   t.mock.timers.tick(updater.DOWNLOAD_STALL);
   assert.equal(updater.status().state, 'idle');
-  assert.ok(notes.some((n) => n.includes('sans progression')));
+  assert.ok(notes.some((n) => n.includes('without progress')));
 });
 
 test('téléchargement terminé : pas d’abandon ensuite', (t) => {

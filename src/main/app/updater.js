@@ -1,23 +1,23 @@
-// Mises à jour automatiques (version installée uniquement).
+// Automatic updates (installed version only).
 //
-// Sillon regarde les Releases GitHub du dépôt (voir "publish" dans
-// package.json). Quand une version plus récente existe, elle est téléchargée
-// en arrière-plan puis installée à la fermeture de l'app, ou tout de suite
-// avec « Redémarrer pour mettre à jour ». La version portable et `npm start`
-// ne se mettent pas à jour.
+// Sillon looks at the repository's GitHub Releases (see "publish" in
+// package.json). When a newer version exists, it is downloaded
+// in the background and then installed when the app closes, or right away
+// with "Restart to update". The portable version and `npm start`
+// do not update.
 
 const { app, Notification } = require('electron');
 const S = require('./state');
 const diagnostic = require('./diagnostic');
 const { t } = require('./i18n');
 
-const CHECK_EVERY = 4 * 3600 * 1000; // toutes les 4 heures
-const DOWNLOAD_STALL = 10 * 60 * 1000; // téléchargement sans nouvelle de progression : abandon
+const CHECK_EVERY = 4 * 3600 * 1000; // every 4 hours
+const DOWNLOAD_STALL = 10 * 60 * 1000; // download with no progress news: give up
 
 let autoUpdater = null;
 const U = { state: 'idle', version: null, progress: 0, error: '' };
 
-// La version portable (exécutable autonome) ne passe pas par l'installateur.
+// The portable version (standalone executable) does not go through the installer.
 const isPortable = () => !!process.env.PORTABLE_EXECUTABLE_DIR;
 
 function status() {
@@ -34,9 +34,9 @@ function changed() {
   if (S.actions.buildTray) S.actions.buildTray();
 }
 
-// Si le réseau coupe sans événement « error », l'état resterait « downloading »
-// pour toujours (et plus aucune vérification). Sans progression pendant
-// DOWNLOAD_STALL, on repasse à « idle » : la prochaine vérification réessaie.
+// If the network drops without an "error" event, the state would stay "downloading"
+// forever (and no more checks). With no progress during
+// DOWNLOAD_STALL, we go back to "idle": the next check tries again.
 let stallTimer = null;
 function set(patch) {
   Object.assign(U, patch);
@@ -46,7 +46,7 @@ function set(patch) {
     stallTimer = setTimeout(() => {
       stallTimer = null;
       if (U.state !== 'downloading') return;
-      diagnostic.note('mise à jour', `téléchargement sans progression depuis 10 min (${U.progress} %) : abandon`);
+      diagnostic.note('update', `download without progress for 10 min (${U.progress} %): giving up`);
       set({ state: 'idle', progress: 0 });
     }, DOWNLOAD_STALL);
     if (stallTimer.unref) stallTimer.unref();
@@ -93,7 +93,7 @@ function init() {
   }, CHECK_EVERY);
 }
 
-// Messages lisibles pour les erreurs les plus probables.
+// Readable messages for the most likely errors.
 function friendly(e) {
   const msg = String((e && e.message) || e);
   if (/404|Cannot find latest|No published versions/i.test(msg)) {
@@ -117,7 +117,7 @@ function check() {
 
 function installNow() {
   if (!autoUpdater || U.state !== 'ready') return;
-  // Installation silencieuse, puis Sillon redémarre tout seul.
+  // Silent install, then Sillon restarts on its own.
   autoUpdater.quitAndInstall(true, true);
 }
 

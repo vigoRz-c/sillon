@@ -392,6 +392,9 @@
     'spotify.portBusy': 'Port {port} indisponible : {error}',
     'spotify.expired': 'Connexion Spotify expirée',
     'main.startFailed': 'Démarrage impossible : {error}',
+    'window.editor': 'Personnaliser la scène · Sillon',
+    'window.place': 'Placer le bandeau · Sillon',
+    'window.settings': 'Paramètres · Sillon',
   };
 
   if (typeof module === 'object' && module.exports) module.exports = fr;

@@ -1,7 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-// Abonnement à un message du processus principal. Renvoie de quoi se
-// désabonner (une page qui remplace un composant ne garde pas l'ancien écouteur).
+// Subscribes to a message from the main process. Returns a way to
+// unsubscribe (a page that replaces a component does not keep the old listener).
 const sub = (channel) => (cb) => {
   const listener = (_e, data) => cb(data);
   ipcRenderer.on(channel, listener);
@@ -45,7 +45,7 @@ contextBridge.exposeInMainWorld('bridge', {
   startVeille: () => ipcRenderer.send('veille:start'),
   veilleExit: () => ipcRenderer.send('veille:exit'),
   closeFullscreen: () => ipcRenderer.send('fullscreen:close'),
-  // Éditeur de disposition de la scène.
+  // Scene layout editor.
   openLayoutEditor: () => ipcRenderer.send('layout:open'),
   layoutDone: (patch) => ipcRenderer.send('layout:done', patch),
   layoutCancel: () => ipcRenderer.send('layout:cancel'),

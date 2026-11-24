@@ -1,40 +1,40 @@
 // @ts-check
-// Stockage des réglages : lecture tolérante, écriture atomique et différée.
-// Sans dépendance à Electron (le dossier est donné par settings.js), pour
-// pouvoir le tester dans un dossier temporaire.
+// Settings storage: tolerant reading, atomic and delayed writing.
+// No dependency on Electron (the folder is given by settings.js), so that
+// it can be tested in a temporary folder.
 
 const fs = require('fs');
 const path = require('path');
 const { DEFAULTS, sanitize } = require('./settings-schema');
 
-const SAVE_DELAY = 300; // ms : un curseur déplacé n'écrit qu'une fois
+const SAVE_DELAY = 300; // ms: a moved slider writes only once
 
 const same = (a, b) => a === b || JSON.stringify(a) === JSON.stringify(b);
 
 class SettingsStore {
-  // opts.onCorrupt(message) : appelé quand le fichier est illisible.
-  // opts.delay : délai d'écriture (ms).
+  // opts.onCorrupt(message): called when the file is unreadable.
+  // opts.delay: write delay (ms).
   constructor(file, opts = {}) {
     this.file = file;
     this.delay = opts.delay ?? SAVE_DELAY;
     this.onCorrupt = opts.onCorrupt || (() => {});
     this.timer = null;
     this.dirty = false;
-    /** @type {Record<string, any>} réglages connus (DEFAULTS) et clés internes (fps30…) */
+    /** @type {Record<string, any>} known settings (DEFAULTS) and internal keys (fps30…) */
     this.data = { ...DEFAULTS };
-    // Fichier présent mais illisible (EBUSY, EACCES...) : les valeurs en mémoire
-    // sont celles par défaut, pas celles de l'utilisateur. Tant que c'est le cas,
-    // on n'écrit rien (écrire effacerait ses vrais réglages) ; ses changements
-    // de la session sont gardés dans `touched` et appliqués par-dessus le
-    // fichier dès qu'il redevient lisible (voir flush).
+    // File present but unreadable (EBUSY, EACCES...): the values in memory
+    // are the defaults, not the user's. As long as this is the case,
+    // nothing is written (writing would erase their real settings); their changes
+    // during the session are kept in `touched` and applied on top of the
+    // file as soon as it is readable again (see flush).
     this.loadFailed = false;
     this.touched = {};
     this.load();
     this.migrate();
   }
 
-  // 0.1.5 : 30 images par seconde par défaut (60 était enregistré pour tout
-  // le monde, choisi ou non). Une seule fois : qui remet 60 le garde.
+  // 0.1.5: 30 frames per second by default (60 was saved for
+  // everyone, chosen or not). Only once: whoever sets 60 again keeps it.
   migrate() {
     if (this.loadFailed || this.data.fps30) return;
     if (this.data.fps === 60) this.data.fps = 30;
@@ -47,9 +47,9 @@ class SettingsStore {
     try {
       text = fs.readFileSync(this.file, 'utf8');
     } catch (e) {
-      // Pas de fichier : premier lancement. Autre erreur : on le dit.
+      // No file: first launch. Another error: say so.
       if (e.code !== 'ENOENT') {
-        console.error('Lecture des réglages impossible :', e.message);
+        console.error('Could not read the settings:', e.message);
         this.onCorrupt(`lecture impossible (${e.code || e.message})`);
         this.loadFailed = true;
       }
@@ -70,16 +70,16 @@ class SettingsStore {
     }
   }
 
-  // Met de côté un fichier illisible (sans écraser une sauvegarde existante).
+  // Sets an unreadable file aside (without overwriting an existing backup).
   keepCorrupt(reason) {
     let bak = `${this.file}.bak`;
     if (fs.existsSync(bak)) bak = `${this.file}.${Date.now()}.bak`;
     try {
       fs.renameSync(this.file, bak);
     } catch (e) {
-      console.error('Sauvegarde du fichier de réglages illisible impossible :', e.message);
+      console.error('Could not back up the unreadable settings file:', e.message);
     }
-    const msg = `réglages illisibles (${reason}) : valeurs par défaut, ancien fichier conservé dans ${path.basename(bak)}`;
+    const msg = `unreadable settings (${reason}): default values, old file kept as ${path.basename(bak)}`;
     console.error(msg);
     this.onCorrupt(msg);
   }
@@ -88,7 +88,7 @@ class SettingsStore {
     return key ? this.data[key] : { ...this.data };
   }
 
-  // Applique un patch validé. Renvoie tous les réglages et les clés modifiées.
+  // Applies a validated patch. Returns all the settings and the changed keys.
   change(patch) {
     const clean = sanitize(patch);
     const changed = {};
@@ -113,15 +113,15 @@ class SettingsStore {
     if (this.timer.unref) this.timer.unref();
   }
 
-  // Écrit tout de suite ce qui est en attente (fermeture de l'app).
+  // Writes right away what is pending (app closing).
   flush() {
     clearTimeout(this.timer);
     this.timer = null;
     if (!this.dirty && !this.loadFailed) return;
     if (this.loadFailed) {
-      // Nouvelle lecture : si le fichier est enfin lisible, on y remet les
-      // changements de l'utilisateur ; sinon on n'écrit rien (écriture reportée
-      // à la fermeture ou au prochain changement).
+      // Read again: if the file is finally readable, the user's changes
+      // are put back into it; otherwise nothing is written (write postponed
+      // until closing or the next change).
       this.loadFailed = false;
       this.load();
       if (this.loadFailed) return;
@@ -129,7 +129,7 @@ class SettingsStore {
       Object.assign(this.data, this.touched);
       this.touched = {};
       this.migrate();
-      if (!this.dirty) return; // rien à écrire
+      if (!this.dirty) return; // nothing to write
     }
     const tmp = `${this.file}.tmp`;
     try {
@@ -138,7 +138,7 @@ class SettingsStore {
       fs.renameSync(tmp, this.file);
       this.dirty = false;
     } catch (e) {
-      console.error('Sauvegarde des réglages impossible :', e);
+      console.error('Could not save the settings:', e);
     }
   }
 }

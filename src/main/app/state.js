@@ -1,66 +1,66 @@
 // @ts-check
-// État partagé du processus principal.
+// Shared state of the main process.
 //
-// Les modules (fenêtres, morceau en cours, veille, file d'attente, menu...)
-// lisent et modifient cet objet. Les appels d'un module à l'autre passent par
-// S.actions, rempli au démarrage par main.js : pas de dépendance circulaire.
+// The modules (windows, current track, screen saver, queue, menu...)
+// read and change this object. Calls from one module to another go through
+// S.actions, filled at startup by main.js: no circular dependency.
 
 const path = require('path');
 
 const S = {
-  settings: null, // Settings (réglages sauvegardés)
+  settings: null, // Settings (saved settings)
   media: null, // WindowsMediaSource
   spotify: null, // SpotifyApi (file d'attente, facultatif)
   tray: null,
 
-  widget: null, // scène ou bandeau, sur le fond d'écran
-  attacher: null, // WallpaperAttacher du widget
-  fullscreen: null, // plein écran ou écran de veille principal
+  widget: null, // scene or strip, on the wallpaper
+  attacher: null, // WallpaperAttacher of the widget
+  fullscreen: null, // full screen or main screen saver
   settingsWin: null,
-  controlsWin: null, // boutons du panneau de la scène
-  controlsRect: null, // où les poser (rapporté par la page du widget)
-  editorWin: null, // éditeur de disposition de la scène
-  placeWin: null, // fenêtre de placement du bandeau (« Déplacer / redimensionner »)
+  controlsWin: null, // buttons of the scene panel
+  controlsRect: null, // where to put them (reported by the widget page)
+  editorWin: null, // scene layout editor
+  placeWin: null, // strip placement window ("Move / resize")
   veilleWins: [],
-  editing: false, // mode placement du bandeau
-  gamePaused: false, // un jeu ou une vidéo couvre l'écran de la scène
-  asleep: false, // aucune musique depuis longtemps : scène endormie
-  renderPaused: false, // dernier état envoyé à la scène par « render-pause »
+  editing: false, // strip placement mode
+  gamePaused: false, // a game or a video covers the scene's screen
+  asleep: false, // no music for a long time: scene asleep
+  renderPaused: false, // last state sent to the scene with "render-pause"
 
   lastMedia: { active: false },
   lastLyrics: null,
   lastQueue: { items: [], connected: false },
-  playerState: null, // aléatoire / répétition lus dans l'API Spotify
-  appVolume: null, // volume du lecteur dans le mélangeur de Windows (0-100)
+  playerState: null, // shuffle / repeat read from the Spotify API
+  appVolume: null, // player volume in the Windows mixer (0-100)
   wallpaperSample: null,
 
-  actions: {}, // fonctions partagées entre modules (voir main.js)
+  actions: {}, // functions shared between modules (see main.js)
 };
 
 S.RENDERER = path.join(__dirname, '..', '..', 'renderer', 'pages');
 S.ASSETS = path.join(__dirname, '..', '..', '..', 'assets');
 S.PRELOAD = path.join(__dirname, 'preload.js');
 
-// Envoie un message aux fenêtres encore ouvertes parmi celles données. Une
-// fenêtre qui meurt en route n'empêche pas les autres de le recevoir.
+// Sends a message to the windows still open among those given. A
+// window that dies on the way does not keep the others from receiving it.
 S.send = (wins, channel, data) => {
   for (const w of wins) {
     if (!w || w.isDestroyed()) continue;
     try {
       w.webContents.send(channel, data);
     } catch (e) {
-      console.error(`Envoi « ${channel} » impossible :`, e.message);
+      console.error(`Could not send "${channel}":`, e.message);
     }
   }
 };
 
 S.alive = (w) => !!(w && !w.isDestroyed());
 
-// Morceau en cours vers des pages. La pochette (data URL de 100 à 250 Ko) n'est
-// envoyée qu'une fois par fenêtre : ensuite, tant qu'elle ne change pas, le
-// message dit seulement « coverKept » et la page garde la sienne (voir
-// common.js). full : envoi complet (page qui vient de se charger).
-const coverSent = new WeakMap(); // fenêtre -> dernière pochette envoyée
+// Current track to pages. The cover (data URL of 100 to 250 KB) is only
+// sent once per window: after that, as long as it does not change, the
+// message only says "coverKept" and the page keeps its own (see
+// common.js). full: complete send (page that has just loaded).
+const coverSent = new WeakMap(); // window -> last cover sent
 S.sendMedia = (wins, m, { full = false } = {}) => {
   for (const w of wins) {
     if (!S.alive(w)) continue;
@@ -73,8 +73,8 @@ S.sendMedia = (wins, m, { full = false } = {}) => {
   }
 };
 
-// Rejoue l'état courant dans une page qui vient de se charger (ou de se
-// recharger après un plantage) : réglages, morceau, paroles, file, fond.
+// Replays the current state in a page that has just loaded (or
+// reloaded after a crash): settings, track, lyrics, queue, background.
 S.replayTo = (win) => {
   if (!S.alive(win)) return;
   S.send([win], 'settings', S.settings.get());
@@ -84,7 +84,7 @@ S.replayTo = (win) => {
   if (S.wallpaperSample) S.send([win], 'wallpaper', S.wallpaperSample);
 };
 
-// La scène est-elle affichée et vivante ? (visible, éveillée, pas de jeu)
+// Is the scene shown and alive? (visible, awake, no game)
 S.sceneActive = () =>
   S.alive(S.widget) && (S.editing || (!S.settings.get('sceneHidden') && !S.gamePaused && !S.asleep));
 
