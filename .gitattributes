@@ -1,8 +1,8 @@
-# Fins de ligne LF partout (dépôt et copie de travail), quel que soit le
-# réglage core.autocrlf de Git sur la machine.
+# LF line endings everywhere (repository and working copy), whatever the
+# core.autocrlf setting of Git on the machine.
 * text=auto eol=lf
 
-# Fichiers binaires : jamais modifiés.
+# Binary files: never modified.
 *.ico binary
 *.png binary
 *.jpg binary

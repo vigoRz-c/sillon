@@ -22,7 +22,7 @@ async function getJson(path) {
   return JSON.parse(buf.toString('utf8'));
 }
 
-// "[01:02.44] texte" (plusieurs horodatages possibles par ligne)
+// "[01:02.44] text" (several timestamps possible per line)
 function parseLrc(lrc) {
   const lines = [];
   for (const raw of String(lrc || '').split(/\r?\n/)) {

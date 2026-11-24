@@ -106,7 +106,7 @@ function resetPcm() {
   assembler.reset();
 }
 
-// ---------- Assistant de capture ----------
+// ---------- Capture helper ----------
 
 function stopHelper() {
   clearTimeout(restartTimer);

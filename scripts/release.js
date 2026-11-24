@@ -95,7 +95,7 @@ function rollback(reason) {
   process.exit(1);
 }
 
-// ---------- Construction (sans publier) ----------
+// ---------- Build (without publishing) ----------
 // electron-builder publishes each target in parallel and may create two Releases
 // for the same tag (seen in 0.1.1): build without publishing, publish afterwards.
 console.log(`\nConstruction de Sillon ${version}…`);
@@ -117,12 +117,12 @@ try {
   rollback(`The build of Sillon ${version} failed (${e.message}).`);
 }
 
-// ---------- Empreintes SHA-256 ----------
+// ---------- SHA-256 checksums ----------
 const sumsFile = path.join(dist, 'SHA256SUMS.txt');
 fs.writeFileSync(sumsFile, checksumLines(assets.map((f) => ({ sha256: sha256File(f), name: path.basename(f) }))));
 assets.push(sumsFile);
 
-// ---------- Push : seulement maintenant ----------
+// ---------- Push: only now ----------
 try {
   run('git push origin main --follow-tags');
 } catch {

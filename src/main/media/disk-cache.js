@@ -12,7 +12,7 @@ const crypto = require('crypto');
 const { note } = require('./text-norm');
 
 const MISS_TTL = 7 * 24 * 3600 * 1000; // 7 days for a "nothing found"
-const MAX_FILES = 600; // par espace
+const MAX_FILES = 600; // per space
 const PRUNE_EVERY = 50; // writes between two cleanups
 
 let root = null;

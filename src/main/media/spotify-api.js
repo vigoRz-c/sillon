@@ -450,7 +450,7 @@ class SpotifyApi extends EventEmitter {
     return d && d.id ? { id: d.id, active: !!d.is_active } : null;
   }
 
-  // Les prochains morceaux : [{ title, artist, image }] (image = URL Spotify).
+  // The next tracks: [{ title, artist, image }] (image = Spotify URL).
   // null = no token or refresh failed (unknown, not to be confused
   // with []: empty queue).
   async queue(limit = 4) {

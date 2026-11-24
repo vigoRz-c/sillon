@@ -123,7 +123,7 @@
     // The focus lands on the title on opening: the screen reader announces the window.
     $('pageTitle').focus({ preventScroll: true });
 
-    // ----- Groupes de boutons radio (styles, couleurs) -----
+    // ----- Radio button groups (styles, colors) -----
     // A single tab stop per group, arrows / Home / End to change, choice applied right away.
     function radioGroup(buttons, choose) {
       for (const [i, b] of buttons.entries()) {
@@ -389,7 +389,7 @@
       }
     }
 
-    // ----- Onglets (menu de gauche) -----
+    // ----- Tabs (left menu) -----
     const tabs = [...document.querySelectorAll('[role="tab"]')];
     const panelOf = (t) => $(t.getAttribute('aria-controls'));
     const shown = () => tabs.filter((t) => !t.classList.contains('hidden'));
@@ -688,7 +688,7 @@
       }
     });
 
-    // ----- Compte Spotify -----
+    // ----- Spotify account -----
     $('spotifyClientId').addEventListener('change', () =>
       bridge.setSettings({ spotifyClientId: $('spotifyClientId').value.trim() }),
     );

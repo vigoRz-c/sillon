@@ -94,7 +94,7 @@ body.settings .top .icon {
   margin-left: auto;
 }
 
-/* ----- Menu des sections ----- */
+/* ----- Section menu ----- */
 body.settings .side {
   background: var(--side);
   border-right: 1px solid var(--line);
@@ -166,7 +166,7 @@ body.settings.searching [role='tab'][aria-selected='true'] svg {
   color: inherit;
 }
 
-/* ----- Colonne principale ----- */
+/* ----- Main column ----- */
 body.settings main {
   display: flex;
   flex-direction: column;
@@ -476,7 +476,7 @@ body.settings .state.error {
   color: #fca5a5;
 }
 
-/* ----- Liste des raccourcis clavier ----- */
+/* ----- Keyboard shortcut list ----- */
 body.settings .shortcut .row {
   padding: 5px 0;
 }
@@ -629,7 +629,7 @@ body.settings .disc.custom {
   --c3: #c4b5fd;
 }
 
-/* ----- Roue des couleurs ----- */
+/* ----- Color wheel ----- */
 body.settings .wheel-box {
   display: flex;
   flex-wrap: wrap;
