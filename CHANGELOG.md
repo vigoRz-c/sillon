@@ -4,6 +4,9 @@ Toutes les évolutions notables de Sillon. Format inspiré de [Keep a Changelog]
 
 ## [Non publié]
 
+### Modifié
+- « Intensité du disque » ne règle plus que l'anneau (rayons, onde, points…) : le halo derrière le disque ne s'éclaircit plus et ne grandit plus en même temps.
+
 ## [0.4.2] - 2026-11-24
 
 Quatre nouvelles formes pour l'anneau du disque de la scène et de la veille.

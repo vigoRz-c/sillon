@@ -778,14 +778,16 @@
       const pl = rm ? 0 : a.pulse,
         lv = rm ? 0 : a.glowLevel;
 
-      // Intensité (réglage) : taille du halo, longueur et densité des rayons.
+      // Intensité (réglage) : longueur et densité de l'anneau (rayons, onde…).
       const k = Math.max(0.4, Math.min(2.2, opts.intensity ?? 1.3));
 
-      // Halo : respire avec le niveau sonore.
-      const haloR = r * (2.4 + 1.1 * k + lv * 0.9 * k);
+      // Halo : respire avec le niveau sonore. Indépendant de l'intensité (qui ne
+      // règle que l'anneau) : toujours au niveau de l'intensité par défaut.
+      const hk = 1.3;
+      const haloR = r * (2.4 + 1.1 * hk + lv * 0.9 * hk);
       const halo = ctx.createRadialGradient(cx, cy, r * 0.6, cx, cy, haloR);
-      halo.addColorStop(0, withAlpha(opts.halo || pal[0], Math.min(0.8, (0.5 + pl * 0.2) * Math.sqrt(k))));
-      halo.addColorStop(0.4, withAlpha(opts.halo || pal[0], Math.min(0.5, 0.16 * k)));
+      halo.addColorStop(0, withAlpha(opts.halo || pal[0], Math.min(0.8, (0.5 + pl * 0.2) * Math.sqrt(hk))));
+      halo.addColorStop(0.4, withAlpha(opts.halo || pal[0], Math.min(0.5, 0.16 * hk)));
       halo.addColorStop(1, withAlpha(opts.halo || pal[0], 0));
       ctx.fillStyle = halo;
       ctx.beginPath();

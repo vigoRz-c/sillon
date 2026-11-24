@@ -19,7 +19,7 @@ const DEFAULTS = {
   dimOnPause: true, // scène atténuée quand la musique est en pause
   sleepAfter: 0, // minutes sans musique avant de masquer la scène (0 = jamais, par défaut)
   lyricsOffsets: {}, // décalage des paroles par morceau ("artiste|titre" -> secondes)
-  discIntensity: 1.3, // halo et rayons du disque (0,5 à 2)
+  discIntensity: 1.3, // taille de l'anneau du disque (0,5 à 2), sans effet sur le halo
   discX: 0.6, // anciens réglages de position et taille du disque (voir showPanel)
   discY: 0.45,
   discSize: 1,
