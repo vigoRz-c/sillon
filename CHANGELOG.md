@@ -4,6 +4,10 @@ All notable changes to Sillon. Format based on [Keep a Changelog](https://keepac
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-24
+
+Ctrl+Alt shortcuts for almost everything, Sillon in English with a French translation, and a karaoke that shows what comes next.
+
 ### Added
 - Karaoke: the whole line is readable as soon as it starts, with the upcoming words pale and the next word a little stronger; the next line is announced in small type below (when it comes in less than 8 s).
 - Ctrl+Alt keyboard shortcuts for almost everything, even when Sillon is not in the foreground: play / pause (P), next (N), previous (B), shuffle (A), repeat (R), full screen (F), show / hide Sillon (H), scene or strip (T), next visualizer (V), next colors (C), screen saver (L), lyrics shown or not (U), lyrics later / earlier (J / K), settings (O), scene editor (G), strip placement (D). The list is in the settings (Behavior tab), which flag a combination already taken by another application; one checkbox turns them all off (also in the tray icon menu). The active combinations are shown in the tray icon menu. None uses a key that types a character with AltGr (€, @, #, {…).
@@ -217,7 +221,8 @@ New color sets, redone settings window, full audit of 0.2.0 and about thirty bug
 
 First public version: visualizer on the Windows wallpaper, scene (disc, synced lyrics, "now playing" panel, queue), screen saver, full screen, Spotify sign-in.
 
-[Unreleased]: https://github.com/vigoRz-c/sillon/compare/v0.4.4...HEAD
+[Unreleased]: https://github.com/vigoRz-c/sillon/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/vigoRz-c/sillon/compare/v0.4.4...v0.5.0
 [0.4.4]: https://github.com/vigoRz-c/sillon/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/vigoRz-c/sillon/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/vigoRz-c/sillon/compare/v0.4.1...v0.4.2
