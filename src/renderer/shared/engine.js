@@ -1,8 +1,8 @@
-/* Sillon — moteur partagé : boucle de rendu (Renderer), position du morceau et
-   assemblage de window.SV. Les parties sont dans audio-engine.js, colors.js,
-   visualizers.js (et catalog.js), tous chargés avant ce fichier.
-   Chargé en script classique (pas de module) par widget.html, fullscreen.html
-   et settings.html. */
+/* Sillon — shared engine: render loop (Renderer), track position and
+   assembly of window.SV. The parts are in audio-engine.js, colors.js,
+   visualizers.js (and catalog.js), all loaded before this file.
+   Loaded as a classic script (not a module) by widget.html, fullscreen.html
+   and settings.html. */
 (function () {
   'use strict';
 
@@ -10,31 +10,31 @@
   const AUD = window.SillonAudio;
   const COL = window.SillonColors;
   const VIS = window.SillonVisuals;
-  if (!CAT) throw new Error('catalog.js doit être chargé avant engine.js');
+  if (!CAT) throw new Error('catalog.js must be loaded before engine.js');
   if (!AUD || !COL || !VIS)
-    throw new Error('audio-engine.js, colors.js et visualizers.js doivent être chargés avant engine.js');
+    throw new Error('audio-engine.js, colors.js and visualizers.js must be loaded before engine.js');
 
   const { AudioEngine, FakeAudio } = AUD;
   const { paletteFromImage, paletteFromColor, paletteFromCustom, prepareColor } = COL;
   const { VISUALIZERS, drawEdgeGlow, drawCoverRings } = VIS;
 
-  // Couleurs des jeux fixes : catalog.js (source unique).
+  // Colors of the fixed sets: catalog.js (single source).
   const THEMES = CAT.PALETTES;
 
-  // Palette d'un jeu qui ne dépend d'aucune image : un jeu fixe, ou « custom »
-  // (couleur de la roue, réglage customColor). null pour wallpaper / album.
+  // Palette of a set that depends on no image: a fixed set, or "custom"
+  // (color wheel, customColor setting). null for wallpaper / album.
   function themePalette(id, customColor) {
     if (id === 'custom') return paletteFromCustom(customColor);
     return Object.hasOwn(THEMES, id) ? THEMES[id] : null;
   }
 
-  // Catalogue partagé (catalog.js, chargé avant ce fichier par toutes les pages).
+  // Shared catalog (catalog.js, loaded before this file by every page).
   const { STYLE_ORDER, THEME_ORDER, STYLE_NAMES, THEME_NAMES } = CAT;
 
-  // ================= Boucle de rendu =================
+  // ================= Render loop =================
 
-  // Au-delà, le ratio de pixels est réduit (sans descendre sous 1) : une scène
-  // plein bureau en 4K coûte cher à remplir pour un gain de netteté invisible.
+  // Beyond that, the pixel ratio is lowered (never below 1): a full-desktop
+  // scene in 4K is expensive to fill for an invisible gain in sharpness.
   const MAX_PIXELS = 4200000;
 
   class Renderer {
@@ -49,7 +49,7 @@
       this.opts = { glow: true };
       this.hooks = [];
       this.last = 0;
-      this.maxDpr = Infinity; // plafond du ratio de pixels (la scène plein bureau le met à 1)
+      this.maxDpr = Infinity; // pixel ratio cap (the full-desktop scene sets it to 1)
       this.dpr = 1;
       this.reduceMotion = false;
       this._paused = false;
@@ -57,7 +57,7 @@
       this.raf = 0;
       this.timer = 0;
       this.blank = false;
-      this.frameOpts = {}; // options passées au visualiseur, réutilisées d'une image à l'autre
+      this.frameOpts = {}; // options passed to the visualizer, reused from one frame to the next
       this.optsSrc = null;
       this.loop = this.loop.bind(this);
       new ResizeObserver(() => this.resize()).observe(canvas);
@@ -67,13 +67,13 @@
     get palette() {
       return this._palette;
     }
-    // Les chaînes de couleur à opacité variable sont préparées au changement de palette.
+    // Color strings with variable opacity are prepared when the palette changes.
     set palette(pal) {
       this._palette = pal;
       for (const c of pal) prepareColor(c);
     }
-    // Suspendu (jeu en plein écran, scène masquée ou endormie) : plus aucune image,
-    // et le contexte audio est suspendu avec elle.
+    // Suspended (full-screen game, hidden or sleeping scene): no more frames,
+    // and the audio context is suspended with it.
     get paused() {
       return this._paused;
     }
@@ -86,8 +86,8 @@
       this.last = 0;
       this.schedule();
     }
-    // Au ralenti (musique en pause) : quelques images par seconde, cadencées par
-    // un minuteur plutôt qu'en réveillant requestAnimationFrame à chaque image de l'écran.
+    // Slowed down (music paused): a few frames per second, paced by a timer
+    // rather than waking requestAnimationFrame on every screen frame.
     get slow() {
       return this._slow;
     }
@@ -121,7 +121,7 @@
       if (this.timer) clearTimeout(this.timer);
       this.raf = this.timer = 0;
     }
-    // Arme la prochaine image (une seule à la fois). Rien tant que c'est en pause.
+    // Arms the next frame (one at a time). Nothing while paused.
     schedule() {
       if (this._paused || this.raf || this.timer) return;
       if (this._slow) {
@@ -138,8 +138,8 @@
           this.render(now);
         }
       } catch (e) {
-        // Une image en échec ne doit pas arrêter la boucle pour de bon.
-        console.error('Image de rendu en échec :', e);
+        // A failing frame must not stop the loop for good.
+        console.error('Render frame failed:', e);
       } finally {
         this.schedule();
       }
@@ -147,7 +147,7 @@
     render(now) {
       const none = this.style === 'none';
       if (none && !this.hooks.length) {
-        // Rien à dessiner : on efface une fois, puis on ne touche plus au canvas.
+        // Nothing to draw: clear once, then leave the canvas alone.
         if (!this.blank) {
           this.ctx.clearRect(0, 0, this.w, this.h);
           this.blank = true;
@@ -170,7 +170,7 @@
       o.dpr = this.dpr;
       const draw = VISUALIZERS[this.style] || VISUALIZERS.bars;
       draw(this.ctx, this.w, this.h, a, this._palette, o);
-      // Un décor qui lève une exception n'empêche pas les suivants (signalée une fois).
+      // A decoration that throws does not stop the following ones (reported once).
       for (const fn of this.hooks) {
         this.ctx.save();
         try {
@@ -178,7 +178,7 @@
         } catch (e) {
           if (!fn.failed) {
             fn.failed = true;
-            console.error('Décor de rendu en échec :', e);
+            console.error('Render decoration failed:', e);
           }
         }
         this.ctx.restore();
@@ -186,19 +186,19 @@
     }
   }
 
-  // ================= Utilitaires morceau en cours =================
+  // ================= Current track helpers =================
 
   function currentPosition(m) {
     if (!m || !m.active) return 0;
     let p = m.position || 0;
     if (m.anchorAt) {
-      // Ancrage calculé côté principal (voir media.js) : résiste aux mesures périmées.
+      // Anchor computed on the main side (see media.js): withstands stale readings.
       p = m.anchorPos + (m.status === 'Playing' ? (Date.now() - m.anchorAt) / 1000 : 0);
     } else if (m.status === 'Playing') {
       const ref = m.updated && m.updated > 0 ? m.updated : m.receivedAt;
       if (ref) p += (Date.now() - ref) / 1000;
     }
-    // Durée inconnue (certains lecteurs ne la donnent pas) : pas de plafond.
+    // Unknown duration (some players do not give it): no cap.
     return Math.max(0, m.duration > 0 ? Math.min(m.duration, p) : p);
   }
   const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;

@@ -3,742 +3,775 @@
  * aperçu en direct du visualiseur et pastilles de couleurs. */
 (function () {
   'use strict';
-  const $ = (id) => document.getElementById(id);
-  const bridge = window.bridge;
-  const Catalog = window.SillonCatalog;
-  const Shortcuts = window.SillonShortcuts;
+  const I18n = window.SillonI18n;
+  // The page is built once the language is known; on a language change, the main process reloads it.
+  I18n.start(window.bridge).then(init);
 
-  // ----- Raccourcis clavier : une ligne par raccourci (avant l'index de la recherche) -----
-  const shortcutState = {}; // identifiant -> élément qui dit « pris » ou « désactivé »
-  {
-    let last = $('globalShortcutsItem');
-    for (const s of Shortcuts.SHORTCUTS) {
-      const item = document.createElement('div');
-      item.className = 'item shortcut';
-      item.dataset.keywords = 'raccourci clavier touche';
-      const row = document.createElement('div');
-      row.className = 'row';
+  function init() {
+    const t = I18n.t;
+    const $ = (id) => document.getElementById(id);
+    const bridge = window.bridge;
+    const Catalog = window.SillonCatalog;
+    const Shortcuts = window.SillonShortcuts;
+    // Number with one decimal, in the page's language (1.5 / 1,5).
+    const dec = (v) => v.toLocaleString(I18n.language(), { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+    // ----- Raccourcis clavier : une ligne par raccourci (avant l'index de la recherche) -----
+    const shortcutState = {}; // identifiant -> élément qui dit « pris » ou « désactivé »
+    {
+      let last = $('globalShortcutsItem');
+      for (const s of Shortcuts.SHORTCUTS) {
+        const item = document.createElement('div');
+        item.className = 'item shortcut';
+        item.dataset.keywords = t('settings.shortcutKeywords');
+        const row = document.createElement('div');
+        row.className = 'row';
+        const label = document.createElement('span');
+        label.textContent = Shortcuts.label(s.id, t);
+        const keys = document.createElement('span');
+        keys.className = 'shortcut-keys';
+        const state = document.createElement('span');
+        state.className = 'state';
+        const kbd = document.createElement('kbd');
+        kbd.textContent = s.display;
+        keys.append(state, kbd);
+        row.append(label, keys);
+        item.append(row);
+        last.after(item);
+        last = item;
+        shortcutState[s.id] = state;
+      }
+    }
+    function showShortcuts(st) {
+      if (!st) return;
+      for (const { id, state } of st.items) {
+        const el = shortcutState[id];
+        if (!el) continue;
+        el.textContent = state === 'taken' ? t('settings.shortcutTaken') : ''; // désactivés : seulement grisés
+        el.className = state === 'taken' ? 'state error' : 'state';
+        el.closest('.item').classList.toggle('off', state === 'off');
+      }
+    }
+    const refreshShortcuts = () => bridge.shortcutsStatus().then(showShortcuts);
+    let shownShortcuts = null; // valeur de globalShortcuts lors du dernier état demandé
+
+    const selects = [
+      'layout',
+      'discRays',
+      'mode',
+      'preferApp',
+      'fps',
+      'veilleDelay',
+      'sceneScreen',
+      'sleepAfter',
+      'audioSource',
+      'language',
+    ];
+    const checks = [
+      'showNowPlaying',
+      'showLyrics',
+      'launchAtLogin',
+      'veilleOnlyPlaying',
+      'veilleLock',
+      'gameMode',
+      'dimOnPause',
+      'autoUpdate',
+      'reduceMotion',
+      'globalShortcuts',
+    ];
+    const numeric = new Set(['fps', 'veilleDelay', 'sleepAfter']);
+    const pct = (v) => `${Math.round(v * 100)} %`;
+    const times = (v) => `× ${dec(v)}`;
+    const timesSay = (v) => t('settings.timesSay', { value: dec(v) });
+    // Pour chaque curseur : texte affiché, et texte lu par les lecteurs d'écran (avec l'unité).
+    const ranges = {
+      sensitivity: { show: times, say: timesSay },
+      opacity: { show: pct, say: (v) => t('volume.percent', { value: Math.round(v * 100) }) },
+      discIntensity: { show: times, say: timesSay },
+      discBloom: {
+        show: (v) => (v ? times(v) : t('settings.noneGlow')),
+        say: (v) => (v ? timesSay(v) : t('settings.noneGlow')),
+      },
+      edgeGlow: {
+        show: (v) => (v ? times(v) : t('settings.noneEdge')),
+        say: (v) => (v ? timesSay(v) : t('settings.noneEdge')),
+      },
+    };
+    function showRange(k, v) {
+      $(`${k}Out`).textContent = ranges[k].show(v);
+      $(k).setAttribute('aria-valuetext', ranges[k].say(v));
+    }
+
+    // Formes de l'anneau du disque : depuis le catalogue (avant l'index de recherche).
+    for (const [id, name] of Catalog.list('rays', t)) $('discRays').append(new Option(name, id));
+
+    // Style gallery: one animated preview per visualizer of the catalog.
+    for (const [id, name] of Catalog.list('style', t)) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('role', 'radio');
+      b.setAttribute('aria-checked', 'false');
+      b.dataset.style = id;
+      const c = document.createElement('canvas');
+      c.setAttribute('aria-hidden', 'true');
       const label = document.createElement('span');
-      label.textContent = s.label;
-      const keys = document.createElement('span');
-      keys.className = 'shortcut-keys';
-      const state = document.createElement('span');
-      state.className = 'state';
-      const kbd = document.createElement('kbd');
-      kbd.textContent = s.display;
-      keys.append(state, kbd);
-      row.append(label, keys);
-      item.append(row);
-      last.after(item);
-      last = item;
-      shortcutState[s.id] = state;
+      label.textContent = name;
+      b.append(c, label);
+      $('styleGallery').append(b);
     }
-  }
-  function showShortcuts(st) {
-    if (!st) return;
-    for (const { id, state } of st.items) {
-      const el = shortcutState[id];
-      if (!el) continue;
-      el.textContent = state === 'taken' ? Shortcuts.TEXT.taken : ''; // désactivés : seulement grisés
-      el.className = state === 'taken' ? 'state error' : 'state';
-      el.closest('.item').classList.toggle('off', state === 'off');
+
+    // Le focus arrive sur le titre à l'ouverture : le lecteur d'écran annonce la fenêtre.
+    $('pageTitle').focus({ preventScroll: true });
+
+    // ----- Groupes de boutons radio (styles, couleurs) -----
+    // Une seule tabulation par groupe, flèches / Début / Fin pour changer, choix appliqué tout de suite.
+    function radioGroup(buttons, choose) {
+      for (const [i, b] of buttons.entries()) {
+        b.addEventListener('click', () => choose(b));
+        b.addEventListener('keydown', (e) => {
+          const n = buttons.length;
+          const to = { ArrowRight: i + 1, ArrowDown: i + 1, ArrowLeft: i - 1, ArrowUp: i - 1, Home: 0, End: n - 1 }[
+            e.key
+          ];
+          if (to === undefined) return;
+          e.preventDefault();
+          const next = buttons[(to + n) % n];
+          next.focus();
+          choose(next);
+        });
+      }
     }
-  }
-  const refreshShortcuts = () => bridge.shortcutsStatus().then(showShortcuts);
-  let shownShortcuts = null; // valeur de globalShortcuts lors du dernier état demandé
+    function check(buttons, value, key) {
+      for (const b of buttons) {
+        const on = b.dataset[key] === value;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-checked', String(on));
+        b.tabIndex = on ? 0 : -1;
+      }
+    }
 
-  const selects = [
-    'layout',
-    'discRays',
-    'mode',
-    'preferApp',
-    'fps',
-    'veilleDelay',
-    'sceneScreen',
-    'sleepAfter',
-    'audioSource',
-  ];
-  const checks = [
-    'showNowPlaying',
-    'showLyrics',
-    'launchAtLogin',
-    'veilleOnlyPlaying',
-    'veilleLock',
-    'gameMode',
-    'dimOnPause',
-    'autoUpdate',
-    'reduceMotion',
-    'globalShortcuts',
-  ];
-  const numeric = new Set(['fps', 'veilleDelay', 'sleepAfter']);
-  const pct = (v) => `${Math.round(v * 100)} %`;
-  const times = (v) => `× ${v.toFixed(1)}`;
-  // Pour chaque curseur : texte affiché, et texte lu par les lecteurs d'écran (avec l'unité).
-  const ranges = {
-    sensitivity: { show: times, say: (v) => `multiplié par ${v.toFixed(1).replace('.', ',')}` },
-    opacity: { show: pct, say: (v) => `${Math.round(v * 100)} pour cent` },
-    discIntensity: { show: times, say: (v) => `multiplié par ${v.toFixed(1).replace('.', ',')}` },
-    discBloom: {
-      show: (v) => (v ? times(v) : 'aucune'),
-      say: (v) => (v ? `multiplié par ${v.toFixed(1).replace('.', ',')}` : 'aucune'),
-    },
-    edgeGlow: {
-      show: (v) => (v ? times(v) : 'aucun'),
-      say: (v) => (v ? `multiplié par ${v.toFixed(1).replace('.', ',')}` : 'aucun'),
-    },
-  };
-  function showRange(k, v) {
-    $(`${k}Out`).textContent = ranges[k].show(v);
-    $(k).setAttribute('aria-valuetext', ranges[k].say(v));
-  }
+    // ----- Pastilles de couleurs, rangées par familles -----
+    const FAMILIES = [
+      [t('settings.family.image'), ['wallpaper', 'album']],
+      [t('settings.family.classic'), ['spotify', 'neon', 'sunset', 'ocean', 'violet', 'mono']],
+      [t('settings.family.bright'), ['cyberpunk', 'synthwave', 'acid']],
+      [t('settings.family.soft'), ['pastel', 'lavender', 'peach', 'mint']],
+      [t('settings.family.natural'), ['forest', 'fire', 'ice', 'desert']],
+      [t('settings.family.dark'), ['gold', 'blood', 'midnight']],
+      [t('settings.family.wheel'), ['custom']],
+    ];
+    // Noms courts sous les pastilles « image » (le nom complet du catalogue est trop long).
+    const SHORT = {
+      wallpaper: t('settings.short.wallpaper'),
+      album: t('settings.short.album'),
+      custom: t('settings.short.custom'),
+    };
 
-  // Formes de l'anneau du disque : depuis le catalogue (avant l'index de recherche).
-  for (const [id, name] of Catalog.DISC_RAYS) $('discRays').append(new Option(name, id));
+    function buildSwatches(container, allowed) {
+      const placed = new Set(FAMILIES.flatMap(([, ids]) => ids));
+      // Un jeu ajouté au catalogue sans famille reste choisissable.
+      const extra = Catalog.THEME_ORDER.filter((id) => !placed.has(id));
+      const families = extra.length ? [...FAMILIES, [t('settings.family.other'), extra]] : FAMILIES;
+      const buttons = [];
+      for (const [fi, [family, ids]] of families.entries()) {
+        const list = ids.filter((id) => allowed.has(id));
+        if (!list.length) continue;
+        const label = document.createElement('p');
+        label.className = 'family';
+        label.id = `${container.id}-f${fi}`;
+        label.textContent = family;
+        const row = document.createElement('div');
+        row.className = 'swatch-row';
+        for (const id of list) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'swatch';
+          b.setAttribute('role', 'radio');
+          b.setAttribute('aria-checked', 'false');
+          b.setAttribute('aria-describedby', label.id);
+          b.tabIndex = -1;
+          b.dataset.value = id;
+          const disc = document.createElement('span');
+          disc.className = 'disc';
+          disc.setAttribute('aria-hidden', 'true');
+          const pal = Catalog.PALETTES[id];
+          if (pal) pal.forEach((c, i) => disc.style.setProperty(`--c${i + 1}`, c));
+          else disc.classList.add(id);
+          const name = document.createElement('span');
+          name.textContent = SHORT[id] || Catalog.name('theme', id, t);
+          b.append(disc, name);
+          row.append(b);
+          buttons.push(b);
+        }
+        container.append(label, row);
+      }
+      const key = container.dataset.setting;
+      radioGroup(buttons, (b) => bridge.setSettings({ [key]: b.dataset.value }));
+      return buttons;
+    }
+    const themeSwatches = buildSwatches($('themeSwatches'), new Set(Catalog.THEME_ORDER));
+    const discSwatches = buildSwatches(
+      $('discColorSwatches'),
+      new Set(['album', 'custom', ...Catalog.FIXED_THEMES.map(([id]) => id)]),
+    );
 
-  // Le focus arrive sur le titre à l'ouverture : le lecteur d'écran annonce la fenêtre.
-  $('pageTitle').focus({ preventScroll: true });
+    // ----- Roue des couleurs (réglage customColor, jeu « custom ») -----
+    // Teinte = angle, saturation = distance au centre, luminosité = curseur à côté.
+    // Chaque changement choisit aussi le jeu « custom » pour le visualiseur.
+    const { hexToRgb, rgbToHsl, paletteFromCustom } = window.SillonColors;
+    // Composante (0 à 1) d'une couleur HSL : n = 0 rouge, 8 vert, 4 bleu.
+    function hslChannel(n, h, s, l) {
+      const k = (n + h / 30) % 12;
+      return l - s * Math.min(l, 1 - l) * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    }
+    const hslToHex = (h, s, l) =>
+      '#' +
+      [0, 8, 4]
+        .map((n) =>
+          Math.round(hslChannel(n, h, s, l) * 255)
+            .toString(16)
+            .padStart(2, '0'),
+        )
+        .join('');
+    const wheel = {
+      el: $('wheel'),
+      canvas: $('wheelCanvas'),
+      thumb: $('wheelThumb'),
+      h: 0,
+      s: 0.7,
+      l: 0.6,
+      hex: '',
+      drawnL: -1,
+      dragging: false,
+      timer: 0,
+      pending: false,
+    };
+    // Pixels de la roue pour une luminosité : recalculés seulement quand elle change.
+    function paintWheel() {
+      const c = wheel.canvas;
+      const css = wheel.el.clientWidth;
+      if (!css) return; // onglet caché : dessinée à l'ouverture (voir selectTab)
+      const size = Math.round(css * (window.devicePixelRatio || 1));
+      if (c.width === size && wheel.drawnL === wheel.l) return;
+      c.width = c.height = size;
+      wheel.drawnL = wheel.l;
+      const ctx = c.getContext('2d');
+      const img = ctx.createImageData(size, size);
+      const px = img.data,
+        R = size / 2,
+        l = wheel.l;
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const dx = x + 0.5 - R,
+            dy = y + 0.5 - R;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d > R) continue;
+          const h = ((Math.atan2(dy, dx) * 180) / Math.PI + 360) % 360;
+          const s = d / R;
+          const i = (y * size + x) * 4;
+          px[i] = hslChannel(0, h, s, l) * 255;
+          px[i + 1] = hslChannel(8, h, s, l) * 255;
+          px[i + 2] = hslChannel(4, h, s, l) * 255;
+          px[i + 3] = Math.min(1, R - d) * 255; // bord adouci
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+    }
+    function showWheel() {
+      paintWheel();
+      const r = (wheel.el.clientWidth || 168) / 2;
+      const ang = (wheel.h * Math.PI) / 180;
+      wheel.thumb.style.left = `${r + Math.cos(ang) * wheel.s * r}px`;
+      wheel.thumb.style.top = `${r + Math.sin(ang) * wheel.s * r}px`;
+      wheel.thumb.style.setProperty('--thumb', wheel.hex);
+      wheel.el.setAttribute('aria-valuenow', String(Math.round(wheel.h)));
+      wheel.el.setAttribute(
+        'aria-valuetext',
+        t('settings.wheelValue', { hue: Math.round(wheel.h), saturation: Math.round(wheel.s * 100), hex: wheel.hex }),
+      );
+      $('customLightOut').textContent = pct(wheel.l);
+      $('customLight').setAttribute('aria-valuetext', t('volume.percent', { value: Math.round(wheel.l * 100) }));
+      if (document.activeElement !== $('customLight')) $('customLight').value = String(wheel.l);
+      if (document.activeElement !== $('customHex')) $('customHex').value = wheel.hex;
+      paletteFromCustom(wheel.hex).forEach((c, i) => ($(`customChip${i + 1}`).style.background = c));
+    }
+    // Envoi groupé (au plus ~16 fois par seconde pendant un glissé) : chaque envoi
+    // repart vers toutes les fenêtres.
+    function sendColor() {
+      if (wheel.timer) {
+        wheel.pending = true;
+        return;
+      }
+      bridge.setSettings({ customColor: wheel.hex, theme: 'custom' });
+      wheel.timer = setTimeout(() => {
+        wheel.timer = 0;
+        if (wheel.pending) {
+          wheel.pending = false;
+          sendColor();
+        }
+      }, 60);
+    }
+    function setHsl(h, s, l) {
+      wheel.h = ((h % 360) + 360) % 360;
+      wheel.s = Math.max(0, Math.min(1, s));
+      wheel.l = Math.max(0.1, Math.min(0.9, l));
+      wheel.hex = hslToHex(wheel.h, wheel.s, wheel.l);
+      $('customHex').removeAttribute('aria-invalid');
+      $('customHexState').textContent = '';
+      showWheel();
+      sendColor();
+    }
+    // Couleur reçue des réglages : la roue la reprend, sauf pendant qu'on la manipule.
+    function wheelFrom(hex) {
+      if (!hex || hex === wheel.hex || wheel.dragging || wheel.timer) return;
+      const [h, s, l] = rgbToHsl(...hexToRgb(hex));
+      // Gris (saturation nulle) : la teinte ne veut rien dire, on garde la précédente.
+      if (s > 0.001) wheel.h = h;
+      wheel.s = s;
+      wheel.l = Math.max(0.1, Math.min(0.9, l));
+      wheel.hex = hex;
+      showWheel();
+    }
+    function pickAt(e) {
+      const rect = wheel.el.getBoundingClientRect();
+      const r = rect.width / 2;
+      const dx = e.clientX - rect.left - r,
+        dy = e.clientY - rect.top - r;
+      setHsl((Math.atan2(dy, dx) * 180) / Math.PI, Math.hypot(dx, dy) / r, wheel.l);
+    }
+    wheel.el.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      wheel.dragging = true;
+      wheel.el.setPointerCapture(e.pointerId);
+      wheel.el.focus();
+      pickAt(e);
+    });
+    wheel.el.addEventListener('pointermove', (e) => {
+      if (wheel.dragging) pickAt(e);
+    });
+    const endDrag = () => {
+      wheel.dragging = false;
+    };
+    wheel.el.addEventListener('pointerup', endDrag);
+    wheel.el.addEventListener('pointercancel', endDrag);
+    wheel.el.addEventListener('keydown', (e) => {
+      const big = e.shiftKey;
+      const dh = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+      const ds = { ArrowUp: 1, ArrowDown: -1 }[e.key];
+      if (dh === undefined && ds === undefined) return;
+      e.preventDefault();
+      if (dh) setHsl(wheel.h + dh * (big ? 15 : 3), wheel.s, wheel.l);
+      else setHsl(wheel.h, wheel.s + ds * (big ? 0.1 : 0.03), wheel.l);
+    });
+    $('customLight').addEventListener('input', () => setHsl(wheel.h, wheel.s, Number($('customLight').value)));
+    $('customHex').addEventListener('change', () => {
+      let v = $('customHex').value.trim().toLowerCase();
+      if (!v.startsWith('#')) v = `#${v}`;
+      if (/^#[0-9a-f]{3}$/.test(v)) v = `#${[...v.slice(1)].map((x) => x + x).join('')}`;
+      if (!/^#[0-9a-f]{6}$/.test(v)) {
+        $('customHex').setAttribute('aria-invalid', 'true');
+        $('customHexState').textContent = t('settings.hexInvalid');
+        return;
+      }
+      $('customHex').removeAttribute('aria-invalid');
+      $('customHexState').textContent = '';
+      wheel.hex = '';
+      wheelFrom(v);
+      sendColor();
+    });
+    // Pastilles « Personnalisée » : aux couleurs de la roue.
+    function paintCustomSwatches(hex) {
+      const pal = paletteFromCustom(hex);
+      for (const b of [...themeSwatches, ...discSwatches]) {
+        if (b.dataset.value !== 'custom') continue;
+        const disc = b.querySelector('.disc');
+        pal.forEach((c, i) => disc.style.setProperty(`--c${i + 1}`, c));
+      }
+    }
 
-  // ----- Groupes de boutons radio (styles, couleurs) -----
-  // Une seule tabulation par groupe, flèches / Début / Fin pour changer, choix appliqué tout de suite.
-  function radioGroup(buttons, choose) {
-    for (const [i, b] of buttons.entries()) {
-      b.addEventListener('click', () => choose(b));
-      b.addEventListener('keydown', (e) => {
-        const n = buttons.length;
-        const to = { ArrowRight: i + 1, ArrowDown: i + 1, ArrowLeft: i - 1, ArrowUp: i - 1, Home: 0, End: n - 1 }[
-          e.key
-        ];
+    // ----- Onglets (menu de gauche) -----
+    const tabs = [...document.querySelectorAll('[role="tab"]')];
+    const panelOf = (t) => $(t.getAttribute('aria-controls'));
+    const shown = () => tabs.filter((t) => !t.classList.contains('hidden'));
+    function selectTab(tab, focus) {
+      for (const t of tabs) {
+        const on = t === tab;
+        t.setAttribute('aria-selected', String(on));
+        t.tabIndex = on ? 0 : -1;
+        if (!searching()) panelOf(t).hidden = !on;
+      }
+      if (focus) tab.focus();
+      $('panels').scrollTop = 0;
+      showWheel(); // la roue n'a pas de taille tant que son onglet est caché
+      paintSoon();
+    }
+    for (const t of tabs) {
+      t.addEventListener('click', () => {
+        if (searching()) clearSearch();
+        selectTab(t);
+      });
+      t.addEventListener('keydown', (e) => {
+        const list = shown();
+        const i = list.indexOf(t);
+        const to = {
+          ArrowDown: i + 1,
+          ArrowRight: i + 1,
+          ArrowUp: i - 1,
+          ArrowLeft: i - 1,
+          Home: 0,
+          End: list.length - 1,
+        }[e.key];
         if (to === undefined) return;
         e.preventDefault();
-        const next = buttons[(to + n) % n];
-        next.focus();
-        choose(next);
+        if (searching()) clearSearch();
+        selectTab(list[(to + list.length) % list.length], true);
       });
     }
-  }
-  function check(buttons, value, key) {
-    for (const b of buttons) {
-      const on = b.dataset[key] === value;
-      b.classList.toggle('on', on);
-      b.setAttribute('aria-checked', String(on));
-      b.tabIndex = on ? 0 : -1;
-    }
-  }
+    const activeTab = () => tabs.find((t) => t.getAttribute('aria-selected') === 'true');
 
-  // ----- Pastilles de couleurs, rangées par familles -----
-  const FAMILIES = [
-    ['Image', ['wallpaper', 'album']],
-    ['Classiques', ['spotify', 'neon', 'sunset', 'ocean', 'violet', 'mono']],
-    ['Vifs', ['cyberpunk', 'synthwave', 'acid']],
-    ['Doux', ['pastel', 'lavender', 'peach', 'mint']],
-    ['Naturels', ['forest', 'fire', 'ice', 'desert']],
-    ['Sombres', ['gold', 'blood', 'midnight']],
-    ['Roue des couleurs', ['custom']],
-  ];
-  // Noms courts sous les pastilles « image » (le nom complet du catalogue est trop long).
-  const SHORT = { wallpaper: "Fond d'écran", album: 'Pochette', custom: 'Personnalisée' };
-
-  function buildSwatches(container, allowed) {
-    const names = Catalog.THEME_NAMES;
-    const placed = new Set(FAMILIES.flatMap(([, ids]) => ids));
-    // Un jeu ajouté au catalogue sans famille reste choisissable.
-    const extra = Catalog.THEME_ORDER.filter((id) => !placed.has(id));
-    const families = extra.length ? [...FAMILIES, ['Autres', extra]] : FAMILIES;
-    const buttons = [];
-    for (const [fi, [family, ids]] of families.entries()) {
-      const list = ids.filter((id) => allowed.has(id));
-      if (!list.length) continue;
-      const label = document.createElement('p');
-      label.className = 'family';
-      label.id = `${container.id}-f${fi}`;
-      label.textContent = family;
-      const row = document.createElement('div');
-      row.className = 'swatch-row';
-      for (const id of list) {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'swatch';
-        b.setAttribute('role', 'radio');
-        b.setAttribute('aria-checked', 'false');
-        b.setAttribute('aria-describedby', label.id);
-        b.tabIndex = -1;
-        b.dataset.value = id;
-        const disc = document.createElement('span');
-        disc.className = 'disc';
-        disc.setAttribute('aria-hidden', 'true');
-        const pal = Catalog.PALETTES[id];
-        if (pal) pal.forEach((c, i) => disc.style.setProperty(`--c${i + 1}`, c));
-        else disc.classList.add(id);
-        const name = document.createElement('span');
-        name.textContent = SHORT[id] || names[id] || id;
-        b.append(disc, name);
-        row.append(b);
-        buttons.push(b);
-      }
-      container.append(label, row);
-    }
-    const key = container.dataset.setting;
-    radioGroup(buttons, (b) => bridge.setSettings({ [key]: b.dataset.value }));
-    return buttons;
-  }
-  const themeSwatches = buildSwatches($('themeSwatches'), new Set(Catalog.THEME_ORDER));
-  const discSwatches = buildSwatches(
-    $('discColorSwatches'),
-    new Set(['album', 'custom', ...Catalog.FIXED_THEMES.map(([id]) => id)]),
-  );
-
-  // ----- Roue des couleurs (réglage customColor, jeu « custom ») -----
-  // Teinte = angle, saturation = distance au centre, luminosité = curseur à côté.
-  // Chaque changement choisit aussi le jeu « custom » pour le visualiseur.
-  const { hexToRgb, rgbToHsl, paletteFromCustom } = window.SillonColors;
-  // Composante (0 à 1) d'une couleur HSL : n = 0 rouge, 8 vert, 4 bleu.
-  function hslChannel(n, h, s, l) {
-    const k = (n + h / 30) % 12;
-    return l - s * Math.min(l, 1 - l) * Math.max(-1, Math.min(k - 3, 9 - k, 1));
-  }
-  const hslToHex = (h, s, l) =>
-    '#' +
-    [0, 8, 4]
-      .map((n) =>
-        Math.round(hslChannel(n, h, s, l) * 255)
-          .toString(16)
-          .padStart(2, '0'),
-      )
-      .join('');
-  const wheel = {
-    el: $('wheel'),
-    canvas: $('wheelCanvas'),
-    thumb: $('wheelThumb'),
-    h: 0,
-    s: 0.7,
-    l: 0.6,
-    hex: '',
-    drawnL: -1,
-    dragging: false,
-    timer: 0,
-    pending: false,
-  };
-  // Pixels de la roue pour une luminosité : recalculés seulement quand elle change.
-  function paintWheel() {
-    const c = wheel.canvas;
-    const css = wheel.el.clientWidth;
-    if (!css) return; // onglet caché : dessinée à l'ouverture (voir selectTab)
-    const size = Math.round(css * (window.devicePixelRatio || 1));
-    if (c.width === size && wheel.drawnL === wheel.l) return;
-    c.width = c.height = size;
-    wheel.drawnL = wheel.l;
-    const ctx = c.getContext('2d');
-    const img = ctx.createImageData(size, size);
-    const px = img.data,
-      R = size / 2,
-      l = wheel.l;
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        const dx = x + 0.5 - R,
-          dy = y + 0.5 - R;
-        const d = Math.sqrt(dx * dx + dy * dy);
-        if (d > R) continue;
-        const h = ((Math.atan2(dy, dx) * 180) / Math.PI + 360) % 360;
-        const s = d / R;
-        const i = (y * size + x) * 4;
-        px[i] = hslChannel(0, h, s, l) * 255;
-        px[i + 1] = hslChannel(8, h, s, l) * 255;
-        px[i + 2] = hslChannel(4, h, s, l) * 255;
-        px[i + 3] = Math.min(1, R - d) * 255; // bord adouci
-      }
-    }
-    ctx.putImageData(img, 0, 0);
-  }
-  function showWheel() {
-    paintWheel();
-    const r = (wheel.el.clientWidth || 168) / 2;
-    const ang = (wheel.h * Math.PI) / 180;
-    wheel.thumb.style.left = `${r + Math.cos(ang) * wheel.s * r}px`;
-    wheel.thumb.style.top = `${r + Math.sin(ang) * wheel.s * r}px`;
-    wheel.thumb.style.setProperty('--thumb', wheel.hex);
-    wheel.el.setAttribute('aria-valuenow', String(Math.round(wheel.h)));
-    wheel.el.setAttribute(
-      'aria-valuetext',
-      `teinte ${Math.round(wheel.h)} degrés, saturation ${Math.round(wheel.s * 100)} pour cent, couleur ${wheel.hex}`,
+    // ----- Recherche : toutes sections confondues, seulement les réglages trouvés -----
+    const items = [...document.querySelectorAll('#panels .item')];
+    const panels = tabs.map(panelOf);
+    const fold = (s) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+    // Texte de chaque réglage (libellés, options, aide, mots-clés) et de sa section.
+    const haystack = new Map(
+      items.map((it) => {
+        const panel = it.closest('.panel');
+        const text = [panel.querySelector('h2').textContent, it.textContent, it.dataset.keywords || ''].join(' ');
+        return [it, fold(text.replace(/\s+/g, ' '))];
+      }),
     );
-    $('customLightOut').textContent = pct(wheel.l);
-    $('customLight').setAttribute('aria-valuetext', `${Math.round(wheel.l * 100)} pour cent`);
-    if (document.activeElement !== $('customLight')) $('customLight').value = String(wheel.l);
-    if (document.activeElement !== $('customHex')) $('customHex').value = wheel.hex;
-    paletteFromCustom(wheel.hex).forEach((c, i) => ($(`customChip${i + 1}`).style.background = c));
-  }
-  // Envoi groupé (au plus ~16 fois par seconde pendant un glissé) : chaque envoi
-  // repart vers toutes les fenêtres.
-  function sendColor() {
-    if (wheel.timer) {
-      wheel.pending = true;
-      return;
-    }
-    bridge.setSettings({ customColor: wheel.hex, theme: 'custom' });
-    wheel.timer = setTimeout(() => {
-      wheel.timer = 0;
-      if (wheel.pending) {
-        wheel.pending = false;
-        sendColor();
+    const searching = () => document.body.classList.contains('searching');
+    function runSearch() {
+      const words = fold($('search').value).split(/\s+/).filter(Boolean);
+      const on = words.length > 0;
+      document.body.classList.toggle('searching', on);
+      let found = 0;
+      for (const it of items) {
+        const hit = !on || words.every((w) => haystack.get(it).includes(w));
+        it.classList.toggle('miss', !hit);
+        const tab = tabs[panels.indexOf(it.closest('.panel'))];
+        if (hit && on && !it.classList.contains('hidden') && !tab.classList.contains('hidden')) found++;
       }
-    }, 60);
-  }
-  function setHsl(h, s, l) {
-    wheel.h = ((h % 360) + 360) % 360;
-    wheel.s = Math.max(0, Math.min(1, s));
-    wheel.l = Math.max(0.1, Math.min(0.9, l));
-    wheel.hex = hslToHex(wheel.h, wheel.s, wheel.l);
-    $('customHex').removeAttribute('aria-invalid');
-    $('customHexState').textContent = '';
-    showWheel();
-    sendColor();
-  }
-  // Couleur reçue des réglages : la roue la reprend, sauf pendant qu'on la manipule.
-  function wheelFrom(hex) {
-    if (!hex || hex === wheel.hex || wheel.dragging || wheel.timer) return;
-    const [h, s, l] = rgbToHsl(...hexToRgb(hex));
-    // Gris (saturation nulle) : la teinte ne veut rien dire, on garde la précédente.
-    if (s > 0.001) wheel.h = h;
-    wheel.s = s;
-    wheel.l = Math.max(0.1, Math.min(0.9, l));
-    wheel.hex = hex;
-    showWheel();
-  }
-  function pickAt(e) {
-    const rect = wheel.el.getBoundingClientRect();
-    const r = rect.width / 2;
-    const dx = e.clientX - rect.left - r,
-      dy = e.clientY - rect.top - r;
-    setHsl((Math.atan2(dy, dx) * 180) / Math.PI, Math.hypot(dx, dy) / r, wheel.l);
-  }
-  wheel.el.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0) return;
-    wheel.dragging = true;
-    wheel.el.setPointerCapture(e.pointerId);
-    wheel.el.focus();
-    pickAt(e);
-  });
-  wheel.el.addEventListener('pointermove', (e) => {
-    if (wheel.dragging) pickAt(e);
-  });
-  const endDrag = () => {
-    wheel.dragging = false;
-  };
-  wheel.el.addEventListener('pointerup', endDrag);
-  wheel.el.addEventListener('pointercancel', endDrag);
-  wheel.el.addEventListener('keydown', (e) => {
-    const big = e.shiftKey;
-    const dh = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
-    const ds = { ArrowUp: 1, ArrowDown: -1 }[e.key];
-    if (dh === undefined && ds === undefined) return;
-    e.preventDefault();
-    if (dh) setHsl(wheel.h + dh * (big ? 15 : 3), wheel.s, wheel.l);
-    else setHsl(wheel.h, wheel.s + ds * (big ? 0.1 : 0.03), wheel.l);
-  });
-  $('customLight').addEventListener('input', () => setHsl(wheel.h, wheel.s, Number($('customLight').value)));
-  $('customHex').addEventListener('change', () => {
-    let v = $('customHex').value.trim().toLowerCase();
-    if (!v.startsWith('#')) v = `#${v}`;
-    if (/^#[0-9a-f]{3}$/.test(v)) v = `#${[...v.slice(1)].map((x) => x + x).join('')}`;
-    if (!/^#[0-9a-f]{6}$/.test(v)) {
-      $('customHex').setAttribute('aria-invalid', 'true');
-      $('customHexState').textContent = 'Code attendu : # suivi de 6 chiffres hexadécimaux, par exemple #8b5cf6.';
-      return;
-    }
-    $('customHex').removeAttribute('aria-invalid');
-    $('customHexState').textContent = '';
-    wheel.hex = '';
-    wheelFrom(v);
-    sendColor();
-  });
-  // Pastilles « Personnalisée » : aux couleurs de la roue.
-  function paintCustomSwatches(hex) {
-    const pal = paletteFromCustom(hex);
-    for (const b of [...themeSwatches, ...discSwatches]) {
-      if (b.dataset.value !== 'custom') continue;
-      const disc = b.querySelector('.disc');
-      pal.forEach((c, i) => disc.style.setProperty(`--c${i + 1}`, c));
-    }
-  }
-
-  // ----- Onglets (menu de gauche) -----
-  const tabs = [...document.querySelectorAll('[role="tab"]')];
-  const panelOf = (t) => $(t.getAttribute('aria-controls'));
-  const shown = () => tabs.filter((t) => !t.classList.contains('hidden'));
-  function selectTab(tab, focus) {
-    for (const t of tabs) {
-      const on = t === tab;
-      t.setAttribute('aria-selected', String(on));
-      t.tabIndex = on ? 0 : -1;
-      if (!searching()) panelOf(t).hidden = !on;
-    }
-    if (focus) tab.focus();
-    $('panels').scrollTop = 0;
-    showWheel(); // la roue n'a pas de taille tant que son onglet est caché
-    paintSoon();
-  }
-  for (const t of tabs) {
-    t.addEventListener('click', () => {
-      if (searching()) clearSearch();
-      selectTab(t);
-    });
-    t.addEventListener('keydown', (e) => {
-      const list = shown();
-      const i = list.indexOf(t);
-      const to = {
-        ArrowDown: i + 1,
-        ArrowRight: i + 1,
-        ArrowUp: i - 1,
-        ArrowLeft: i - 1,
-        Home: 0,
-        End: list.length - 1,
-      }[e.key];
-      if (to === undefined) return;
-      e.preventDefault();
-      if (searching()) clearSearch();
-      selectTab(list[(to + list.length) % list.length], true);
-    });
-  }
-  const activeTab = () => tabs.find((t) => t.getAttribute('aria-selected') === 'true');
-
-  // ----- Recherche : toutes sections confondues, seulement les réglages trouvés -----
-  const items = [...document.querySelectorAll('#panels .item')];
-  const panels = tabs.map(panelOf);
-  const fold = (s) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
-  // Texte de chaque réglage (libellés, options, aide, mots-clés) et de sa section.
-  const haystack = new Map(
-    items.map((it) => {
-      const panel = it.closest('.panel');
-      const text = [panel.querySelector('h2').textContent, it.textContent, it.dataset.keywords || ''].join(' ');
-      return [it, fold(text.replace(/\s+/g, ' '))];
-    }),
-  );
-  const searching = () => document.body.classList.contains('searching');
-  function runSearch() {
-    const words = fold($('search').value).split(/\s+/).filter(Boolean);
-    const on = words.length > 0;
-    document.body.classList.toggle('searching', on);
-    let found = 0;
-    for (const it of items) {
-      const hit = !on || words.every((w) => haystack.get(it).includes(w));
-      it.classList.toggle('miss', !hit);
-      const tab = tabs[panels.indexOf(it.closest('.panel'))];
-      if (hit && on && !it.classList.contains('hidden') && !tab.classList.contains('hidden')) found++;
-    }
-    const current = activeTab();
-    for (const [i, p] of panels.entries()) {
-      const tabHidden = tabs[i].classList.contains('hidden');
-      const any = p.querySelector('.item:not(.miss):not(.hidden)');
-      p.hidden = on ? tabHidden || !any : tabs[i] !== current;
-      // Sous-titres (Disque, Écran de veille…) masqués si rien dessous n'est trouvé.
-      for (const h of p.querySelectorAll('h3')) {
-        let next = h.nextElementSibling,
-          visible = false;
-        while (next && next.tagName !== 'H3') {
-          if (next.classList.contains('item') && !next.classList.contains('miss')) visible = true;
-          next = next.nextElementSibling;
+      const current = activeTab();
+      for (const [i, p] of panels.entries()) {
+        const tabHidden = tabs[i].classList.contains('hidden');
+        const any = p.querySelector('.item:not(.miss):not(.hidden)');
+        p.hidden = on ? tabHidden || !any : tabs[i] !== current;
+        // Sous-titres (Disque, Écran de veille…) masqués si rien dessous n'est trouvé.
+        for (const h of p.querySelectorAll('h3')) {
+          let next = h.nextElementSibling,
+            visible = false;
+          while (next && next.tagName !== 'H3') {
+            if (next.classList.contains('item') && !next.classList.contains('miss')) visible = true;
+            next = next.nextElementSibling;
+          }
+          h.classList.toggle('miss', on && !visible);
         }
-        h.classList.toggle('miss', on && !visible);
+      }
+      $('searchState').textContent = !on
+        ? ''
+        : found
+          ? t(found > 1 ? 'settings.foundMany' : 'settings.foundOne', { n: found })
+          : t('settings.foundNone', { query: $('search').value.trim() });
+      if (on) $('panels').scrollTop = 0;
+      showWheel();
+      paintSoon();
+    }
+    function clearSearch() {
+      $('search').value = '';
+      runSearch();
+    }
+    $('search').addEventListener('input', runSearch);
+    // Entrée : aller au premier réglage trouvé.
+    $('search').addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || !searching()) return;
+      const first = [...document.querySelectorAll('#panels .item:not(.miss):not(.hidden)')].find(
+        (it) => it.offsetParent,
+      );
+      const target =
+        first && first.querySelector('button[tabindex="0"], input, select, button:not([tabindex="-1"]):not(.hidden)');
+      if (target) target.focus();
+    });
+
+    // ----- Aperçus animés : galerie des styles + aperçu en direct -----
+    const { VISUALIZERS, THEMES, FakeAudio, themePalette } = window.SV;
+    const gallery = [...document.querySelectorAll('#styleGallery button')];
+    let current = {};
+    const fake = new FakeAudio();
+    // Animations réduites : réglage Sillon ou réglage Windows. Les aperçus restent figés.
+    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const still = () => !!current.reduceMotion || motionQuery.matches;
+    let needsPaint = true;
+    motionQuery.addEventListener('change', () => {
+      document.body.classList.toggle('reduce-motion', still());
+      paintSoon();
+    });
+    radioGroup(gallery, (b) => bridge.setSettings({ style: b.dataset.style }));
+
+    // Légèreté : on ne dessine que les aperçus visibles (onglet ouvert, à l'écran),
+    // à 30 i/s, rien pendant le défilement (sinon la fenêtre saccade) ni quand la
+    // fenêtre est cachée. Les tailles sont lues une fois par l'observateur.
+    const live = { c: $('liveCanvas'), w: 0, h: 0, visible: false, live: true };
+    const previews = [live, ...gallery.map((b) => ({ b, c: b.querySelector('canvas'), w: 0, h: 0, visible: false }))];
+    const dpr = window.devicePixelRatio || 1;
+    const sizes = new ResizeObserver((entries) => {
+      for (const e of entries) {
+        const p = previews.find((x) => x.c === e.target);
+        p.w = e.contentRect.width;
+        p.h = e.contentRect.height;
+        p.c.width = Math.round(p.w * dpr);
+        p.c.height = Math.round(p.h * dpr);
+      }
+      paintSoon();
+    });
+    const seen = new IntersectionObserver((entries) => {
+      for (const e of entries) previews.find((x) => x.c === e.target).visible = e.isIntersecting;
+      paintSoon();
+    });
+    for (const p of previews) {
+      sizes.observe(p.c);
+      seen.observe(p.c);
+    }
+    let scrolling = 0,
+      lastDraw = 0,
+      frame = 0;
+    $('panels').addEventListener(
+      'scroll',
+      () => {
+        clearTimeout(scrolling);
+        scrolling = setTimeout(() => {
+          scrolling = 0;
+          paintSoon();
+        }, 180);
+      },
+      { passive: true },
+    );
+    // Relance la boucle de dessin (elle s'arrête d'elle-même quand il n'y a rien à animer).
+    function paintSoon() {
+      needsPaint = true;
+      if (!frame && !document.hidden) frame = requestAnimationFrame(draw);
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        cancelAnimationFrame(frame);
+        frame = 0;
+      } else paintSoon();
+    });
+    // Palette de l'aperçu : « fond d'écran » et « pochette » dépendent de l'image du
+    // moment, inconnue ici ; on montre le violet de Sillon.
+    const paletteOf = (s) => themePalette(s.theme, s.customColor) || THEMES.violet;
+    function draw(now) {
+      frame = 0;
+      if (document.hidden) return;
+      const frozen = still();
+      const visible = previews.filter((p) => p.visible && p.w);
+      // Figé ou rien à l'écran : une seule image, puis la boucle s'arrête.
+      if ((frozen || !visible.length) && !needsPaint) return;
+      frame = requestAnimationFrame(draw);
+      if (scrolling || now - lastDraw < 1000 / 30 - 2) return;
+      needsPaint = false;
+      lastDraw = now;
+      const t = frozen ? 1500 : now;
+      const a = fake.frame(t);
+      const pal = paletteOf(current);
+      for (const p of visible) {
+        const ctx = p.c.getContext('2d');
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, p.w, p.h);
+        const style = p.live ? current.style || 'bars' : p.b.dataset.style;
+        const opts = { glow: true, t, reflection: false, sensitivity: p.live ? Number(current.sensitivity) || 1 : 1 };
+        VISUALIZERS[style](ctx, p.w, p.h, a, pal, opts);
       }
     }
-    $('searchState').textContent = !on
-      ? ''
-      : found
-        ? `${found} réglage${found > 1 ? 's' : ''} trouvé${found > 1 ? 's' : ''}.`
-        : `Aucun réglage ne correspond à « ${$('search').value.trim()} ».`;
-    if (on) $('panels').scrollTop = 0;
-    showWheel();
-    paintSoon();
-  }
-  function clearSearch() {
-    $('search').value = '';
-    runSearch();
-  }
-  $('search').addEventListener('input', runSearch);
-  // Entrée : aller au premier réglage trouvé.
-  $('search').addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter' || !searching()) return;
-    const first = [...document.querySelectorAll('#panels .item:not(.miss):not(.hidden)')].find((it) => it.offsetParent);
-    const target =
-      first && first.querySelector('button[tabindex="0"], input, select, button:not([tabindex="-1"]):not(.hidden)');
-    if (target) target.focus();
-  });
-
-  // ----- Aperçus animés : galerie des styles + aperçu en direct -----
-  const { VISUALIZERS, THEMES, FakeAudio, themePalette } = window.SV;
-  const gallery = [...document.querySelectorAll('#styleGallery button')];
-  let current = {};
-  const fake = new FakeAudio();
-  // Animations réduites : réglage Sillon ou réglage Windows. Les aperçus restent figés.
-  const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const still = () => !!current.reduceMotion || motionQuery.matches;
-  let needsPaint = true;
-  motionQuery.addEventListener('change', () => {
-    document.body.classList.toggle('reduce-motion', still());
-    paintSoon();
-  });
-  radioGroup(gallery, (b) => bridge.setSettings({ style: b.dataset.style }));
-
-  // Légèreté : on ne dessine que les aperçus visibles (onglet ouvert, à l'écran),
-  // à 30 i/s, rien pendant le défilement (sinon la fenêtre saccade) ni quand la
-  // fenêtre est cachée. Les tailles sont lues une fois par l'observateur.
-  const live = { c: $('liveCanvas'), w: 0, h: 0, visible: false, live: true };
-  const previews = [live, ...gallery.map((b) => ({ b, c: b.querySelector('canvas'), w: 0, h: 0, visible: false }))];
-  const dpr = window.devicePixelRatio || 1;
-  const sizes = new ResizeObserver((entries) => {
-    for (const e of entries) {
-      const p = previews.find((x) => x.c === e.target);
-      p.w = e.contentRect.width;
-      p.h = e.contentRect.height;
-      p.c.width = Math.round(p.w * dpr);
-      p.c.height = Math.round(p.h * dpr);
+    function showLive(s) {
+      const style = s.style || 'bars';
+      $('liveStyle').textContent = Catalog.name('style', style, t);
+      $('liveTheme').textContent = s.theme ? Catalog.name('theme', s.theme, t) : '';
+      live.c.style.opacity = String(Math.max(0.2, Math.min(1, Number(s.opacity) || 1)));
+      document.body.style.setProperty('--pv1', paletteOf(s)[0]);
     }
-    paintSoon();
-  });
-  const seen = new IntersectionObserver((entries) => {
-    for (const e of entries) previews.find((x) => x.c === e.target).visible = e.isIntersecting;
-    paintSoon();
-  });
-  for (const p of previews) {
-    sizes.observe(p.c);
-    seen.observe(p.c);
-  }
-  let scrolling = 0,
-    lastDraw = 0,
-    frame = 0;
-  $('panels').addEventListener(
-    'scroll',
-    () => {
-      clearTimeout(scrolling);
-      scrolling = setTimeout(() => {
-        scrolling = 0;
-        paintSoon();
-      }, 180);
-    },
-    { passive: true },
-  );
-  // Relance la boucle de dessin (elle s'arrête d'elle-même quand il n'y a rien à animer).
-  function paintSoon() {
-    needsPaint = true;
-    if (!frame && !document.hidden) frame = requestAnimationFrame(draw);
-  }
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-      cancelAnimationFrame(frame);
-      frame = 0;
-    } else paintSoon();
-  });
-  // Palette de l'aperçu : « fond d'écran » et « pochette » dépendent de l'image du
-  // moment, inconnue ici ; on montre le violet de Sillon.
-  const paletteOf = (s) => themePalette(s.theme, s.customColor) || THEMES.violet;
-  function draw(now) {
-    frame = 0;
-    if (document.hidden) return;
-    const frozen = still();
-    const visible = previews.filter((p) => p.visible && p.w);
-    // Figé ou rien à l'écran : une seule image, puis la boucle s'arrête.
-    if ((frozen || !visible.length) && !needsPaint) return;
-    frame = requestAnimationFrame(draw);
-    if (scrolling || now - lastDraw < 1000 / 30 - 2) return;
-    needsPaint = false;
-    lastDraw = now;
-    const t = frozen ? 1500 : now;
-    const a = fake.frame(t);
-    const pal = paletteOf(current);
-    for (const p of visible) {
-      const ctx = p.c.getContext('2d');
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, p.w, p.h);
-      const style = p.live ? current.style || 'bars' : p.b.dataset.style;
-      const opts = { glow: true, t, reflection: false, sensitivity: p.live ? Number(current.sensitivity) || 1 : 1 };
-      VISUALIZERS[style](ctx, p.w, p.h, a, pal, opts);
-    }
-  }
-  function showLive(s) {
-    const style = s.style || 'bars';
-    $('liveStyle').textContent = Catalog.STYLE_NAMES[style] || style;
-    $('liveTheme').textContent = Catalog.THEME_NAMES[s.theme] || '';
-    live.c.style.opacity = String(Math.max(0.2, Math.min(1, Number(s.opacity) || 1)));
-    document.body.style.setProperty('--pv1', paletteOf(s)[0]);
-  }
 
-  function fill(s) {
-    const defaults = {
-      layout: 'scene',
-      sceneScreen: 'primary',
-      sleepAfter: 0,
-      discRays: 'fine',
-      audioSource: 'app',
-    };
-    for (const k of selects) if (document.activeElement !== $(k)) $(k).value = String(s[k] ?? defaults[k] ?? '');
-    $('showNowPlaying').checked = s.showNowPlaying !== false;
-    $('showLyrics').checked = s.showLyrics !== false;
-    current = s;
-    $('reduceMotion').checked = !!s.reduceMotion;
-    document.body.classList.toggle('reduce-motion', still());
-    check(gallery, s.style || 'bars', 'style');
-    check(themeSwatches, s.theme || 'wallpaper', 'value');
-    check(discSwatches, s.discColors || 'album', 'value');
-    const customColor = s.customColor || Catalog.CUSTOM_DEFAULT;
-    wheelFrom(customColor);
-    paintCustomSwatches(customColor);
-    showLive(s);
-    paintSoon();
-    $('launchAtLogin').checked = !!s.launchAtLogin;
-    if (document.activeElement !== $('spotifyClientId')) $('spotifyClientId').value = s.spotifyClientId || '';
-    $('spotifyCustomClientId').checked = !!s.spotifyCustomClientId;
-    $('customClient').classList.toggle('hidden', !s.spotifyCustomClientId);
-    $('builtinHelp').classList.toggle('hidden', !!s.spotifyCustomClientId);
-    $('veilleOnlyPlaying').checked = s.veilleOnlyPlaying !== false;
-    $('veilleLock').checked = s.veilleLock !== false;
-    $('gameMode').checked = s.gameMode !== false;
-    $('autoUpdate').checked = s.autoUpdate !== false;
-    $('dimOnPause').checked = s.dimOnPause !== false;
-    $('globalShortcuts').checked = s.globalShortcuts !== false;
-    // Seulement à l'ouverture et quand le réglage change (pas à chaque mouvement de curseur).
-    if (shownShortcuts !== s.globalShortcuts) {
-      shownShortcuts = s.globalShortcuts;
-      refreshShortcuts();
+    function fill(s) {
+      const defaults = {
+        layout: 'scene',
+        sceneScreen: 'primary',
+        sleepAfter: 0,
+        discRays: 'fine',
+        audioSource: 'app',
+        language: 'auto',
+      };
+      for (const k of selects) if (document.activeElement !== $(k)) $(k).value = String(s[k] ?? defaults[k] ?? '');
+      $('showNowPlaying').checked = s.showNowPlaying !== false;
+      $('showLyrics').checked = s.showLyrics !== false;
+      current = s;
+      $('reduceMotion').checked = !!s.reduceMotion;
+      document.body.classList.toggle('reduce-motion', still());
+      check(gallery, s.style || 'bars', 'style');
+      check(themeSwatches, s.theme || 'wallpaper', 'value');
+      check(discSwatches, s.discColors || 'album', 'value');
+      const customColor = s.customColor || Catalog.CUSTOM_DEFAULT;
+      wheelFrom(customColor);
+      paintCustomSwatches(customColor);
+      showLive(s);
+      paintSoon();
+      $('launchAtLogin').checked = !!s.launchAtLogin;
+      if (document.activeElement !== $('spotifyClientId')) $('spotifyClientId').value = s.spotifyClientId || '';
+      $('spotifyCustomClientId').checked = !!s.spotifyCustomClientId;
+      $('customClient').classList.toggle('hidden', !s.spotifyCustomClientId);
+      $('builtinHelp').classList.toggle('hidden', !!s.spotifyCustomClientId);
+      $('veilleOnlyPlaying').checked = s.veilleOnlyPlaying !== false;
+      $('veilleLock').checked = s.veilleLock !== false;
+      $('gameMode').checked = s.gameMode !== false;
+      $('autoUpdate').checked = s.autoUpdate !== false;
+      $('dimOnPause').checked = s.dimOnPause !== false;
+      $('globalShortcuts').checked = s.globalShortcuts !== false;
+      // Seulement à l'ouverture et quand le réglage change (pas à chaque mouvement de curseur).
+      if (shownShortcuts !== s.globalShortcuts) {
+        shownShortcuts = s.globalShortcuts;
+        refreshShortcuts();
+      }
+      // Scène choisie et réellement affichée (seulement sur le fond d'écran).
+      const wantsScene = (s.layout || 'scene') !== 'strip';
+      const scene = wantsScene && s.mode === 'wallpaper';
+      $('tab-scene').classList.toggle('hidden', !scene);
+      $('discColorsGroup').classList.toggle('hidden', !scene);
+      $('sceneScreenRow').classList.toggle('hidden', !scene);
+      $('sceneNeedsWallpaper').classList.toggle('hidden', !(wantsScene && s.mode !== 'wallpaper'));
+      $('showNowPlayingRow').classList.toggle('hidden', scene);
+      // La scène occupe tout le bureau : rien à déplacer.
+      $('editRow').classList.toggle('hidden', scene);
+      // Onglet « Scène » ouvert alors que la scène disparaît : retour à « Disposition ».
+      if (!scene && activeTab() === $('tab-scene')) selectTab($('tab-layout'));
+      if (searching()) runSearch();
+      for (const k of Object.keys(ranges)) {
+        if (document.activeElement !== $(k)) $(k).value = s[k];
+        showRange(k, Number(s[k]));
+      }
     }
-    // Scène choisie et réellement affichée (seulement sur le fond d'écran).
-    const wantsScene = (s.layout || 'scene') !== 'strip';
-    const scene = wantsScene && s.mode === 'wallpaper';
-    $('tab-scene').classList.toggle('hidden', !scene);
-    $('discColorsGroup').classList.toggle('hidden', !scene);
-    $('sceneScreenRow').classList.toggle('hidden', !scene);
-    $('sceneNeedsWallpaper').classList.toggle('hidden', !(wantsScene && s.mode !== 'wallpaper'));
-    $('showNowPlayingRow').classList.toggle('hidden', scene);
-    // La scène occupe tout le bureau : rien à déplacer.
-    $('editRow').classList.toggle('hidden', scene);
-    // Onglet « Scène » ouvert alors que la scène disparaît : retour à « Disposition ».
-    if (!scene && activeTab() === $('tab-scene')) selectTab($('tab-layout'));
-    if (searching()) runSearch();
+
+    for (const k of selects) {
+      $(k).addEventListener('change', () => {
+        const v = $(k).value;
+        bridge.setSettings({ [k]: numeric.has(k) ? Number(v) : v });
+      });
+    }
+    for (const k of checks) $(k).addEventListener('change', () => bridge.setSettings({ [k]: $(k).checked }));
     for (const k of Object.keys(ranges)) {
-      if (document.activeElement !== $(k)) $(k).value = s[k];
-      showRange(k, Number(s[k]));
+      $(k).addEventListener('input', () => {
+        const v = Number($(k).value);
+        showRange(k, v);
+        bridge.setSettings({ [k]: v });
+      });
     }
-  }
 
-  for (const k of selects) {
-    $(k).addEventListener('change', () => {
-      const v = $(k).value;
-      bridge.setSettings({ [k]: numeric.has(k) ? Number(v) : v });
+    $('edit').onclick = () => bridge.startEditing();
+    $('resetBounds').onclick = () => bridge.resetBounds();
+    $('veilleNow').onclick = () => bridge.startVeille();
+    $('close').onclick = () => window.close();
+    // Échap : vide d'abord la recherche, puis ferme la fenêtre.
+    window.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      if (e.target === $('search') && $('search').value) {
+        e.preventDefault();
+        clearSearch();
+        return;
+      }
+      window.close();
     });
-  }
-  for (const k of checks) $(k).addEventListener('change', () => bridge.setSettings({ [k]: $(k).checked }));
-  for (const k of Object.keys(ranges)) {
-    $(k).addEventListener('input', () => {
-      const v = Number($(k).value);
-      showRange(k, v);
-      bridge.setSettings({ [k]: v });
+    // Ctrl+F : aller à la recherche.
+    window.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && !e.altKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        $('search').focus();
+        $('search').select();
+      }
     });
-  }
 
-  $('edit').onclick = () => bridge.startEditing();
-  $('resetBounds').onclick = () => bridge.resetBounds();
-  $('veilleNow').onclick = () => bridge.startVeille();
-  $('close').onclick = () => window.close();
-  // Échap : vide d'abord la recherche, puis ferme la fenêtre.
-  window.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape') return;
-    if (e.target === $('search') && $('search').value) {
-      e.preventDefault();
-      clearSearch();
-      return;
+    // ----- Compte Spotify -----
+    $('spotifyClientId').addEventListener('change', () =>
+      bridge.setSettings({ spotifyClientId: $('spotifyClientId').value.trim() }),
+    );
+    $('spotifyCustomClientId').addEventListener('change', () => {
+      bridge.setSettings({ spotifyCustomClientId: $('spotifyCustomClientId').checked });
+      setTimeout(() => bridge.spotifyStatus().then(showSpotify), 150);
+    });
+    $('spotifyLogin').onclick = () => {
+      if ($('spotifyCustomClientId').checked)
+        bridge.setSettings({ spotifyClientId: $('spotifyClientId').value.trim() });
+      $('spotifyState').textContent = t('settings.spotify.connecting');
+      $('spotifyState').className = 'state';
+      setTimeout(() => bridge.spotifyLogin(), 200);
+    };
+    $('spotifyLogout').onclick = () => bridge.spotifyLogout();
+    $('dashboard').onclick = () => bridge.openSpotifyDashboard();
+    $('copyRedirect').onclick = async () => {
+      await navigator.clipboard.writeText($('redirectUri').textContent);
+      $('copyRedirect').textContent = t('settings.copied');
+      setTimeout(() => {
+        $('copyRedirect').textContent = t('settings.copy');
+      }, 1500);
+    };
+    function showSpotify(st) {
+      if (!st) return;
+      if (st.redirectUri) $('redirectUri').textContent = st.redirectUri;
+      $('spotifyLogin').textContent = st.connected ? t('settings.spotify.reconnect') : t('settings.spotify.login');
+      $('spotifyLogout').classList.toggle('hidden', !st.connected);
+      const el = $('spotifyState');
+      el.textContent = st.error
+        ? t('settings.error', { error: st.error })
+        : !st.connected
+          ? t('settings.spotify.notConnected')
+          : st.needsReconnect
+            ? t('settings.spotify.needsReconnect')
+            : t('settings.spotify.connected');
+      el.className = `state${st.error ? ' error' : st.connected ? ' ok' : ''}`;
     }
-    window.close();
-  });
-  // Ctrl+F : aller à la recherche.
-  window.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && !e.altKey && e.key.toLowerCase() === 'f') {
-      e.preventDefault();
-      $('search').focus();
-      $('search').select();
+    bridge.onSpotifyStatus(showSpotify);
+    bridge.spotifyStatus().then(showSpotify);
+
+    // ----- Mises à jour -----
+    function showUpdate(u) {
+      if (!u) return;
+      const el = $('updateState');
+      const v = t('settings.update.installed', { version: u.current }) + ' ';
+      const text =
+        {
+          dev: t('settings.update.dev'),
+          portable: t('settings.update.portable'),
+          idle: v,
+          checking: v + t('settings.update.checking'),
+          uptodate: v + t('settings.update.upToDate'),
+          downloading: v + t('settings.update.downloading', { version: u.version, progress: u.progress }),
+          ready: t('settings.update.ready', { version: u.version }),
+          error: t('settings.error', { error: v + u.error }),
+        }[u.state] || v;
+      el.textContent = text;
+      el.className = `state${u.state === 'error' ? ' error' : u.state === 'ready' || u.state === 'uptodate' ? ' ok' : ''}`;
+      $('checkUpdates').disabled = !u.enabled;
+      $('autoUpdate').disabled = !u.enabled;
+      $('installUpdate').classList.toggle('hidden', u.state !== 'ready');
     }
-  });
+    $('checkUpdates').onclick = () => bridge.checkUpdates();
+    $('installUpdate').onclick = () => bridge.installUpdate();
+    bridge.onUpdateStatus(showUpdate);
+    bridge.updateStatus().then(showUpdate);
 
-  // ----- Compte Spotify -----
-  $('spotifyClientId').addEventListener('change', () =>
-    bridge.setSettings({ spotifyClientId: $('spotifyClientId').value.trim() }),
-  );
-  $('spotifyCustomClientId').addEventListener('change', () => {
-    bridge.setSettings({ spotifyCustomClientId: $('spotifyCustomClientId').checked });
-    setTimeout(() => bridge.spotifyStatus().then(showSpotify), 150);
-  });
-  $('spotifyLogin').onclick = () => {
-    if ($('spotifyCustomClientId').checked) bridge.setSettings({ spotifyClientId: $('spotifyClientId').value.trim() });
-    $('spotifyState').textContent = 'Connexion en cours dans ton navigateur…';
-    $('spotifyState').className = 'state';
-    setTimeout(() => bridge.spotifyLogin(), 200);
-  };
-  $('spotifyLogout').onclick = () => bridge.spotifyLogout();
-  $('dashboard').onclick = () => bridge.openSpotifyDashboard();
-  $('copyRedirect').onclick = async () => {
-    await navigator.clipboard.writeText($('redirectUri').textContent);
-    $('copyRedirect').textContent = 'Copié';
-    setTimeout(() => {
-      $('copyRedirect').textContent = 'Copier';
-    }, 1500);
-  };
-  function showSpotify(st) {
-    if (!st) return;
-    if (st.redirectUri) $('redirectUri').textContent = st.redirectUri;
-    $('spotifyLogin').textContent = st.connected ? 'Se reconnecter' : 'Se connecter à Spotify';
-    $('spotifyLogout').classList.toggle('hidden', !st.connected);
-    const el = $('spotifyState');
-    el.textContent = st.error
-      ? `Erreur : ${st.error}`
-      : !st.connected
-        ? 'Non connecté.'
-        : st.needsReconnect
-          ? 'Connecté. Clique sur « Se reconnecter » pour activer aussi les boutons aléatoire et répétition.'
-          : "Connecté : file d'attente, aléatoire et répétition actifs.";
-    el.className = `state${st.error ? ' error' : st.connected ? ' ok' : ''}`;
+    // ----- Scène et diagnostic -----
+    $('openLayout').onclick = () => bridge.openLayoutEditor();
+    $('copyDiagnostic').onclick = async () => {
+      const el = $('diagnosticState');
+      try {
+        await bridge.copyDiagnostic();
+        el.textContent = t('settings.diagnosticCopied');
+        el.className = 'state ok';
+      } catch (e) {
+        el.textContent = t('settings.diagnosticFailed', { error: e.message });
+        el.className = 'state error';
+      }
+    };
+
+    bridge.onSettings(fill);
+    bridge.getSettings().then(fill);
   }
-  bridge.onSpotifyStatus(showSpotify);
-  bridge.spotifyStatus().then(showSpotify);
-
-  // ----- Mises à jour -----
-  function showUpdate(u) {
-    if (!u) return;
-    const el = $('updateState');
-    const v = `Version installée : ${u.current}. `;
-    const text =
-      {
-        dev: 'Mode développement (npm start) : pas de mise à jour automatique.',
-        portable: 'Version portable : pas de mise à jour automatique (télécharge la nouvelle version à la main).',
-        idle: `${v}`,
-        checking: `${v}Recherche en cours…`,
-        uptodate: `${v}Sillon est à jour.`,
-        downloading: `${v}Téléchargement de la version ${u.version}… ${u.progress} %`,
-        ready: `Version ${u.version} prête : elle s'installera à la fermeture, ou maintenant.`,
-        error: `Erreur : ${v}${u.error}`,
-      }[u.state] || v;
-    el.textContent = text;
-    el.className = `state${u.state === 'error' ? ' error' : u.state === 'ready' || u.state === 'uptodate' ? ' ok' : ''}`;
-    $('checkUpdates').disabled = !u.enabled;
-    $('autoUpdate').disabled = !u.enabled;
-    $('installUpdate').classList.toggle('hidden', u.state !== 'ready');
-  }
-  $('checkUpdates').onclick = () => bridge.checkUpdates();
-  $('installUpdate').onclick = () => bridge.installUpdate();
-  bridge.onUpdateStatus(showUpdate);
-  bridge.updateStatus().then(showUpdate);
-
-  // ----- Scène et diagnostic -----
-  $('openLayout').onclick = () => bridge.openLayoutEditor();
-  $('copyDiagnostic').onclick = async () => {
-    const el = $('diagnosticState');
-    try {
-      await bridge.copyDiagnostic();
-      el.textContent = 'Réussi : copié dans le presse-papiers, colle-le (Ctrl+V) dans ton message.';
-      el.className = 'state ok';
-    } catch (e) {
-      el.textContent = `Erreur : impossible de copier (${e.message})`;
-      el.className = 'state error';
-    }
-  };
-
-  bridge.onSettings(fill);
-  bridge.getSettings().then(fill);
 })();

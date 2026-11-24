@@ -170,6 +170,8 @@
       later(() => emit('settings', JSON.parse(JSON.stringify(settings))), 0);
     },
     onSettings: on('settings'),
+    getLanguage: async () => (settings.language === 'fr' || settings.language === 'en' ? settings.language : 'en'),
+    onLanguage: on('language'),
 
     // Morceau, paroles, file, fond d'écran
     onMedia: (cb) => {

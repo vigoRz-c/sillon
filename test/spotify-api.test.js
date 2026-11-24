@@ -179,9 +179,9 @@ test('sans chiffrement Windows : rien en clair sur disque, jetons gardés en mé
   await api.save({ ...fresh, clientId: CLIENT_ID });
   assert.equal(fs.existsSync(api.file), false);
   assert.equal(api.tokens.refresh, 'ref0');
-  assert.match(api.status().error, /chiffrement Windows indisponible : connexion non mémorisée/);
+  assert.match(api.status().error, /Windows encryption unavailable: sign-in not remembered/);
   api.clearError(); // l'avertissement persiste tant que les jetons ne sont pas mémorisés
-  assert.match(api.status().error, /non mémorisée/);
+  assert.match(api.status().error, /not remembered/);
   api.logout();
   assert.equal(api.status().error, '');
 });
@@ -193,7 +193,7 @@ test('load : fichier absent silencieux, fichier corrompu signalé', async (t) =>
   const bad = new SpotifyApi(() => ({ custom: true, clientId: CLIENT_ID }));
   await bad.ready;
   assert.equal(bad.tokens, null);
-  assert.equal(bad.status().error, 'Jetons Spotify illisibles : reconnecte-toi');
+  assert.equal(bad.status().error, 'Unreadable Spotify tokens: sign in again');
 });
 
 test('ancien fichier en clair : relu puis chiffré', async (t) => {
@@ -291,8 +291,8 @@ test('OAuth : retour sans code -> refusé sans appel réseau', async (t) => {
   await srv.handler({ url: `/callback?state=${stateOf()}` }, res);
   assert.equal(n.c.token, 0);
   assert.equal(res.status, 200);
-  assert.match(res.body, /incomplète/);
-  assert.match(api.status().error, /code absent/);
+  assert.match(res.body, /Incomplete/);
+  assert.match(api.status().error, /no code/);
   assert.equal(api.tokens, null);
   assert.equal(srv.closed, 1);
   n.restore();
@@ -304,7 +304,7 @@ test('OAuth : accès refusé dans Spotify -> message clair, aucun jeton', async 
   api.login();
   const res = fakeRes();
   await srv.handler({ url: `/callback?state=${stateOf()}&error=access_denied` }, res);
-  assert.equal(api.status().error, 'Connexion refusée dans Spotify.');
+  assert.equal(api.status().error, 'Sign-in refused in Spotify.');
   assert.equal(api.tokens, null);
   assert.equal(srv.closed, 1);
 });
@@ -335,7 +335,7 @@ test('OAuth : sans retour au bout de 5 minutes -> « Connexion Spotify expirée 
   const srv = fakeServer(t);
   api.login();
   t.mock.timers.tick(5 * 60 * 1000);
-  assert.equal(api.status().error, 'Connexion Spotify expirée');
+  assert.equal(api.status().error, 'Spotify sign-in expired');
   assert.equal(srv.closed, 1);
   assert.equal(api.server, null);
 });

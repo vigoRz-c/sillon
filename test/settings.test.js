@@ -33,6 +33,12 @@ test('sanitize : raccourcis clavier globaux (oui / non seulement)', () => {
   for (const v of ['false', 0, 1, null, {}]) assert.ok(!('globalShortcuts' in sanitize({ globalShortcuts: v })));
 });
 
+test('sanitize: language is auto, en or fr only', () => {
+  assert.strictEqual(DEFAULTS.language, 'auto');
+  for (const v of ['auto', 'en', 'fr']) assert.strictEqual(sanitize({ language: v }).language, v);
+  for (const v of ['de', 'EN', 'fr-FR', '', 1, null, {}]) assert.ok(!('language' in sanitize({ language: v })));
+});
+
 test('sanitize : bornes numériques', () => {
   assert.strictEqual(sanitize({ opacity: 5 }).opacity, 1);
   assert.strictEqual(sanitize({ opacity: -1 }).opacity, 0.2);

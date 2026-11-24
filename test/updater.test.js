@@ -56,11 +56,11 @@ test('téléchargement terminé : pas d’abandon ensuite', (t) => {
 test('erreurs : messages lisibles (réseau, aucune version publiée, autre)', () => {
   autoUpdater.emit('error', new Error('net::ERR_INTERNET_DISCONNECTED'));
   assert.equal(updater.status().state, 'error');
-  assert.match(updater.status().error, /Pas de connexion/);
+  assert.match(updater.status().error, /No connection/);
   autoUpdater.emit('error', new Error('HttpError: 404 Not Found'));
-  assert.match(updater.status().error, /Aucune version publiée/);
+  assert.match(updater.status().error, /No published version/);
   autoUpdater.emit('error', new Error(['signature invalide', 'détails techniques'].join('\n')));
-  assert.equal(updater.status().error, 'Mise à jour impossible : signature invalide');
+  assert.equal(updater.status().error, 'Update failed: signature invalide');
 });
 
 test('check : échec de la vérification -> état « error », pas d’exception', async (t) => {
@@ -71,7 +71,7 @@ test('check : échec de la vérification -> état « error », pas d’exception
   updater.check();
   await new Promise((r) => setImmediate(r));
   assert.equal(updater.status().state, 'error');
-  assert.match(updater.status().error, /Pas de connexion/);
+  assert.match(updater.status().error, /No connection/);
 });
 
 test('check : pas de nouvelle vérification pendant un téléchargement ou une fois prête', (t) => {

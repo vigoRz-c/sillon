@@ -9,6 +9,7 @@
 const { app, Notification } = require('electron');
 const S = require('./state');
 const diagnostic = require('./diagnostic');
+const { t } = require('./i18n');
 
 const CHECK_EVERY = 4 * 3600 * 1000; // toutes les 4 heures
 const DOWNLOAD_STALL = 10 * 60 * 1000; // téléchargement sans nouvelle de progression : abandon
@@ -75,8 +76,8 @@ function init() {
     set({ state: 'ready', version: info.version, progress: 100 });
     if (Notification.isSupported()) {
       const n = new Notification({
-        title: `Sillon ${info.version} est prêt`,
-        body: "La mise à jour s'installera à la fermeture. Clique pour redémarrer maintenant.",
+        title: t('updater.readyTitle', { version: info.version }),
+        body: t('updater.readyBody'),
       });
       n.on('click', installNow);
       n.show();
@@ -96,10 +97,10 @@ function init() {
 function friendly(e) {
   const msg = String((e && e.message) || e);
   if (/404|Cannot find latest|No published versions/i.test(msg)) {
-    return 'Aucune version publiée trouvée sur GitHub (le dépôt doit être public et avoir une Release).';
+    return t('updater.noRelease');
   }
-  if (/ENOTFOUND|ETIMEDOUT|ECONNRESET|net::/i.test(msg)) return 'Pas de connexion : nouvel essai plus tard.';
-  return `Mise à jour impossible : ${msg.split('\n')[0]}`;
+  if (/ENOTFOUND|ETIMEDOUT|ECONNRESET|net::/i.test(msg)) return t('updater.offline');
+  return t('updater.failed', { error: msg.split('\n')[0] });
 }
 
 function check() {

@@ -1,18 +1,19 @@
-// Menu de l'icône dans la zone de notification.
+// Menu of the icon in the notification area.
 
 const { app, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
 const S = require('../app/state');
+const { t } = require('../app/i18n');
 
-const { STYLES, THEMES } = require('../../renderer/shared/catalog');
-const LAYOUTS = [
-  ['scene', 'Scène : disque, paroles et panneau sur tout le bureau'],
-  ['strip', "Bandeau : barres et morceau en bas de l'écran"],
+const Catalog = require('../../renderer/shared/catalog');
+const LAYOUTS = () => [
+  ['scene', t('tray.layoutScene')],
+  ['strip', t('tray.layoutStrip')],
 ];
-const MODES = [
-  ['wallpaper', "Sur le fond d'écran (derrière les fenêtres)"],
-  ['top', 'Toujours au premier plan'],
-  ['normal', 'Fenêtre normale'],
+const MODES = () => [
+  ['wallpaper', t('tray.modeWallpaper')],
+  ['top', t('settings.layout.top')],
+  ['normal', t('settings.layout.normal')],
 ];
 
 function radio(list, key) {
@@ -34,11 +35,11 @@ function buildTray() {
     S.tray.on('click', () => S.tray.popUpContextMenu());
   }
   const m = S.lastMedia;
-  const now = m.active && m.title ? `${m.title} — ${m.artist || ''}`.slice(0, 60) : 'Rien en lecture';
+  const now = m.active && m.title ? `${m.title} — ${m.artist || ''}`.slice(0, 60) : t('common.nothingPlaying');
   const s = S.settings.get();
   const offset = A.lyricsOffsetFor(m);
   const up = A.updateStatus ? A.updateStatus() : {};
-  // Combinaison affichée à droite d'une entrée, si son raccourci global est actif.
+  // Combination shown to the right of an entry, if its global shortcut is active.
   const key = (id) => {
     const accelerator = A.shortcutAccelerator && A.shortcutAccelerator(id);
     return accelerator ? { accelerator, registerAccelerator: false } : {};
@@ -46,32 +47,32 @@ function buildTray() {
   S.tray.setContextMenu(
     Menu.buildFromTemplate([
       ...(up.state === 'ready'
-        ? [{ label: `⬆ Redémarrer pour installer Sillon ${up.version}`, click: A.installUpdate }, { type: 'separator' }]
+        ? [{ label: t('tray.installUpdate', { version: up.version }), click: A.installUpdate }, { type: 'separator' }]
         : []),
       { label: now, enabled: false },
       ...(s.sceneHidden
         ? [
             {
-              label: 'Réafficher Sillon sur le bureau',
+              label: t('tray.showAgain'),
               click: () => set({ sceneHidden: false }),
               ...key('toggleScene'),
             },
           ]
         : []),
-      { label: 'Lecture / pause', click: () => cmd('playpause'), ...key('playpause') },
-      { label: 'Suivant', click: () => cmd('next'), ...key('next') },
-      { label: 'Précédent', click: () => cmd('previous'), ...key('previous') },
+      { label: t('controls.playPause'), click: () => cmd('playpause'), ...key('playpause') },
+      { label: t('controls.next'), click: () => cmd('next'), ...key('next') },
+      { label: t('controls.previous'), click: () => cmd('previous'), ...key('previous') },
       ...(m.canShuffle
         ? [
             {
-              label: 'Lecture aléatoire',
+              label: t('controls.shuffle'),
               type: 'checkbox',
               checked: !!m.shuffle,
               click: () => cmd('shuffle'),
               ...key('shuffle'),
             },
             {
-              label: 'Répéter',
+              label: t('controls.repeat'),
               type: 'checkbox',
               checked: !!m.repeat && m.repeat !== 'None',
               click: () => cmd('repeat'),
@@ -83,38 +84,38 @@ function buildTray() {
       ...(m.active && m.title
         ? [
             {
-              label: `Paroles de ce morceau : décalage ${offset > 0 ? '+' : ''}${offset.toFixed(2)} s`,
+              label: t('tray.lyricsOffset', { offset: `${offset > 0 ? '+' : ''}${offset.toFixed(2)}` }),
               submenu: [
-                { label: 'Plus tôt (+0,25 s)', click: () => A.nudgeLyrics(0.25), ...key('lyricsEarlier') },
-                { label: 'Plus tard (−0,25 s)', click: () => A.nudgeLyrics(-0.25), ...key('lyricsLater') },
-                { label: 'Réinitialiser', click: () => A.nudgeLyrics(null) },
+                { label: t('tray.earlier'), click: () => A.nudgeLyrics(0.25), ...key('lyricsEarlier') },
+                { label: t('tray.later'), click: () => A.nudgeLyrics(-0.25), ...key('lyricsLater') },
+                { label: t('editor.reset'), click: () => A.nudgeLyrics(null) },
               ],
             },
           ]
         : []),
       { type: 'separator' },
-      { label: 'Style', submenu: radio(STYLES, 'style') },
-      { label: 'Couleurs', submenu: radio(THEMES, 'theme') },
-      { label: 'Disposition', submenu: radio(LAYOUTS, 'layout') },
-      { label: 'Position', submenu: radio(MODES, 'mode') },
+      { label: t('editor.style'), submenu: radio(Catalog.list('style', t), 'style') },
+      { label: t('editor.colors'), submenu: radio(Catalog.list('theme', t), 'theme') },
+      { label: t('settings.tab.layout'), submenu: radio(LAYOUTS(), 'layout') },
+      { label: t('settings.layout.position'), submenu: radio(MODES(), 'mode') },
       {
-        label: 'Réglages',
+        label: t('tray.options'),
         submenu: [
           {
-            label: 'Afficher le morceau en cours',
+            label: t('tray.showNowPlaying'),
             type: 'checkbox',
             checked: s.showNowPlaying,
             click: (i) => set({ showNowPlaying: i.checked }),
           },
           {
-            label: 'Paroles en plein écran',
+            label: t('settings.viz.showLyrics'),
             type: 'checkbox',
             checked: s.showLyrics !== false,
             click: (i) => set({ showLyrics: i.checked }),
             ...key('toggleLyrics'),
           },
           {
-            label: 'Sensibilité',
+            label: t('settings.sound.sensitivity'),
             submenu: [0.6, 1, 1.5, 2.2].map((v) => ({
               label: `× ${v}`,
               type: 'radio',
@@ -123,7 +124,7 @@ function buildTray() {
             })),
           },
           {
-            label: 'Opacité',
+            label: t('settings.viz.opacity'),
             submenu: [0.4, 0.6, 0.8, 1].map((v) => ({
               label: `${v * 100} %`,
               type: 'radio',
@@ -132,7 +133,7 @@ function buildTray() {
             })),
           },
           {
-            label: 'Images par seconde',
+            label: t('settings.viz.fps'),
             submenu: [30, 60].map((v) => ({
               label: `${v}`,
               type: 'radio',
@@ -141,7 +142,7 @@ function buildTray() {
             })),
           },
           {
-            label: 'Suivre en priorité',
+            label: t('settings.sound.prefer'),
             submenu: [
               {
                 label: 'Spotify',
@@ -150,7 +151,7 @@ function buildTray() {
                 click: () => set({ preferApp: 'spotify' }),
               },
               {
-                label: 'Le lecteur actif (YouTube, VLC…)',
+                label: t('settings.sound.activePlayer'),
                 type: 'radio',
                 checked: !s.preferApp,
                 click: () => set({ preferApp: '' }),
@@ -158,23 +159,23 @@ function buildTray() {
             ],
           },
           {
-            label: 'Écran de veille',
+            label: t('settings.behavior.veille'),
             submenu: [
               ...[0, 1, 2, 5, 10, 15, 30].map((v) => ({
-                label: v ? `Après ${v} min d'inactivité` : 'Jamais',
+                label: v ? t('tray.veilleAfter', { minutes: v }) : t('settings.never'),
                 type: 'radio',
                 checked: Number(s.veilleDelay) === v,
                 click: () => set({ veilleDelay: v }),
               })),
               { type: 'separator' },
               {
-                label: 'Seulement pendant la lecture',
+                label: t('tray.onlyPlaying'),
                 type: 'checkbox',
                 checked: s.veilleOnlyPlaying !== false,
                 click: (i) => set({ veilleOnlyPlaying: i.checked }),
               },
               {
-                label: 'Verrouiller la session en sortant',
+                label: t('tray.lockOnExit'),
                 type: 'checkbox',
                 checked: s.veilleLock !== false,
                 click: (i) => set({ veilleLock: i.checked }),
@@ -182,19 +183,19 @@ function buildTray() {
             ],
           },
           {
-            label: 'Lancer au démarrage de Windows',
+            label: t('settings.behavior.launchAtLogin'),
             type: 'checkbox',
             checked: s.launchAtLogin,
             click: (i) => set({ launchAtLogin: i.checked }),
           },
           {
-            label: 'Raccourcis clavier Ctrl+Alt',
+            label: t('tray.shortcuts'),
             type: 'checkbox',
             checked: s.globalShortcuts !== false,
             click: (i) => set({ globalShortcuts: i.checked }),
           },
           {
-            label: 'Mises à jour automatiques',
+            label: t('settings.advanced.autoUpdate'),
             type: 'checkbox',
             checked: s.autoUpdate !== false,
             enabled: !!up.enabled,
@@ -202,14 +203,14 @@ function buildTray() {
           },
           {
             label: up.enabled
-              ? `Rechercher les mises à jour (version ${up.current})`
-              : `Version ${up.current || ''} (${up.state === 'portable' ? 'portable' : 'développement'})`,
+              ? t('tray.checkUpdates', { version: up.current })
+              : t(up.state === 'portable' ? 'tray.versionPortable' : 'tray.versionDev', { version: up.current || '' }),
             enabled: !!up.enabled,
             click: A.checkUpdates,
           },
-          { label: 'Copier le diagnostic', click: A.copyDiagnostic },
+          { label: t('settings.advanced.copyDiagnostic'), click: A.copyDiagnostic },
           {
-            label: 'Remettre la position par défaut',
+            label: t('tray.resetPosition'),
             click: () => {
               S.settings.set({ bounds: null });
               A.applyMode();
@@ -218,18 +219,18 @@ function buildTray() {
         ],
       },
       { type: 'separator' },
-      { label: 'Paramètres…', click: A.openSettings, ...key('settings') },
-      { label: 'Personnaliser la scène…', click: A.openLayoutEditor, enabled: A.isScene(), ...key('sceneEditor') },
+      { label: t('tray.settings'), click: A.openSettings, ...key('settings') },
+      { label: t('settings.scene.customize'), click: A.openLayoutEditor, enabled: A.isScene(), ...key('sceneEditor') },
       {
-        label: S.editing ? '✔ Terminer le placement' : 'Déplacer / redimensionner…',
+        label: S.editing ? t('tray.finishPlacement') : t('tray.place'),
         click: () => A.setEditing(!S.editing),
         enabled: S.editing || !A.isScene(),
         ...key('placeStrip'),
       },
-      { label: 'Plein écran', click: A.toggleFullscreen, ...key('fullscreen') },
-      { label: 'Écran de veille', click: A.startVeille, ...key('veille') },
+      { label: t('tray.fullscreen'), click: A.toggleFullscreen, ...key('fullscreen') },
+      { label: t('settings.behavior.veille'), click: A.startVeille, ...key('veille') },
       { type: 'separator' },
-      { label: 'Quitter', click: () => app.quit() },
+      { label: t('tray.quit'), click: () => app.quit() },
     ]),
   );
 }

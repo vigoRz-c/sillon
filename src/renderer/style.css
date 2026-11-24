@@ -20,7 +20,7 @@ body {
 .hidden {
   display: none !important;
 }
-/* Texte réservé aux lecteurs d'écran. */
+/* Text reserved for screen readers. */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -31,13 +31,13 @@ body {
   white-space: nowrap;
 }
 
-/* Focus clavier visible partout : double anneau (clair + sombre), lisible sur tout fond. */
+/* Keyboard focus visible everywhere: double ring (light + dark), readable on any background. */
 :focus-visible {
   outline: 2px solid #fff;
   outline-offset: 2px;
   box-shadow: 0 0 0 4px #000;
 }
-/* Ces contrôles dessinent leur propre anneau (pouce du curseur). */
+/* These controls draw their own ring (slider thumb). */
 .vol-range:focus-visible {
   outline: none;
   box-shadow: none;
@@ -47,7 +47,7 @@ h1:focus-visible {
   box-shadow: none;
 }
 
-/* Animations réduites : réglage Sillon (classe posée par common.js / settings.js) ou réglage Windows. */
+/* Reduced motion: Sillon setting (class set by common.js / settings.js) or Windows setting. */
 body.reduce-motion #room img,
 body.reduce-motion .lyr-line,
 body.reduce-motion .lyr-word,
@@ -85,7 +85,7 @@ body.reduce-motion .lyr-word {
   }
 }
 
-/* Contraste forcé de Windows : couleurs système, bordures visibles. */
+/* Windows forced contrast: system colors, visible borders. */
 @media (forced-colors: active) {
   :focus-visible {
     outline: 2px solid Highlight;
@@ -113,7 +113,7 @@ body.widget {
   position: relative;
 }
 
-/* Pas de boîte autour : tout se fond dans le fond d'écran. */
+/* No box around: everything blends into the wallpaper. */
 body.widget #viz,
 body.widget #glow {
   position: absolute;
@@ -134,7 +134,7 @@ body.widget #glow {
   filter: blur(40px);
   transition: background 1.2s ease;
 }
-/* Légèrement translucide : le fond d'écran transparaît à travers les barres. */
+/* Slightly translucent: the wallpaper shows through the bars. */
 body.widget #viz {
   opacity: 0.85;
 }
@@ -149,7 +149,7 @@ body.widget #viz {
   gap: 12px;
   width: min(460px, 90%);
   padding: 8px 14px 8px 8px;
-  /* Voile sombre discret derrière le texte : contraste garanti sur tout fond d'écran. */
+  /* Discreet dark veil behind the text: contrast guaranteed on any wallpaper. */
   background: rgba(0, 0, 0, 0.32);
   backdrop-filter: blur(6px);
   border-radius: 14px;
@@ -213,10 +213,10 @@ body.widget #viz {
   color: #fecaca;
 }
 
-/* ----- Mode placement ----- */
-/* La zone de glisser est le calque d'édition, pas body : posée sur body,
-   Electron ignore les exceptions « no-drag » de ses enfants, et le bouton
-   « Terminé » comme la poignée deviennent une barre de titre (clics avalés). */
+/* ----- Placement mode ----- */
+/* The drag area is the editing layer, not body: set on body, Electron
+   ignores the "no-drag" exceptions of its children, and the "Done" button
+   and the handle become a title bar (clicks swallowed). */
 body.editing .edit {
   -webkit-app-region: drag;
   cursor: move;
@@ -278,7 +278,7 @@ body.editing::after {
   );
 }
 
-/* ================= Plein écran ================= */
+/* ================= Full screen ================= */
 
 body.fullscreen {
   background: #000;
@@ -300,7 +300,7 @@ body.fullscreen.idle {
   filter: blur(70px) saturate(1.4) brightness(0.6);
   animation: drift 40s ease-in-out infinite alternate;
 }
-/* Musique en pause : le fond s'immobilise (classe posée par fullscreen.js). */
+/* Music paused: the background stops moving (class set by fullscreen.js). */
 body.paused #room img {
   animation-play-state: paused;
 }
@@ -354,7 +354,7 @@ body.fullscreen:not(.ring-mode) .big-cover {
   max-width: 60%;
   padding: 10px 18px;
   border-radius: 16px;
-  /* Voile sombre local : le titre reste lisible sur une pochette claire. */
+  /* Local dark veil: the title stays readable on a light cover. */
   background: rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(8px);
 }
@@ -409,8 +409,8 @@ body.fullscreen:not(.ring-mode) .big-cover {
   min-width: 80px;
   font-variant-numeric: tabular-nums;
 }
-/* Aide des raccourcis du plein écran : cachée à l'écran (gardée pour les lecteurs
-   d'écran), affichée par la touche ? ou H. */
+/* Full-screen shortcut help: hidden on screen (kept for screen readers),
+   shown with the ? or H key. */
 .keys {
   position: absolute;
   width: 1px;
@@ -442,7 +442,7 @@ body.show-keys .keys {
 body.idle .controls {
   opacity: 0;
 }
-/* Le focus clavier garde les boutons visibles même au repos. */
+/* Keyboard focus keeps the buttons visible even at rest. */
 body.idle .controls:focus-within {
   opacity: 1;
 }
@@ -462,7 +462,7 @@ body.idle .controls:focus-within {
   opacity: 1;
 }
 
-/* ----- Bouton paramètres (plein écran) : toujours visible, discret ----- */
+/* ----- Settings button (full screen): always visible, discreet ----- */
 .settings-btn {
   position: absolute;
   top: 24px;
@@ -504,9 +504,9 @@ body.fullscreen .toast {
   right: 84px;
 }
 
-/* Fenêtre de paramètres : voir pages/settings.css (chargée seulement par settings.html). */
+/* Settings window: see pages/settings.css (loaded only by settings.html). */
 
-/* ================= Scène (disque, paroles, panneau) ================= */
+/* ================= Scene (disc, lyrics, panel) ================= */
 
 :root {
   --lyr-size: 48px;
@@ -525,7 +525,7 @@ body.widget.scene #viz {
   height: 100%;
   opacity: 1;
 }
-/* Éléments de la scène : placés par widget.js selon la disposition. */
+/* Scene elements: placed by widget.js according to the layout. */
 .big-title,
 .lyrics,
 .el {
@@ -542,7 +542,7 @@ body.scene .el-ghost {
   pointer-events: none;
 }
 
-/* Grand titre au début du morceau */
+/* Big title at the start of the track */
 .big-title {
   text-align: center;
   white-space: nowrap;
@@ -572,18 +572,18 @@ body.scene .el-ghost {
   transform: none;
 }
 
-/* Paroles */
+/* Lyrics */
 .lyrics {
   position: absolute;
   transform: translateY(-50%);
   text-align: center;
   pointer-events: none;
 }
-/* Voile sombre diffus derrière les paroles (seulement quand il y en a). */
+/* Soft dark veil behind the lyrics (only when there are some). */
 .lyrics:not(:empty) {
   background: radial-gradient(closest-side, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.12) 70%, transparent);
 }
-/* Service de paroles injoignable : message discret, distinct d'un morceau sans paroles. */
+/* Lyrics service unreachable: discreet message, distinct from a track without lyrics. */
 .lyr-unavailable {
   font-family: var(--font);
   font-size: calc(var(--lyr-size) * 0.3);
@@ -609,7 +609,7 @@ body.scene .lyrics {
   line-height: 1.02;
   text-transform: uppercase;
   color: #fff;
-  /* Ombre via filter : compatible avec le remplissage (background-clip: text). */
+  /* Shadow via filter: compatible with the fill (background-clip: text). */
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 18px rgba(0, 0, 0, 0.25));
   transition:
     opacity 0.4s ease,
@@ -618,7 +618,7 @@ body.scene .lyrics {
 .lyr-line.out {
   opacity: 0;
 }
-/* Ligne précédente : remonte au-dessus, réduite et pâle. */
+/* Previous line: floats up above, shrunk and pale. */
 .lyr-line.ghost {
   opacity: 0.6;
   transform: translateY(calc(-50% + var(--gy, -60px))) scale(0.6);
@@ -626,7 +626,7 @@ body.scene .lyrics {
 .lyr-line.ghost.out {
   opacity: 0;
 }
-/* Ligne suivante : annoncée sous la ligne chantée, réduite et pâle. */
+/* Next line: announced under the sung line, shrunk and pale. */
 .lyr-line.preview {
   opacity: 0.55;
   transform: translateY(calc(-50% + var(--py, 60px))) scale(0.6);
@@ -641,7 +641,7 @@ body.scene .lyrics {
   display: inline-block;
   margin: 0 0.12em;
   vertical-align: baseline;
-  /* Mot à venir : déjà lisible, en pâle, comme au karaoké. */
+  /* Upcoming word: already readable, pale, as in karaoke. */
   opacity: 0.38;
   transform: translateY(0.08em) scale(0.96);
   transition:
@@ -653,12 +653,12 @@ body.scene .lyrics {
   font-size: 0.52em;
   letter-spacing: 0.02em;
 }
-/* Prochain mot à chanter : un peu plus marqué. */
+/* Next word to sing: a little more marked. */
 .lyr-word.next {
   opacity: 0.7;
   transform: none;
 }
-/* Ligne annoncée : tous ses mots au même niveau (elle est déjà pâle). */
+/* Announced line: all its words at the same level (it is already pale). */
 .lyr-line.preview .lyr-word {
   opacity: 1;
   transform: none;
@@ -667,7 +667,7 @@ body.scene .lyrics {
   opacity: 1;
   transform: none;
   filter: none;
-  /* Karaoké : la partie chantée en blanc plein, le reste en blanc pâle. */
+  /* Karaoke: the sung part in solid white, the rest in pale white. */
   color: transparent;
   background: linear-gradient(90deg, #fff var(--p, 0%), rgba(255, 255, 255, 0.72) var(--p, 0%));
   -webkit-background-clip: text;
@@ -685,7 +685,7 @@ body.scene .lyrics {
   opacity: 0.85;
 }
 
-/* Horloge */
+/* Clock */
 .clock {
   text-align: right;
   white-space: nowrap;
@@ -709,8 +709,8 @@ body.scene .lyrics {
   opacity: 0.8;
 }
 
-/* Panneau « en lecture » : pochette, infos, boutons et file d'attente, placés
-   chacun où l'on veut. */
+/* "Now playing" panel: cover, info, buttons and queue, each placed
+   wherever you like. */
 .p-cover {
   border-radius: 50%;
   object-fit: cover;
@@ -727,7 +727,7 @@ body.scene .lyrics {
   width: 260px;
   padding: 8px 12px;
   border-radius: 14px;
-  /* Voile sombre discret : le texte reste lisible sur le fond d'écran. */
+  /* Discreet dark veil: the text stays readable on the wallpaper. */
   background: rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(6px);
   text-shadow:
@@ -743,7 +743,7 @@ body.scene .lyrics {
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  /* Éclaircie vers le blanc : lisible quelle que soit la couleur d'accent. */
+  /* Lightened toward white: readable whatever the accent color. */
   color: color-mix(in srgb, var(--accent) 55%, #fff);
 }
 .p-title {
@@ -769,7 +769,7 @@ body.scene .lyrics {
   width: 0;
 }
 
-/* File d'attente */
+/* Queue */
 .p-queue .p-label {
   margin-bottom: 6px;
 }
@@ -809,7 +809,7 @@ body.scene .lyrics {
   text-overflow: ellipsis;
 }
 
-/* Pause : atténuée ; sans musique depuis longtemps : masquée */
+/* Pause: dimmed; no music for a long time: hidden */
 body.widget #viz,
 body.widget .el,
 body.widget .now {
@@ -829,7 +829,7 @@ body.widget.is-paused .clock {
 body.widget.is-asleep > * {
   opacity: 0 !important;
 }
-/* Les éléments sont maintenant dans <main> : c'est lui qui s'estompe. */
+/* The elements are now in <main>: that is what fades out. */
 body.widget > main {
   transition: opacity 1.5s ease;
 }
@@ -842,7 +842,7 @@ body.reduce-motion.widget > main {
   }
 }
 
-/* ================= Boutons du panneau (fenêtre à part) ================= */
+/* ================= Panel buttons (separate window) ================= */
 
 body.ctrl-win {
   padding: 1px;
@@ -911,7 +911,7 @@ body.reduce-motion .vol:hover .vol-range::-webkit-slider-thumb {
     transform: none;
   }
 }
-/* Volume du lecteur (boutons de la scène et plein écran) */
+/* Player volume (scene buttons and full screen) */
 .vol {
   display: flex;
   align-items: center;
@@ -921,7 +921,7 @@ body.reduce-motion .vol:hover .vol-range::-webkit-slider-thumb {
 .vol.hidden {
   display: none;
 }
-/* Zone cliquable de 24 px de haut ; la piste (4 px) et le pouce (18 px) sont dessinés dedans. */
+/* Clickable area 24 px high; the track (4 px) and the thumb (18 px) are drawn inside. */
 .vol-range {
   -webkit-appearance: none;
   appearance: none;
@@ -949,7 +949,7 @@ body.reduce-motion .vol:hover .vol-range::-webkit-slider-thumb {
 .vol:hover .vol-range::-webkit-slider-thumb {
   transform: scale(1.1);
 }
-/* Anneau de focus sur le pouce : clair + sombre. */
+/* Focus ring on the thumb: light + dark. */
 .vol-range:focus-visible::-webkit-slider-thumb {
   box-shadow:
     0 0 0 2px #000,
@@ -969,7 +969,7 @@ body.ctrl-win .badge {
   font-weight: 800;
 }
 
-/* Écran de veille : pas de commandes, pas de curseur, disque dessiné au centre */
+/* Screen saver: no controls, no cursor, disc drawn in the middle */
 body.veille,
 body.veille * {
   cursor: none !important;
@@ -987,7 +987,7 @@ body.veille #viz {
   opacity: 1 !important;
 }
 
-/* Paroles en plein écran : à gauche de la pochette */
+/* Full-screen lyrics: to the left of the cover */
 body.fullscreen .lyrics {
   display: block;
   z-index: 2;
@@ -996,7 +996,7 @@ body.fullscreen .lyrics.hidden {
   display: none;
 }
 
-/* ===== Éditeur de disposition (widget.html?edit=1) ===== */
+/* ===== Layout editor (widget.html?edit=1) ===== */
 body.layout-edit {
   background: #0b0b10 center / cover no-repeat;
 }
@@ -1014,12 +1014,12 @@ body.layout-edit .lyrics {
 body.layout-edit .el:hover {
   outline-color: rgba(255, 255, 255, 0.75);
 }
-/* Élément sélectionné : contour plein, en plus du cadre #selFrame. */
+/* Selected element: solid outline, in addition to the #selFrame frame. */
 body.layout-edit .el.sel {
   outline: 2px solid #c084fc;
   outline-offset: 2px;
 }
-/* Focus clavier : double anneau clair + sombre, distinct du contour pointillé. */
+/* Keyboard focus: double ring light + dark, distinct from the dotted outline. */
 body.layout-edit .el:focus-visible,
 body.layout-edit .lyrics:focus-visible {
   outline: 3px solid #fff;
@@ -1033,7 +1033,7 @@ body.layout-edit #barsEl {
   border-radius: 4px;
 }
 body.layout-edit .lyrics:empty::before {
-  content: 'Paroles du morceau';
+  content: attr(data-placeholder); /* set by scene-editor.js */
   font-size: var(--lyr-size);
   opacity: 0.6;
 }

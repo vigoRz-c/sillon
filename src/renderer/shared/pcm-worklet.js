@@ -1,15 +1,15 @@
-/* Lecteur de son brut pour l'analyse (AudioWorklet).
+/* Raw sound player for the analysis (AudioWorklet).
  *
- * Reçoit du processus principal des morceaux de son mono 16 bits (capture du
- * seul lecteur suivi, voir src/main/audio/app-audio.js) et les rejoue dans le graphe
- * audio, où l'analyseur du visualiseur les lit. Rien n'est envoyé aux
- * haut-parleurs. On garde un tampon court pour coller au son entendu.
+ * Receives from the main process chunks of 16-bit mono sound (capture of
+ * the followed player only, see src/main/audio/app-audio.js) and plays them into the
+ * audio graph, where the visualizer's analyser reads them. Nothing is sent
+ * to the speakers. A short buffer is kept to stay close to the heard sound.
  */
 /* global AudioWorkletProcessor, registerProcessor */
 class PcmPlayer extends AudioWorkletProcessor {
   constructor() {
     super();
-    this.buf = new Float32Array(48000); // 1 s au plus
+    this.buf = new Float32Array(48000); // 1 s at most
     this.read = 0;
     this.write = 0;
     this.size = 0;
@@ -18,11 +18,11 @@ class PcmPlayer extends AudioWorkletProcessor {
     this.port.onmessage = (e) => this.push(new Int16Array(e.data));
   }
 
-  // Réglage automatique du niveau : le son capturé d'une seule appli est
-  // souvent bien plus faible que celui de tout le PC (environ 10 dB de moins,
-  // selon le volume de l'appli). On le ramène vers un niveau moyen fixe, pour
-  // que le visualiseur réagisse pareil quel que soit le volume. Le silence
-  // n'est pas amplifié.
+  // Automatic level control: the captured sound of a single app is often
+  // much quieter than the whole PC's (about 10 dB less, depending on the
+  // app's volume). It is brought toward a fixed average level, so the
+  // visualizer reacts the same whatever the volume. Silence is not
+  // amplified.
   push(samples) {
     const buf = this.buf,
       cap = buf.length;
@@ -32,7 +32,7 @@ class PcmPlayer extends AudioWorkletProcessor {
       sum += v * v;
     }
     const rms = Math.sqrt(sum / Math.max(1, samples.length));
-    if (rms > 0.001) this.env = this.env ? this.env * 0.99 + rms * 0.01 : rms; // ~1 s de mémoire
+    if (rms > 0.001) this.env = this.env ? this.env * 0.99 + rms * 0.01 : rms; // ~1 s of memory
     const target = this.env ? Math.min(12, Math.max(1, 0.08 / this.env)) : 1;
     this.gain += (target - this.gain) * 0.05;
     const g = this.gain / 32768;
@@ -40,11 +40,11 @@ class PcmPlayer extends AudioWorkletProcessor {
     for (let i = 0; i < samples.length; i++) {
       const v = samples[i] * g;
       buf[w] = v > 1 ? 1 : v < -1 ? -1 : v;
-      if (++w === cap) w = 0; // bouclage sans modulo
+      if (++w === cap) w = 0; // wrap-around without modulo
     }
     this.write = w;
     this.size = Math.min(cap, this.size + samples.length);
-    // Retard limité à ~80 ms : on saute ce qui dépasse.
+    // Delay capped at ~80 ms: skip what goes beyond.
     const max = 3840;
     if (this.size > max) {
       this.read = (this.write - max + cap) % cap;

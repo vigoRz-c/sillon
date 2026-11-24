@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'"
     />
-    <title>Sillon · scène</title>
+    <title data-i18n="widget.title">Sillon · scene</title>
     <link rel="stylesheet" href="../style.css" />
   </head>
   <body class="widget">
@@ -14,7 +14,7 @@
       <div id="glow" aria-hidden="true"></div>
       <canvas id="viz" aria-hidden="true"></canvas>
 
-      <!-- Bandeau -->
+      <!-- Strip -->
       <div id="now" class="now hidden">
         <img id="cover" alt="" />
         <div class="meta">
@@ -23,7 +23,8 @@
           <div
             class="progress"
             role="progressbar"
-            aria-label="Position dans le morceau"
+            aria-label="Position in the track"
+            data-i18n-attr="aria-label:common.progress"
             aria-valuemin="0"
             aria-valuemax="0"
             aria-valuenow="0"
@@ -33,22 +34,23 @@
         </div>
       </div>
 
-      <!-- Scène : chaque élément est placé selon la disposition (scene-layout.js).
-       Le disque et les barres sont dessinés dans le canevas ; discEl et barsEl
-       ne servent qu'à les saisir dans l'éditeur. -->
+      <!-- Scene: each element is placed according to the layout (scene-layout.js).
+       The disc and the bars are drawn in the canvas; discEl and barsEl only
+       serve to grab them in the editor. -->
       <div id="discEl" class="el el-ghost" data-el="disc"></div>
       <div id="barsEl" class="el el-ghost" data-el="bars"></div>
       <div id="bigTitle" class="el big-title" data-el="title"><span id="bigTitleText"></span></div>
       <div id="lyrics" class="el lyrics" data-el="lyrics"></div>
       <img id="pCover" class="el p-cover" data-el="cover" alt="" />
       <div id="pInfo" class="el p-info" data-el="info">
-        <div class="p-label">En lecture</div>
+        <div class="p-label" data-i18n="widget.nowPlaying">Now playing</div>
         <div id="pTitle" class="p-title"></div>
         <div id="pArtist" class="p-artist"></div>
         <div
           class="progress"
           role="progressbar"
-          aria-label="Position dans le morceau"
+          aria-label="Position in the track"
+          data-i18n-attr="aria-label:common.progress"
           aria-valuemin="0"
           aria-valuemax="0"
           aria-valuenow="0"
@@ -58,7 +60,7 @@
       </div>
       <div id="pControls" class="el p-controls" data-el="buttons"></div>
       <div id="pQueue" class="el p-queue" data-el="queue">
-        <div class="p-label">À suivre</div>
+        <div class="p-label" data-i18n="widget.upNext">Up next</div>
         <div id="pQueueList"></div>
       </div>
       <div id="clock" class="el clock" data-el="clock">
@@ -69,12 +71,15 @@
       <div id="status" class="status hidden" role="status" aria-live="polite"></div>
 
       <div id="edit" class="edit hidden">
-        <div class="edit-hint">Glisse pour déplacer · tire le coin pour redimensionner</div>
-        <button id="done" type="button">Terminé</button>
-        <div id="grip" class="grip" title="Redimensionner"></div>
+        <div class="edit-hint" data-i18n="widget.editHint">Drag to move · pull the corner to resize</div>
+        <button id="done" type="button" data-i18n="common.done">Done</button>
+        <div id="grip" class="grip" title="Resize" data-i18n-attr="title:widget.resize"></div>
       </div>
     </main>
 
+    <script src="../shared/locales/en.js"></script>
+    <script src="../shared/locales/fr.js"></script>
+    <script src="../shared/i18n.js"></script>
     <script src="../shared/catalog.js"></script>
     <script src="../shared/audio-engine.js"></script>
     <script src="../shared/colors.js"></script>

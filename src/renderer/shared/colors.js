@@ -1,6 +1,6 @@
-/* Sillon — couleurs : conversions, palettes tirées d'une pochette ou d'une
-   couleur, opacité (withAlpha / prepareColor).
-   Script classique : expose window.SillonColors. Chargé avant visualizers.js. */
+/* Sillon — colors: conversions, palettes taken from a cover or a
+   color, opacity (withAlpha / prepareColor).
+   Classic script: exposes window.SillonColors. Loaded before visualizers.js. */
 (function () {
   'use strict';
 
@@ -27,8 +27,8 @@
   }
   const hsl = (h, s, l) => `hsl(${((h % 360) + 360) % 360} ${Math.round(s * 100)}% ${Math.round(l * 100)}%)`;
 
-  // 3 couleurs tirées de la pochette. Une pochette grise donne des blancs teintés
-  // plutôt qu'une couleur inventée.
+  // 3 colors taken from the cover. A gray cover gives tinted whites
+  // rather than a made-up color.
   function paletteFromImage(img, { soft = false } = {}) {
     const c = document.createElement('canvas');
     c.width = c.height = 32;
@@ -61,7 +61,7 @@
     const main = ranked[0];
     const second = ranked.find((b) => Math.abs(((b.h - main.h + 540) % 360) - 180) < 150) || { h: main.h + 40 };
     if (soft) {
-      // Tons doux et clairs, pris dans le fond d'écran : ils s'y fondent au lieu de trancher.
+      // Soft, light tones taken from the wallpaper: they blend in instead of standing out.
       const ss = Math.min(0.75, Math.max(0.35, main.s));
       return [
         hsl(main.h, ss, 0.72),
@@ -73,16 +73,16 @@
     return [hsl(main.h, s, 0.55), hsl(second.h, Math.max(0.6, second.s || s), 0.6), hsl(main.h + 20, s, 0.75)];
   }
 
-  // Une couleur choisie -> palette de 3 en balayant la teinte dans les deux sens.
+  // A picked color -> palette of 3 by sweeping the hue both ways.
   function paletteFromColor(hex) {
     const [h, s] = rgbToHsl(...hexToRgb(hex));
     return [hsl(h - 28, Math.max(0.6, s), 0.55), hsl(h, Math.max(0.65, s), 0.6), hsl(h + 28, Math.max(0.6, s), 0.72)];
   }
 
-  // Couleur de la roue des couleurs -> palette de 3. Contrairement à
-  // paletteFromColor, la saturation et la luminosité choisies sont respectées :
-  // la principale est la couleur exacte (lueurs, halo), la secondaire une teinte
-  // voisine, l'éclat une version plus claire. Couleur invalide : violet de Sillon.
+  // Color wheel color -> palette of 3. Unlike paletteFromColor, the picked
+  // saturation and lightness are kept: the main one is the exact color
+  // (glows, halo), the secondary a neighboring hue, the highlight a lighter
+  // version. Invalid color: Sillon violet.
   function paletteFromCustom(hex) {
     if (typeof hex !== 'string' || !/^#[0-9a-f]{6}$/i.test(hex)) hex = '#8b5cf6';
     const [h, s, l] = rgbToHsl(...hexToRgb(hex));
@@ -90,10 +90,10 @@
     return [hex.toLowerCase(), hsl(h + 24, s, clamp(l * 0.95 + 0.04)), hsl(h - 16, s * 0.85, clamp(l + 0.2))];
   }
 
-  // "hsl(10 80% 50%)" ou "#rrggbb" -> même couleur avec une opacité.
-  // Le début de la chaîne ("rgba(r, g, b, " ou "hsl(… / ") est calculé une fois
-  // par couleur (voir prepareColor, appelé au changement de palette) : à chaque
-  // image il ne reste qu'à y accoler l'opacité.
+  // "hsl(10 80% 50%)" or "#rrggbb" -> same color with an opacity.
+  // The start of the string ("rgba(r, g, b, " or "hsl(… / ") is computed once
+  // per color (see prepareColor, called when the palette changes): every
+  // frame only the opacity is left to append.
   const colorPrefix = new Map();
   function prepareColor(color) {
     let p = colorPrefix.get(color);

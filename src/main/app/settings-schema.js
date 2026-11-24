@@ -4,6 +4,7 @@
 
 const Catalog = require('../../renderer/shared/catalog');
 const SceneLayout = require('../../renderer/shared/scene-layout');
+const I18n = require('../../renderer/shared/i18n');
 
 const DEFAULTS = {
   style: 'bars', // bars | mirror | blocks | ring | halo | wave | aurora | spectrum | dots | sparks | rosace
@@ -43,6 +44,7 @@ const DEFAULTS = {
   fps: 30, // images par seconde (30 : bien plus léger, 60 : plus fluide)
   preferApp: 'spotify', // session média préférée ('' = celle que Windows met en avant)
   launchAtLogin: false,
+  language: 'auto', // auto (Windows language) | en | fr
   autoUpdate: true, // chercher et installer les nouvelles versions (version installée)
   globalShortcuts: true, // raccourcis Ctrl+Alt+<touche> actifs partout (voir shared/shortcuts.js)
 };
@@ -57,6 +59,7 @@ const ENUMS = {
   layout: ['scene', 'strip'],
   sceneScreen: ['primary', 'secondary'],
   audioSource: ['app', 'system'],
+  language: I18n.PREFERENCES,
   discRays: Catalog.DISC_RAYS.map(([id]) => id),
   discColors: ['album', 'custom', ...Catalog.FIXED_THEMES.map(([id]) => id)],
 };

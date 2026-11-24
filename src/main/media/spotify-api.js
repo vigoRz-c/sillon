@@ -21,6 +21,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { note } = require('./text-norm');
+const { t } = require('../app/i18n');
 
 // App Spotify « Sillon » (mode développement : comptes autorisés uniquement).
 const BUILTIN_CLIENT_ID = '2205461c49cc4912a8e5f913ebc36c6d';
@@ -60,7 +61,7 @@ class SpotifyApi extends EventEmitter {
   loadFailed(e) {
     console.error('Jetons Spotify :', e.message);
     note('spotify', `jetons illisibles : ${e.message}`);
-    this.setError('Jetons Spotify illisibles : reconnecte-toi');
+    this.setError(t('spotify.unreadableTokens'));
     return null;
   }
 
@@ -115,13 +116,13 @@ class SpotifyApi extends EventEmitter {
         fs.renameSync(tmp, this.file);
         this.persistWarning = '';
       } else {
-        this.persistWarning = 'chiffrement Windows indisponible : connexion non mémorisée';
+        this.persistWarning = t('spotify.noEncryption');
         this.setError(this.persistWarning);
       }
     } catch (e) {
       console.error('Jetons Spotify :', e.message);
       note('spotify', `jetons non enregistrés : ${e.message}`);
-      this.persistWarning = `Jetons Spotify non enregistrés : ${e.message}`;
+      this.persistWarning = t('spotify.notSaved', { error: e.message });
       this.setError(this.persistWarning);
     }
     if (session !== this.session) return false;
@@ -202,7 +203,7 @@ class SpotifyApi extends EventEmitter {
   login() {
     const clientId = this.clientId();
     if (!/^[0-9a-f]{32}$/i.test(clientId)) {
-      this.setError('Client ID manquant ou invalide (32 caractères, copié depuis le tableau de bord Spotify).');
+      this.setError(t('spotify.badClientId'));
       return;
     }
     if (this.server) {
@@ -230,25 +231,25 @@ class SpotifyApi extends EventEmitter {
         });
         res.end(`<!doctype html><meta charset="utf-8"><title>Sillon</title>
 <body style="font-family:Segoe UI,sans-serif;background:#111;color:#eee;display:grid;place-items:center;height:100vh;margin:0">
-<div style="text-align:center"><h2>${ok ? 'Sillon est connecté à Spotify' : 'Connexion impossible'}</h2><p>${escapeHtml(text)}</p></div>`);
+<div style="text-align:center"><h2>${escapeHtml(t(ok ? 'spotify.pageConnected' : 'spotify.pageFailed'))}</h2><p>${escapeHtml(text)}</p></div>`);
         server.close();
         if (this.server === server) this.server = null;
       };
       if (url.searchParams.get('state') !== state) {
         // Une page quelconque ne doit pas pouvoir annuler la connexion : 400, le serveur reste ouvert.
-        res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' }).end('Réponse inattendue.');
+        res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' }).end(t('spotify.unexpected'));
         return;
       }
       const err = url.searchParams.get('error');
       if (err) {
-        this.setError(err === 'access_denied' ? 'Connexion refusée dans Spotify.' : `Spotify : ${err}`);
-        done(false, 'Tu peux fermer cet onglet.');
+        this.setError(err === 'access_denied' ? t('spotify.denied') : t('spotify.error', { error: err }));
+        done(false, t('spotify.closeTab'));
         return;
       }
       const code = url.searchParams.get('code');
       if (!code) {
-        this.setError('Réponse de Spotify incomplète (code absent) : reconnecte-toi.');
-        done(false, 'Réponse de Spotify incomplète. Tu peux fermer cet onglet et réessayer.');
+        this.setError(t('spotify.noCode'));
+        done(false, t('spotify.noCodePage'));
         return;
       }
       try {
@@ -268,13 +269,13 @@ class SpotifyApi extends EventEmitter {
         });
         this.clearError();
         this.emit('connected');
-        done(true, 'Tu peux fermer cet onglet et revenir au bureau.');
+        done(true, t('spotify.done'));
       } catch (e) {
         this.setError(e.message);
         done(false, e.message);
       }
     });
-    server.on('error', (e) => this.setError(`Port ${PORT} indisponible : ${e.message}`));
+    server.on('error', (e) => this.setError(t('spotify.portBusy', { port: PORT, error: e.message })));
     server.listen(PORT, '127.0.0.1', () => {
       const q = new URLSearchParams({
         client_id: clientId,
@@ -294,7 +295,7 @@ class SpotifyApi extends EventEmitter {
         if (this.server === server) {
           server.close();
           this.server = null;
-          this.setError('Connexion Spotify expirée');
+          this.setError(t('spotify.expired'));
         }
       },
       5 * 60 * 1000,

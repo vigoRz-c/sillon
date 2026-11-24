@@ -1,4 +1,4 @@
-/* Logique commune widget / plein écran : réglages, couleurs, morceau en cours. */
+/* Logic shared by the widget and the full screen: settings, colors, current track. */
 (function () {
   'use strict';
   const { AudioEngine, Renderer, THEMES, paletteFromImage, paletteFromColor, paletteFromCustom } = window.SV;
@@ -12,7 +12,7 @@
       albumPalette: null,
       wallpaperPalette: null,
       theme: 'wallpaper',
-      coverImg: null, // pochette décodée une seule fois, partagée avec les pages
+      coverImg: null, // cover decoded only once, shared with the pages
     };
 
     function applyPalette() {
@@ -27,7 +27,7 @@
       if (onPalette) onPalette(pal);
     }
 
-    // La préférence du système peut changer en cours de route.
+    // The system preference can change along the way.
     const reduceQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
     if (reduceQuery && reduceQuery.addEventListener)
       reduceQuery.addEventListener('change', () => applySettings(state.settings));
@@ -39,7 +39,7 @@
       renderer.fps = s.fps || 30;
       engine.sensitivity = s.sensitivity || 1;
       state.theme = s.theme || 'wallpaper';
-      // Animations réduites : réglage explicite ou préférence du système.
+      // Reduced motion: explicit setting or system preference.
       const reduce = !!(raw.reduceMotion || (reduceQuery && reduceQuery.matches));
       document.body.classList.toggle('reduce-motion', reduce);
       renderer.reduceMotion = reduce;
@@ -49,7 +49,7 @@
     }
 
     function applyMedia(m) {
-      // Pochette inchangée : le processus principal ne la renvoie pas (lourde).
+      // Unchanged cover: the main process does not send it again (heavy).
       if (m.coverKept) {
         m = { ...m, cover: state.media.cover };
         delete m.coverKept;
@@ -58,15 +58,15 @@
       state.media = m;
       if (coverChanged) {
         if (m.cover) {
-          // Une seule image par pochette : la palette et le disque s'en servent.
+          // A single image per cover: the palette and the disc use it.
           const img = new Image();
           state.coverImg = img;
           img.onload = () => {
-            if (state.coverImg !== img) return; // pochette déjà remplacée
+            if (state.coverImg !== img) return; // cover already replaced
             state.albumPalette = paletteFromImage(img);
             applyPalette();
           };
-          // Image invalide : on n'hérite pas de la palette du morceau précédent.
+          // Invalid image: do not inherit the previous track's palette.
           img.onerror = () => {
             if (state.coverImg !== img) return;
             state.coverImg = null;
@@ -83,7 +83,7 @@
       if (onMedia) onMedia(m, coverChanged);
     }
 
-    // Branchement sur Electron (ou sur un faux pont pour la démo / les tests).
+    // Hooked to Electron (or to a fake bridge for the demo / tests).
     const bridge = window.bridge;
     if (bridge) {
       bridge.onSettings(applySettings);
@@ -98,13 +98,13 @@
           };
           img.src = url;
         });
-      // Le processus principal choisit la source : tout le son du PC ou le seul lecteur suivi.
+      // The main process picks the source: all the PC's sound or only the followed player.
       if (bridge.onAudioStart)
         bridge.onAudioStart((kind) => (kind === 'app' ? engine.startApp(bridge) : engine.startSystem()));
       bridge.getSettings().then(applySettings);
     }
 
-    // Seul le moteur reste exposé (la démo y branche un son simulé).
+    // Only the engine stays exposed (the demo plugs simulated sound into it).
     window.sillon = { engine };
     return { engine, renderer, state, applySettings, applyMedia, applyPalette };
   }

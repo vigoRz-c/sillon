@@ -1,71 +1,72 @@
-/* Catalogue des visualiseurs et des jeux de couleurs : identifiants et libellés.
+/* Catalog of the visualizers and color sets: ids and English names.
  *
- * Source unique partagée par le moteur (engine.js, visualizers.js), le plein écran, la page des
- * réglages, le menu de l'icône (tray.js) et la validation des réglages
- * (processus principal, via require). L'ordre est celui des menus et des
- * raccourcis V / C du plein écran.
+ * Single source shared by the engine (engine.js, visualizers.js), the full
+ * screen, the settings page, the tray menu (tray.js) and settings validation
+ * (main process, via require). The order is that of the menus and of the
+ * full screen's V / C shortcuts. Other languages translate the names with the
+ * catalog.style.*, catalog.rays.* and catalog.theme.* keys (see name()).
  */
 (function (root) {
   'use strict';
 
   const STYLES = [
-    ['bars', 'Barres'],
-    ['mirror', 'Miroir'],
-    ['blocks', 'Blocs'],
-    ['ring', 'Anneau'],
+    ['bars', 'Bars'],
+    ['mirror', 'Mirror'],
+    ['blocks', 'Blocks'],
+    ['ring', 'Ring'],
     ['halo', 'Halo'],
-    ['wave', 'Onde'],
-    ['aurora', 'Aurore'],
-    ['spectrum', 'Spectre'],
-    ['dots', 'Points'],
-    ['sparks', 'Étincelles'],
-    ['rosace', 'Rosace'],
+    ['wave', 'Wave'],
+    ['aurora', 'Aurora'],
+    ['spectrum', 'Spectrum'],
+    ['dots', 'Dots'],
+    ['sparks', 'Sparks'],
+    ['rosace', 'Rosette'],
   ];
 
-  // Anneau du disque de la scène et de la veille (réglage discRays).
+  // Ring of the scene's and screen saver's disc (discRays setting).
   const DISC_RAYS = [
-    ['fine', 'Rayons fins et serrés'],
-    ['bold', 'Rayons épais et espacés'],
-    ['wave', 'Onde'],
-    ['dots', 'Points'],
+    ['fine', 'Fine, tight rays'],
+    ['bold', 'Thick, spaced rays'],
+    ['wave', 'Wave'],
+    ['dots', 'Dots'],
     ['arcs', 'Arcs'],
-    ['ripples', 'Ondes concentriques'],
+    ['ripples', 'Ripples'],
   ];
 
   const THEMES = [
-    ['wallpaper', "Couleurs du fond d'écran"],
-    ['album', 'Couleurs de la pochette'],
+    ['wallpaper', 'Wallpaper colors'],
+    ['album', 'Album cover colors'],
     ['spotify', 'Spotify'],
-    ['neon', 'Néon'],
-    ['sunset', 'Coucher de soleil'],
-    ['ocean', 'Océan'],
+    ['neon', 'Neon'],
+    ['sunset', 'Sunset'],
+    ['ocean', 'Ocean'],
     ['violet', 'Violet'],
-    ['mono', 'Blanc'],
-    // Vifs
+    ['mono', 'White'],
+    // Bright
     ['cyberpunk', 'Cyberpunk'],
     ['synthwave', 'Synthwave'],
-    ['acid', 'Acide'],
-    // Doux
+    ['acid', 'Acid'],
+    // Soft
     ['pastel', 'Pastel'],
-    ['lavender', 'Lavande'],
-    ['peach', 'Pêche'],
-    ['mint', 'Menthe'],
-    // Naturels
-    ['forest', 'Forêt'],
-    ['fire', 'Braise'],
-    ['ice', 'Glace'],
-    ['desert', 'Désert'],
-    // Sombres
-    ['gold', 'Or et noir'],
-    ['blood', 'Rouge sang'],
-    ['midnight', 'Minuit'],
-    // Choisie à la roue des couleurs (réglage customColor) : palette calculée.
-    ['custom', 'Couleur personnalisée'],
+    ['lavender', 'Lavender'],
+    ['peach', 'Peach'],
+    ['mint', 'Mint'],
+    // Natural
+    ['forest', 'Forest'],
+    ['fire', 'Embers'],
+    ['ice', 'Ice'],
+    ['desert', 'Desert'],
+    // Dark
+    ['gold', 'Gold and black'],
+    ['blood', 'Blood red'],
+    ['midnight', 'Midnight'],
+    // Picked on the color wheel (customColor setting): computed palette.
+    ['custom', 'Custom color'],
   ];
 
-  // Trois couleurs par jeu : principale (lueurs, halo), secondaire, éclat.
-  // « wallpaper » et « album » sont calculés à partir de l'image, « custom » à
-  // partir de la couleur choisie (voir paletteFromCustom dans colors.js).
+  // Three colors per set: main (glows, halo), secondary, highlight.
+  // "wallpaper" and "album" are computed from the image, "custom" from the
+  // picked color (see paletteFromCustom in colors.js).
   const PALETTES = {
     spotify: ['#1db954', '#1ed760', '#b8f5cf'],
     neon: ['#7c3aed', '#ec4899', '#22d3ee'],
@@ -94,15 +95,29 @@
     DISC_RAYS,
     THEMES,
     PALETTES,
-    // Jeux fixes (sans « wallpaper » ni « album ») : couleurs possibles du disque.
+    // Fixed sets (without "wallpaper" and "album"): possible disc colors.
     FIXED_THEMES: THEMES.filter(([id]) => Object.hasOwn(PALETTES, id)),
-    // Couleur par défaut de la roue des couleurs (réglage customColor).
+    // Default color of the color wheel (customColor setting).
     CUSTOM_DEFAULT: '#8b5cf6',
     STYLE_ORDER: STYLES.map(([id]) => id),
     THEME_ORDER: THEMES.map(([id]) => id),
     STYLE_NAMES: Object.fromEntries(STYLES),
     THEME_NAMES: Object.fromEntries(THEMES),
   };
+
+  // Name of a style, disc ring or color set (kind: 'style' | 'rays' | 'theme')
+  // in the language of `t` (a SillonI18n translate function); English without `t`.
+  const LISTS = { style: STYLES, rays: DISC_RAYS, theme: THEMES };
+  api.name = (kind, id, t) => {
+    const entry = (LISTS[kind] || []).find(([k]) => k === id);
+    const english = entry ? entry[1] : id;
+    if (!t) return english;
+    const key = `catalog.${kind}.${id}`;
+    const s = t(key);
+    return s === key ? english : s;
+  };
+  // [id, name] pairs of a list, translated.
+  api.list = (kind, t) => (LISTS[kind] || []).map(([id]) => [id, api.name(kind, id, t)]);
 
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.SillonCatalog = api;

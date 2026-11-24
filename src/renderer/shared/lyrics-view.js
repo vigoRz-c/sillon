@@ -1,6 +1,6 @@
-/* Paroles synchronisées en grosses lettres, mot par mot.
-   Les mots importants sont grands, les petits mots (articles, pronoms...)
-   plus petits, comme une typographie animée. Partagé widget / plein écran. */
+/* Synced lyrics in big letters, word by word.
+   Important words are large, small words (articles, pronouns...)
+   smaller, like kinetic typography. Shared by the widget and the full screen. */
 (function () {
   'use strict';
 
@@ -54,13 +54,13 @@
   ]);
   const isSmall = (w, last) => !last && (SMALL.has(w.toLowerCase().replace(/[^a-z'à-ÿ]/g, '')) || w.length <= 2);
 
-  // Nombre de syllabes approché (groupes de voyelles) : sert à répartir le temps
-  // d'une ligne entre ses mots quand les paroles n'ont pas de minutage mot à mot.
+  // Approximate syllable count (vowel groups): used to share a line's time
+  // between its words when the lyrics have no word-by-word timing.
   const syllables = (w) => Math.max(1, (w.toLowerCase().match(/[aeiouyàâäéèêëîïôöùûüÿœæ]+/g) || []).length);
 
-  // Ligne sans minutage mot à mot (LRC) : durée pendant laquelle elle est
-  // chantée. Jusqu'à la ligne suivante (le chanteur peut tenir les notes), sauf
-  // si l'écart est trop long pour ce nombre de syllabes (pause instrumentale).
+  // Line without word-by-word timing (LRC): how long it is sung. Until the
+  // next line (the singer may hold the notes), unless the gap is too long for
+  // this number of syllables (instrumental break).
   const spans = new WeakMap();
   function sungSpan(line, next) {
     let v = spans.get(line);
@@ -75,7 +75,7 @@
     return v;
   }
 
-  // Même morceau et mêmes lignes (seul le décalage a pu changer).
+  // Same track and same lines (only the offset may have changed).
   function sameLyrics(a, b) {
     if (!a || !b || !a.lines || !b.lines || !a.lines.length) return false;
     if (a.title !== b.title || a.artist !== b.artist || a.lines.length !== b.lines.length) return false;
@@ -89,15 +89,15 @@
       this.data = null;
       this.index = -2;
       this.current = null;
-      // Ligne suivante annoncée en petit sous la ligne chantée.
+      // Next line announced in small type under the sung line.
       this.preview = null;
       this.previewIndex = -1;
       this.fallbackKey = '';
     }
 
     set(data) {
-      // Mêmes paroles avec un autre décalage ([ / ]) : on garde la ligne affichée,
-      // sinon elle serait reconstruite et l'ancienne remonterait en fantôme.
+      // Same lyrics with another offset ([ / ]): keep the displayed line,
+      // otherwise it would be rebuilt and the old one would float up as a ghost.
       if (sameLyrics(this.data, data)) {
         this.data = data;
         return;
@@ -119,22 +119,22 @@
           lo = mid + 1;
         } else hi = mid - 1;
       }
-      // Après la fin d'une ligne (avec marge), on efface si la suivante tarde.
+      // After the end of a line (with a margin), clear it if the next one is late.
       if (found >= 0) {
         const l = lines[found];
         const next = lines[found + 1];
-        // Sans minutage mot à mot, la ligne reste au moins le temps d'être chantée.
+        // Without word-by-word timing, the line stays at least as long as it is sung.
         const end = l.words && l.words.length ? l.end : Math.max(l.end, l.t + sungSpan(l, next));
         if (pos > end + 1.5 && (!next || next.t - pos > 1)) return -1;
       }
       return found;
     }
 
-    // Construit les mots d'une ligne, avec leur début et leur fin.
+    // Builds the words of a line, with their start and end.
     words(line, nextLine) {
       if (line.words && line.words.length) {
-        // Minutage mot à mot : chaque mot dure jusqu'au suivant (note tenue
-        // comprise, dans la limite de 3 s), le dernier jusqu'à la fin de la ligne.
+        // Word-by-word timing: each word lasts until the next one (held note
+        // included, up to 3 s), the last one until the end of the line.
         const list = line.words.map((w) => ({ ...w }));
         list.forEach((w, i) => {
           const next = list[i + 1];
@@ -143,8 +143,8 @@
         });
         return list;
       }
-      // Sans minutage mot à mot : le temps chanté de la ligne est réparti entre
-      // les mots selon leurs syllabes (un mot long dure plus qu'un « de »).
+      // Without word-by-word timing: the line's sung time is shared between the
+      // words according to their syllables (a long word lasts longer than "of").
       const parts = line.text.split(/\s+/).filter(Boolean);
       const syl = parts.map(syllables);
       const total = syl.reduce((a, b) => a + b, 0);
@@ -160,7 +160,7 @@
     render(wordList, extraClass) {
       const node = document.createElement('div');
       node.className = `lyr-line ${extraClass || ''}`;
-      // Lignes de ~maxChars caractères pour former un bloc compact.
+      // Lines of ~maxChars characters to form a compact block.
       let row = document.createElement('div');
       row.className = 'lyr-row';
       let count = 0;
@@ -177,7 +177,7 @@
         span.textContent = w.text;
         span._t = w.t;
         span._end = w.end ?? w.t;
-        span._p = -1; // dernier remplissage écrit (voir update)
+        span._p = -1; // last fill written (see update)
         row.appendChild(span);
         (node._words || (node._words = [])).push(span);
         count += len + 1;
@@ -195,14 +195,14 @@
       this.current = node;
       if (node) this.el.appendChild(node);
       if (!old) return;
-      // La ligne qui s'en va ne doit plus être lue par un lecteur d'écran.
+      // The line that leaves must no longer be read by a screen reader.
       old.setAttribute('aria-hidden', 'true');
       if (!node || old.classList.contains('fallback')) {
         old.classList.add('out');
         setTimeout(() => old.remove(), 450);
         return;
       }
-      // Fantôme : la ligne qu'on vient de chanter remonte, réduite et pâle.
+      // Ghost: the line just sung floats up, shrunk and pale.
       old.querySelectorAll('.lyr-word').forEach((s) => {
         s.classList.add('on');
         s.style.setProperty('--p', '100%');
@@ -213,7 +213,7 @@
       old.classList.add('ghost');
     }
 
-    // Annonce la ligne `i` (ou rien si -1) sous la ligne chantée, petite et pâle.
+    // Announces line `i` (or nothing if -1) under the sung line, small and pale.
     setPreview(i) {
       if (i === this.previewIndex) return;
       this.previewIndex = i;
@@ -226,14 +226,14 @@
       const line = i >= 0 && this.data ? this.data.lines[i] : null;
       if (!line || !line.text || /^[♪♫\s]*$/.test(line.text)) return;
       const node = this.render(this.words(line, this.data.lines[i + 1]), 'preview');
-      // Déjà lue avec la ligne en cours par les lecteurs d'écran : pas deux fois.
+      // Already read with the current line by screen readers: not twice.
       node.setAttribute('aria-hidden', 'true');
       this.el.appendChild(node);
       this.preview = node;
       this.placePreview();
     }
 
-    // Sous la ligne chantée (ou au centre s'il n'y en a pas : pause avant le couplet).
+    // Under the sung line (or in the middle if there is none: pause before the verse).
     placePreview() {
       const node = this.preview;
       if (!node) return;
@@ -243,7 +243,7 @@
       node.style.setProperty('--py', `${shift}px`);
     }
 
-    // Prochaine ligne à annoncer : la suivante tant qu'elle arrive dans moins de 8 s.
+    // Next line to announce: the following one as long as it comes within 8 s.
     upcoming(pos) {
       const lines = this.data.lines;
       let j = this.index >= 0 ? this.index + 1 : 0;
@@ -251,18 +251,18 @@
       return j < lines.length && lines[j].t - pos < 8 ? j : -1;
     }
 
-    // À appeler à chaque image.
+    // Call every frame.
     update(media, pos) {
       const d = this.data;
       const title = (media && media.title) || '';
       const has = d && d.lines && d.lines.length && media && media.active && (d.title || '') === title;
       if (!has) {
-        // Pas de paroles : on montre le titre en grand, sans animation mot à mot.
-        // Recherche en cours ou lecteur arrêté : clé vide, donc plus rien à l'écran.
-        // Paroles injoignables (d.error) : une petite note, distincte d'une absence.
+        // No lyrics: show the title in large type, without word-by-word animation.
+        // Search in progress or player stopped: empty key, so nothing left on screen.
+        // Lyrics unreachable (d.error): a small note, distinct from no lyrics at all.
         const failed = !!(d && d.error && (!d.title || d.title === title));
         const key = media && media.active && (!d || !d.pending) ? `${title}|${media.artist}|${failed ? 'e' : ''}` : '';
-        // Sans clé, une ligne encore affichée (celle du morceau précédent) est retirée.
+        // Without a key, a line still displayed (the previous track's) is removed.
         if (key !== this.fallbackKey || (!key && this.current)) {
           this.fallbackKey = key;
           this.index = -2;
@@ -285,7 +285,7 @@
           if (failed) {
             const note = document.createElement('div');
             note.className = 'lyr-unavailable';
-            note.textContent = 'Paroles indisponibles';
+            note.textContent = window.SillonI18n.t('common.lyricsUnavailable');
             node.appendChild(note);
           }
           node.querySelectorAll('.lyr-word').forEach((s) => {
@@ -297,8 +297,8 @@
         return;
       }
       this.fallbackKey = '';
-      // Décalage réglé pour ce morceau (paroles d'une autre version), puis
-      // petite avance : l'œil lit un peu avant que la voix ne chante.
+      // Offset set for this track (lyrics of another version), then a small
+      // lead: the eye reads a little before the voice sings.
       pos += d.offset || 0;
       const i = this.lineAt(pos + 0.15);
       if (i !== this.index) {
@@ -310,7 +310,7 @@
       }
       this.setPreview(this.upcoming(pos + 0.15));
       if (this.current && this.current._words) {
-        // Le prochain mot à chanter est un peu plus marqué que les suivants.
+        // The next word to sing is marked a little more than the following ones.
         const nextWord = this.current._words.find((sp) => pos + 0.1 < sp._t) || null;
         if (nextWord !== this.current._next) {
           if (this.current._next) this.current._next.classList.remove('next');
@@ -319,7 +319,7 @@
         }
         for (const span of this.current._words) {
           if (pos + 0.1 < span._t) {
-            // Retour en arrière (seek, décalage) : le mot déjà coloré redevient éteint.
+            // Going back (seek, offset): the word already colored turns dark again.
             if (span._p >= 0) {
               span.classList.remove('on', 'full');
               span.style.removeProperty('--p');
@@ -328,10 +328,10 @@
             continue;
           }
           if (span._p >= 100 && pos >= span._end) continue;
-          // Remplissage karaoké : le mot se colore pendant qu'il est chanté.
+          // Karaoke fill: the word gets colored while it is sung.
           const p = span._end > span._t ? (pos - span._t) / (span._end - span._t) : 1;
           const pct = Math.max(0, Math.min(1, p)) * 100;
-          // On n'écrit dans la page que si le remplissage a bougé d'au moins 1 %.
+          // Only write to the page if the fill moved by at least 1 %.
           if (pct < 100 && span._p >= 0 && Math.abs(pct - span._p) < 1) continue;
           if (span._p < 0) span.classList.add('on');
           if (pct < 100) span.classList.remove('full');

@@ -1,7 +1,7 @@
-// Démo navigateur de Sillon (voir index.html). Charge la vraie page choisie
-// (src/renderer/pages/*.html) dans l'iframe et y injecte fake-bridge.js avant
-// ses scripts. On ne réécrit aucune page : la CSP de chacune s'applique telle
-// quelle, et la démo ne peut pas diverger de l'application.
+// Browser demo of Sillon (see index.html). Loads the real chosen page
+// (src/renderer/pages/*.html) in the iframe and injects fake-bridge.js before
+// its scripts. No page is rewritten: each one's CSP applies as is, and the
+// demo cannot drift from the application.
 (function () {
   'use strict';
 
@@ -35,7 +35,7 @@
   if (initial.get('page') && PAGE_FILES[initial.get('page')]) $('page').value = initial.get('page');
   if (initial.get('mode')) $('mode').value = initial.get('mode');
 
-  // Paramètres lus par fake-bridge.js dans la page parente (même origine).
+  // Parameters read by fake-bridge.js in the parent page (same origin).
   function currentParams() {
     return new URLSearchParams({
       page: $('page').value,
@@ -58,7 +58,7 @@
     try {
       const res = await fetch(new URL(PAGE_FILES[params.get('page')], PAGES_DIR));
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      // <base> : les liens relatifs de la page (../style.css, ../shared/…) restent ceux de l'application.
+      // <base>: the page's relative links (../style.css, ../shared/…) stay the application's.
       const inject = `<base href="${PAGES_DIR.href}"><script src="${FAKE_BRIDGE}"></script>`;
       const html = (await res.text()).replace(/<head[^>]*>/i, (head) => head + inject);
       const doc = frame.contentDocument;
@@ -68,14 +68,14 @@
       doc.addEventListener('pointerdown', resumeAudio);
     } catch (e) {
       $('error').textContent =
-        `Impossible de charger la page : ${e.message}. Lance la démo depuis un serveur HTTP (voir index.html).`;
+        `Could not load the page: ${e.message}. Run the demo from an HTTP server (see index.html).`;
       $('error').hidden = false;
     }
   }
 
   for (const id of ['page', 'style', 'theme', 'mode']) $(id).addEventListener('change', load);
   document.addEventListener('pointerdown', resumeAudio);
-  // Les pages demandent à changer d'écran (ouvrir les réglages, quitter le plein écran).
+  // The pages ask to change screens (open the settings, leave the full screen).
   window.addEventListener('sillon-demo', (e) => {
     if (PAGE_FILES[e.detail.page]) {
       $('page').value = e.detail.page;

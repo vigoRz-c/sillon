@@ -2,24 +2,26 @@
   'use strict';
   const { currentPosition, fmt, themePalette, VISUALIZERS, drawEdgeGlow, drawCoverRings } = window.SV;
   const SL = window.SceneLayout;
+  const I18n = window.SillonI18n;
+  const t = I18n.t;
   const $ = (id) => document.getElementById(id);
   const bridge = window.bridge;
 
-  // ?edit=1 : éditeur de disposition (fenêtre à part, au premier plan).
+  // ?edit=1: layout editor (separate window, in the foreground).
   const EDIT = new URLSearchParams(location.search).has('edit');
 
-  // Scène (éléments placés sur tout le bureau) ou bandeau.
+  // Scene (elements placed across the desktop) or strip.
   const isScene = (s) => EDIT || (s.layout !== 'strip' && s.mode === 'wallpaper');
   let scene = false;
   let coverImg = null;
   let lastTitle = null;
   let titleTimer = null;
 
-  // Disposition affichée : celle des réglages, ou le brouillon de l'éditeur.
-  // En édition, la disposition et les options modifiées sont celles de l'éditeur (scene-editor.js).
+  // Displayed layout: the settings' one, or the editor's draft.
+  // While editing, the layout and the changed options are the editor's (scene-editor.js).
   let editor = null;
   const settings = () => (editor ? editor.settings() : app.state.settings);
-  // Recalculée seulement quand les réglages changent (appelée à chaque image).
+  // Recomputed only when the settings change (called every frame).
   let cachedFor = null,
     cachedLayout = null;
   const layout = () => {
@@ -32,7 +34,7 @@
   };
 
   const lyrics = new window.LyricsView($('lyrics'));
-  // Paroles et titre annoncés par les lecteurs d'écran (sans interrompre la lecture en cours).
+  // Lyrics and title announced by screen readers (without interrupting what is being read).
   $('lyrics').setAttribute('aria-live', 'polite');
   $('pInfo').setAttribute('aria-live', 'polite');
 
@@ -42,17 +44,17 @@
       $('now').classList.toggle('hidden', !(m.active && m.title && show) || scene);
       $('title').textContent = m.title || '';
       $('artist').textContent = [m.artist, m.album].filter(Boolean).join(' · ');
-      $('pTitle').textContent = m.active ? m.title || '' : 'Rien en lecture';
+      $('pTitle').textContent = m.active ? m.title || '' : t('common.nothingPlaying');
       $('pArtist').textContent = m.active ? [m.artist, m.album].filter(Boolean).join(' · ') : '';
       if (coverChanged) {
         $('cover').src = m.cover || '';
         $('cover').classList.toggle('hidden', !m.cover);
         $('pCover').src = m.cover || '';
         $('pCover').classList.toggle('empty', !m.cover);
-        // Image décodée une seule fois par pochette (créée dans common.js).
+        // Image decoded only once per cover (created in common.js).
         coverImg = m.cover && app ? app.state.coverImg : null;
       }
-      // Nouveau morceau : le titre en très grand quelques secondes.
+      // New track: the title in very large type for a few seconds.
       const title = m.active ? m.title : null;
       if (title && title !== lastTitle) showBigTitle(title);
       lastTitle = title;
@@ -77,12 +79,12 @@
     $('bigTitleText').textContent = title;
     $('bigTitle').classList.add('show');
     clearTimeout(titleTimer);
-    // Dans l'éditeur, le titre reste visible pour pouvoir le placer.
+    // In the editor, the title stays visible so it can be placed.
     if (!EDIT) titleTimer = setTimeout(() => $('bigTitle').classList.remove('show'), 5000);
     if (scene) requestAnimationFrame(placeAll);
   }
 
-  // ----- Placement des éléments -----
+  // ----- Placing the elements -----
   const geo = {};
   const NODES = {
     disc: 'discEl',
@@ -95,9 +97,9 @@
     clock: 'clock',
     bars: 'barsEl',
   };
-  // Éléments agrandis par transform (texte) ; les autres changent de taille réelle.
+  // Elements enlarged with transform (text); the others change their real size.
   const SCALED = new Set(['info', 'buttons', 'queue', 'clock']);
-  // Éléments gardés entièrement dans l'écran (la pochette et le disque peuvent dépasser).
+  // Elements kept entirely on screen (the cover and the disc may overflow).
   const KEEP_INSIDE = new Set(['title', 'info', 'buttons', 'queue', 'clock', 'lyrics', 'bars']);
 
   function placeAll() {
@@ -106,8 +108,8 @@
       H = window.innerHeight;
     const L = layout();
     const base = Math.min(W, H);
-    // Taille de base du texte de la scène (l'horloge s'en sert), et taille des
-    // paroles, posée sur les paroles seules : agrandir l'une ne touche pas l'autre.
+    // Base text size of the scene (the clock uses it), and lyrics size, set on
+    // the lyrics alone: enlarging one does not touch the other.
     const textBase = Math.round(Math.min(H * 0.075, W * 0.045));
     document.documentElement.style.setProperty('--scene-text', `${textBase}px`);
     $('lyrics').style.setProperty('--lyr-size', `${Math.round(textBase * L.lyrics.scale)}px`);
@@ -116,17 +118,17 @@
       `${Math.round(Math.min(W * 0.075, H * 0.14) * L.title.scale)}px`,
     );
 
-    // Disque (dessiné dans le canevas) : rayon et zone de saisie.
+    // Disc (drawn in the canvas): radius and grab area.
     geo.cx = W * L.disc.x;
     geo.cy = H * L.disc.y;
     geo.r = base * 0.13 * L.disc.scale;
     geo.discOn = L.disc.visible;
     const reach = geo.r * (1.6 + 0.6 * (settings().discIntensity ?? 1.3));
     size('disc', reach * 2, reach * 2);
-    // Pochette du panneau.
+    // Panel cover.
     const R = Math.round(Math.min(H * 0.13, 120) * L.cover.scale);
     size('cover', R * 2, R * 2);
-    // Paroles et barres : largeur (et hauteur) en fraction de l'écran.
+    // Lyrics and bars: width (and height) as a fraction of the screen.
     size('lyrics', L.lyrics.w * W);
     size('bars', L.bars.w * W, L.bars.h * H);
 
@@ -159,7 +161,7 @@
     n.style.transformOrigin = `${spec.ax * 100}% ${spec.ay * 100}%`;
     n.style.transform = `translate(${-spec.ax * 100}%, ${-spec.ay * 100}%) scale(${s})`;
     if (KEEP_INSIDE.has(id)) {
-      // Ne pas déborder de l'écran (texte plus long que prévu, élément agrandi).
+      // Do not overflow the screen (text longer than expected, enlarged element).
       const r = n.getBoundingClientRect();
       const dx = r.left < 0 ? -r.left : r.right > W ? W - r.right : 0;
       const dy = r.top < 0 ? -r.top : r.bottom > H ? H - r.bottom : 0;
@@ -170,7 +172,7 @@
     }
   }
 
-  // Couleurs du disque : celles de la pochette, un thème fixe ou la couleur de la roue.
+  // Disc colors: the cover's, a fixed theme or the wheel's color.
   function discPalette() {
     const st = app.state,
       s = settings(),
@@ -200,24 +202,26 @@
     };
   }
 
-  // Horloge.
+  // Clock.
   function updateClock() {
     const d = new Date();
-    $('clockTime').textContent = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    $('clockDate').textContent = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+    const lang = I18n.language();
+    $('clockTime').textContent = d.toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' });
+    $('clockDate').textContent = d.toLocaleDateString(lang, { weekday: 'long', day: 'numeric', month: 'long' });
   }
   updateClock();
   setInterval(updateClock, 5000);
 
-  // File d'attente (si le compte Spotify est connecté dans les paramètres).
+  // Queue (if the Spotify account is connected in the settings).
   let lastQueue = { items: [] };
   let lastQueueKey = null;
   function renderQueue(q) {
     lastQueue = q || { items: [] };
     let items = lastQueue.items || [];
-    // Dans l'éditeur, une file d'exemple pour voir la place qu'elle prend.
-    if (EDIT && !items.length) items = [1, 2, 3].map((i) => ({ title: `Morceau suivant ${i}`, artist: 'Artiste' }));
-    // File identique à la précédente : on ne reconstruit ni le DOM ni la mise en page.
+    // In the editor, a sample queue to see how much room it takes.
+    if (EDIT && !items.length)
+      items = [1, 2, 3].map((n) => ({ title: t('widget.sampleTrack', { n }), artist: t('widget.sampleArtist') }));
+    // Same queue as before: rebuild neither the DOM nor the layout.
     const key = items.map((it) => [it.title, it.artist, it.image || ''].join('\u0001')).join('\u0002');
     if (key === lastQueueKey) return;
     lastQueueKey = key;
@@ -248,7 +252,7 @@
   }
   if (bridge && bridge.onQueue) bridge.onQueue(renderQueue);
 
-  // Éditeur de disposition (?edit=1) : voir scene-editor.js.
+  // Layout editor (?edit=1): see scene-editor.js.
   if (EDIT) {
     editor = window.SceneEditor.create({
       bridge,
@@ -261,8 +265,8 @@
     });
   }
 
-  // Les boutons sont une petite fenêtre à part (la scène ne reçoit pas les
-  // clics) : on lui indique où se placer.
+  // The buttons are a small separate window (the scene does not receive
+  // clicks): tell it where to go.
   function reportControls() {
     if (EDIT || !bridge || !bridge.reportControlsRect) return;
     const visible = scene && layout().buttons.visible;
@@ -278,7 +282,7 @@
     scene = isScene(s);
     document.body.style.opacity = EDIT ? 1 : (s.opacity ?? 1);
     document.body.classList.toggle('scene', scene);
-    // Scène plein bureau : un pixel canvas par pixel CSS suffit (le canvas couvre tout l'écran).
+    // Full-desktop scene: one canvas pixel per CSS pixel is enough (the canvas covers the whole screen).
     app.renderer.setMaxDpr(scene ? 1 : Infinity);
     document.body.classList.toggle('with-now', !scene && s.showNowPlaying !== false);
     $('now').classList.toggle(
@@ -295,8 +299,8 @@
 
   window.addEventListener('resize', () => requestAnimationFrame(placeAll));
 
-  // Décors dessinés par-dessus le disque : bord lumineux, anneaux de la
-  // pochette, barres.
+  // Decorations drawn over the disc: glowing edge, cover rings,
+  // bars.
   const barsOpts = { glow: true, t: 0, reflection: false, sensitivity: 1, reduceMotion: false };
   app.renderer.hooks.push((a, now) => {
     if (!scene) return;
@@ -321,9 +325,9 @@
     }
   });
 
-  // Progression, paroles et message d'état audio, à chaque image. On ne
-  // touche à la page que si quelque chose a changé : sinon le navigateur
-  // recalcule les styles pour rien, 60 fois par seconde.
+  // Progress, lyrics and audio status message, every frame. The page is only
+  // touched when something changed: otherwise the browser recomputes the
+  // styles for nothing, 60 times per second.
   let lastPct = '',
     lastMsg = null,
     lastSec = -1,
@@ -337,12 +341,12 @@
       $('bar').style.width = pct;
       if (scene) $('pBar').style.width = pct;
     }
-    // Valeurs exposées aux lecteurs d'écran, au plus une fois par seconde.
+    // Values exposed to screen readers, at most once per second.
     const sec = Math.floor(pos);
     if (sec !== lastSec || (m.duration || 0) !== lastDur) {
       lastSec = sec;
       lastDur = m.duration || 0;
-      const text = lastDur ? `${fmt(pos)} sur ${fmt(lastDur)}` : '';
+      const text = lastDur ? t('common.positionOf', { pos: fmt(pos), total: fmt(lastDur) }) : '';
       for (const id of ['bar', 'pBar']) {
         const pb = $(id).parentElement;
         pb.setAttribute('aria-valuemax', String(Math.round(lastDur)));
@@ -352,8 +356,7 @@
     }
     if (scene && layout().lyrics.visible) lyrics.update(m, pos);
     const st = app.engine.status;
-    const msg =
-      st === 'no-audio' ? 'Aucun son système détecté' : st === 'error' ? 'Erreur : capture audio refusée' : '';
+    const msg = st === 'no-audio' ? t('widget.noAudio') : st === 'error' ? t('widget.captureDenied') : '';
     if (msg !== lastMsg) {
       lastMsg = msg;
       $('status').textContent = msg;
@@ -361,9 +364,9 @@
     }
   });
 
-  // ----- Pause, sommeil et mode jeu -----
-  // Musique en pause : scène atténuée. Sans musique pendant N minutes : scène
-  // masquée et rendu arrêté, jusqu'au retour de la musique.
+  // ----- Pause, sleep and game mode -----
+  // Music paused: dimmed scene. No music for N minutes: scene hidden and
+  // rendering stopped, until the music comes back.
   let silentSince = Date.now();
   let gamePause = false;
   let asleep = false;
@@ -387,21 +390,22 @@
       updateRest();
     });
 
-  // ----- Mode placement (bandeau) -----
+  // ----- Placement mode (strip) -----
   if (bridge && !EDIT) {
     bridge.onEditing((on) => {
       document.body.classList.toggle('editing', on);
       $('edit').classList.toggle('hidden', !on);
     });
     $('done').addEventListener('click', () => bridge.editDone());
-    // Échap ou Entrée : terminer aussi (fenêtre de placement, voir widget-window.js).
+    // Escape or Enter: finish too (placement window, see widget-window.js).
     window.addEventListener('keydown', (e) => {
       if (document.body.classList.contains('editing') && (e.key === 'Escape' || e.key === 'Enter')) bridge.editDone();
     });
 
     const grip = $('grip');
     grip.setAttribute('role', 'img');
-    grip.setAttribute('aria-label', 'Poignée : tirer pour redimensionner la fenêtre');
+    grip.dataset.i18nAttr = 'title:widget.resize;aria-label:widget.grip';
+    grip.setAttribute('aria-label', t('widget.grip'));
     let start = null;
     grip.addEventListener('pointerdown', (e) => {
       grip.setPointerCapture(e.pointerId);
@@ -415,4 +419,15 @@
       start = null;
     });
   }
+
+  // Texts written from code follow the language: clock, "nothing playing", sample queue.
+  I18n.onChange(() => {
+    updateClock();
+    app.applyMedia({ ...app.state.media, coverKept: true });
+    if (EDIT) {
+      lastQueueKey = null;
+      renderQueue(lastQueue);
+    }
+  });
+  I18n.start(bridge);
 })();

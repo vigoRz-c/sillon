@@ -1,6 +1,6 @@
-/* Sillon — analyse audio : capture, FFT en bandes, battement (AudioEngine) et
-   audio simulé pour les aperçus des paramètres (FakeAudio).
-   Script classique : expose window.SillonAudio. Chargé avant engine.js. */
+/* Sillon — audio analysis: capture, FFT in bands, beat (AudioEngine) and
+   simulated audio for the settings previews (FakeAudio).
+   Classic script: exposes window.SillonAudio. Loaded before engine.js. */
 (function () {
   'use strict';
 
@@ -11,19 +11,19 @@
       this.ctx = null;
       this.analyser = null;
       this.sensitivity = 1;
-      this.bandsCache = new Map(); // n -> Float32Array lissé
+      this.bandsCache = new Map(); // n -> smoothed Float32Array
       this.bassAvg = 0;
       this.lastBeat = 0;
       this.status = 'idle'; // idle | running | no-audio | error
-      this.wave = new Float32Array(2048); // silence tant que l'audio n'est pas branché
-      this.gen = 0; // jeton de génération : un démarrage tardif d'une source périmée s'abandonne
-      this.suspended = false; // rendu en pause : contexte audio suspendu
-      this.reduceMotion = false; // animations réduites : lissage plus lent, pas de battement
+      this.wave = new Float32Array(2048); // silence until the audio is plugged in
+      this.gen = 0; // generation token: a late start of a stale source gives up
+      this.suspended = false; // rendering paused: audio context suspended
+      this.reduceMotion = false; // reduced motion: slower smoothing, no beat
       this.pcmRest = null; // octet restant d'un morceau PCM de longueur impaire
-      this.pulse = 0; // basse lissée (pour les lueurs : jamais plus de quelques éclats par seconde)
-      this.glowLevel = 0; // niveau lissé, idem
+      this.pulse = 0; // smoothed bass (for the glows: never more than a few flashes per second)
+      this.glowLevel = 0; // smoothed level, same
       this.lastFrameT = 0;
-      // Objet rendu à chaque image, réutilisé (aucune allocation par image).
+      // Object returned every frame, reused (no allocation per frame).
       this.out = {
         bands: (n) => this.bands(n),
         wave: this.wave,
@@ -35,7 +35,7 @@
       };
     }
 
-    // Son du système via getDisplayMedia (loopback géré côté main). Jamais le micro.
+    // System sound via getDisplayMedia (loopback handled on the main side). Never the microphone.
     async startSystem() {
       this.stop();
       const gen = this.gen;
@@ -43,7 +43,7 @@
       try {
         stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
         if (gen !== this.gen) {
-          // Un autre démarrage (ou un arrêt) est passé entre-temps : on rend le flux.
+          // Another start (or a stop) happened in the meantime: give the stream back.
           stream.getTracks().forEach((t) => t.stop());
           return false;
         }
@@ -63,7 +63,7 @@
         if (this.suspended) ctx.suspend().catch(() => {});
         return true;
       } catch (e) {
-        console.error('Capture audio impossible :', e);
+        console.error('Audio capture failed:', e);
         if (gen === this.gen) {
           if (stream) stream.getTracks().forEach((t) => t.stop());
           this.status = 'error';
@@ -72,15 +72,15 @@
       }
     }
 
-    // Son du seul lecteur suivi (Spotify, navigateur…), envoyé brut par le
-    // processus principal : le chat vocal et les autres applis sont ignorés.
+    // Sound of the followed player only (Spotify, browser…), sent raw by the
+    // main process: voice chat and the other apps are ignored.
     async startApp(bridge) {
       this.stop();
       const gen = this.gen;
       let ctx = null;
       try {
         ctx = new AudioContext({ sampleRate: 48000 });
-        this.ctx = ctx; // affecté tôt : stop() le ferme si on nous coupe en route
+        this.ctx = ctx; // set early: stop() closes it if we are cut off on the way
         await ctx.audioWorklet.addModule('../shared/pcm-worklet.js');
         if (gen !== this.gen) {
           ctx.close().catch(() => {});
@@ -98,7 +98,7 @@
           bridge.onAudioPcm((chunk) => this.pushPcm(chunk));
         }
         this.useNode(node);
-        // Le graphe doit aboutir à la sortie pour tourner : gain nul, rien d'audible.
+        // The graph must reach the output to run: zero gain, nothing audible.
         const mute = ctx.createGain();
         mute.gain.value = 0;
         this.analyser.connect(mute).connect(ctx.destination);
@@ -110,7 +110,7 @@
         }
         return true;
       } catch (e) {
-        console.error('Capture du lecteur impossible :', e);
+        console.error('Player capture failed:', e);
         if (ctx) ctx.close().catch(() => {});
         if (gen === this.gen) {
           if (this.ctx === ctx) this.ctx = null;
@@ -122,8 +122,8 @@
       }
     }
 
-    // Reçoit un morceau de PCM 16 bits. Le worklet attend des échantillons
-    // entiers : un éventuel octet isolé est gardé pour le morceau suivant.
+    // Receives a chunk of 16-bit PCM. The worklet expects whole samples: a
+    // possible lone byte is kept for the next chunk.
     pushPcm(chunk) {
       if (!this.pcmNode || this.suspended) return;
       const rest = this.pcmRest;
@@ -143,7 +143,7 @@
       this.pcmNode.port.postMessage(ab, [ab]);
     }
 
-    // Arrête la source en cours (avant d'en démarrer une autre).
+    // Stops the current source (before starting another one).
     stop() {
       this.gen++;
       if (this.stream) {
@@ -159,16 +159,16 @@
       this.pcmRest = null;
     }
 
-    // Rendu en pause (scène masquée, endormie, jeu en plein écran) : on suspend
-    // aussi le contexte audio, qui n'a plus rien à analyser.
+    // Rendering paused (scene hidden, asleep, full-screen game): the audio
+    // context, which has nothing left to analyze, is suspended too.
     setSuspended(on) {
       this.suspended = !!on;
-      if (on) this.pcmRest = null; // l'octet restant serait recollé à un morceau périmé à la reprise
+      if (on) this.pcmRest = null; // the leftover byte would be glued to a stale chunk on resume
       if (!this.ctx) return;
       (on ? this.ctx.suspend() : this.ctx.resume()).catch(() => {});
     }
 
-    // Brancher n'importe quel nœud audio (sert aussi aux tests / à la démo).
+    // Connect any audio node (also used by the tests / the demo).
     useNode(node) {
       this.ctx = node.context;
       this.analyser = this.ctx.createAnalyser();
@@ -182,7 +182,7 @@
       this.status = 'running';
     }
 
-    // Une image d'analyse. Les visualiseurs demandent le nombre de bandes voulu.
+    // One analysis frame. The visualizers ask for the number of bands they want.
     frame(now) {
       const out = this.out;
       out.wave = this.wave;
@@ -190,7 +190,7 @@
       out.level = 0;
       out.beat = false;
       if (!this.analyser) {
-        // Pas d'audio : tout redescend doucement.
+        // No audio: everything slowly falls back.
         for (const arr of this.bandsCache.values()) for (let i = 0; i < arr.length; i++) arr[i] *= 0.9;
         this.pulse *= 0.9;
         this.glowLevel *= 0.9;
@@ -207,8 +207,8 @@
       for (let i = 0; i < this.wave.length; i += 4) rms += this.wave[i] * this.wave[i];
       out.level = Math.min(1, Math.sqrt(rms / (this.wave.length / 4)) * 3 * this.sensitivity);
       out.bass = Math.min(1, bass * this.sensitivity);
-      // Lueurs : basse et niveau lissés (constante de temps ~200 ms), pour que
-      // la luminosité ne clignote pas au rythme des basses (WCAG 2.3.1).
+      // Glows: smoothed bass and level (time constant ~200 ms), so the
+      // brightness does not flicker to the bass (WCAG 2.3.1).
       const dt = Math.max(0, Math.min(250, now - this.lastFrameT));
       this.lastFrameT = now;
       const k = 1 - Math.exp(-dt / 200);
@@ -216,8 +216,8 @@
       this.glowLevel += (out.level - this.glowLevel) * k;
       out.pulse = this.pulse;
       out.glowLevel = this.glowLevel;
-      // Battement : la basse dépasse nettement sa moyenne récente. Au plus ~3 par
-      // seconde (350 ms mini), et aucun en mode animations réduites.
+      // Beat: the bass clearly exceeds its recent average. At most ~3 per
+      // second (350 ms minimum), and none in reduced motion mode.
       this.bassAvg = this.bassAvg * 0.94 + bass * 0.06;
       if (bass > 0.35 && bass > this.bassAvg * 1.3 && now - this.lastBeat > 350) {
         this.lastBeat = now;
@@ -235,12 +235,12 @@
       return s / ((b - a + 1) * 255);
     }
 
-    // n bandes réparties en échelle logarithmique de 35 Hz à 16 kHz,
-    // montée rapide / descente lente pour un rendu fluide.
+    // n bands spread on a logarithmic scale from 35 Hz to 16 kHz,
+    // fast rise / slow fall for smooth rendering.
     bands(n) {
       let arr = this.bandsCache.get(n);
       if (!arr) {
-        // Les tailles demandées changent avec la fenêtre : on purge celles qui ne servent plus.
+        // The requested sizes change with the window: drop those no longer used.
         if (this.bandsCache.size >= 12) {
           for (const [k, v] of this.bandsCache) if ((this.frameStamp || 0) - v.seen > 300) this.bandsCache.delete(k);
         }
@@ -263,10 +263,10 @@
         const b = Math.max(a, Math.min(this.freq.length - 1, Math.floor(f1 / hz)));
         let m = 0;
         for (let k = a; k <= b; k++) if (this.freq[k] > m) m = this.freq[k];
-        // Les aigus portent moins d'énergie : on les relève un peu.
+        // Treble carries less energy: lift it a little.
         let v = (m / 255) * (0.85 + 0.5 * (i / n)) * this.sensitivity;
         v = Math.min(1, Math.pow(v, 1.6));
-        // Animations réduites : montée et descente plus lentes (barres lissées).
+        // Reduced motion: slower rise and fall (smoothed bars).
         arr[i] = v > arr[i] ? arr[i] + (v - arr[i]) * up : arr[i] * down + v * (1 - down);
       }
       return arr;
@@ -277,9 +277,9 @@
     }
   }
 
-  // ================= Audio simulé (aperçus des paramètres) =================
-  // La fenêtre des paramètres ne capte pas le son : ses aperçus bougent sur un
-  // rythme inventé, pour montrer à quoi ressemble chaque style.
+  // ================= Simulated audio (settings previews) =================
+  // The settings window does not capture sound: its previews move to a
+  // made-up rhythm, to show what each style looks like.
   class FakeAudio {
     constructor() {
       this.cache = new Map();
@@ -306,7 +306,7 @@
       const o = this.out;
       o.bass = 0.25 + beat * 0.7;
       o.level = 0.3 + beat * 0.4;
-      // Valeurs de lueur adoucies : l'aperçu ne clignote pas non plus.
+      // Softened glow values: the preview does not flicker either.
       o.pulse = 0.25 + beat * 0.25;
       o.glowLevel = 0.3 + beat * 0.15;
       o.beat = !this.reduceMotion && beat > 0.9;

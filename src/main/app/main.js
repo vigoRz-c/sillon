@@ -46,6 +46,7 @@ const { isAsleep } = require('./rest');
 const { createShortcuts } = require('./shortcuts');
 const { TEXT: SHORTCUT_TEXT } = require('../../renderer/shared/shortcuts');
 const { STYLE_ORDER, THEME_ORDER } = require('../../renderer/shared/catalog');
+const i18n = require('./i18n');
 
 // Mémoire graphique : par défaut, Chromium garde un gros cache sur la carte
 // graphique (~300 Mo pour la scène). Plafonné, il reste vers 180 Mo sans
@@ -74,6 +75,13 @@ function updateSettings(patch) {
   // Avant l'envoi : les paramètres redemandent l'état des raccourcis en recevant les réglages.
   if (has('globalShortcuts')) shortcuts.apply(changed.globalShortcuts);
   S.send([S.widget, S.fullscreen, S.settingsWin, S.editorWin, S.placeWin], 'settings', all);
+  if (has('language')) {
+    // The pages translate themselves live; the settings page is rebuilt instead (reloaded from
+    // here, since secure.js refuses the navigations a page starts itself, location.reload() included).
+    const wins = [S.widget, S.fullscreen, S.editorWin, S.placeWin, S.controlsWin, ...S.veilleWins];
+    S.send(wins, 'language', i18n.language());
+    if (S.settingsWin && !S.settingsWin.isDestroyed()) S.settingsWin.webContents.reload();
+  }
   // Disposition ou mode changés pendant « Déplacer / redimensionner » : on sort
   // du placement d'abord (la scène plein écran n'a rien à placer).
   if (S.editing && has('layout', 'mode')) widgetWindow.setEditing(false);
@@ -270,6 +278,7 @@ function watchDisplays() {
 // Les arguments sont validés ici (types, nombres finis, liste blanche).
 
 ipc.handle('settings:get', () => S.settings.get());
+ipc.handle('i18n:language', () => i18n.language());
 ipc.on('settings:set', (_e, patch) => updateSettings(patch));
 ipc.on('settings:open', () => windows.openSettings());
 ipc.on('media:volume', (_e, percent) => {
@@ -417,7 +426,7 @@ app
   .then(start)
   .catch((e) => {
     fatal('démarrage')(e);
-    dialog.showErrorBox('Sillon', `Démarrage impossible : ${(e && e.message) || e}`);
+    dialog.showErrorBox('Sillon', i18n.t('main.startFailed', { error: (e && e.message) || e }));
     app.exit(1);
   });
 

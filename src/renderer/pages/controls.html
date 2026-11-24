@@ -1,48 +1,65 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'"
     />
-    <title>Sillon · boutons</title>
+    <title data-i18n="controls.title">Sillon · buttons</title>
     <link rel="stylesheet" href="../style.css" />
   </head>
   <body class="ctrl-win">
-    <main aria-label="Commandes de lecture">
-      <button
-        id="shuffle"
-        class="toggle"
-        type="button"
-        title="Lecture aléatoire"
-        aria-label="Lecture aléatoire"
-        aria-pressed="false"
-      >
+    <main aria-label="Playback controls" data-i18n-attr="aria-label:common.playbackControls">
+      <button id="shuffle" class="toggle" type="button" title="Shuffle" aria-label="Shuffle" aria-pressed="false">
         <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true">
           <path
             d="M17 3h4v4h-2V6.4l-4.3 4.3-1.4-1.4L17.6 5H17zM3 5.6 4.4 4.2l15.2 15.2-1.4 1.4zM19 17.6V17h2v4h-4v-2h.6l-3.2-3.2 1.4-1.4z"
           />
         </svg>
       </button>
-      <button id="prev" type="button" title="Précédent" aria-label="Morceau précédent">
+      <button
+        id="prev"
+        type="button"
+        title="Previous"
+        aria-label="Previous track"
+        data-i18n-attr="title:controls.previous;aria-label:common.previousTrack"
+      >
         <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
           <path d="M6 5h2v14H6zM20 5v14L9 12z" />
         </svg>
       </button>
-      <button id="play" type="button" title="Lecture / pause" aria-label="Lecture"></button>
-      <button id="next" type="button" title="Suivant" aria-label="Morceau suivant">
+      <button
+        id="play"
+        type="button"
+        title="Play / pause"
+        aria-label="Play"
+        data-i18n-attr="title:controls.playPause"
+      ></button>
+      <button
+        id="next"
+        type="button"
+        title="Next"
+        aria-label="Next track"
+        data-i18n-attr="title:controls.next;aria-label:common.nextTrack"
+      >
         <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
           <path d="M16 5h2v14h-2zM4 5v14l11-7z" />
         </svg>
       </button>
-      <button id="repeat" class="toggle" type="button" title="Répéter" aria-label="Répéter" aria-pressed="false">
+      <button id="repeat" class="toggle" type="button" title="Repeat" aria-label="Repeat" aria-pressed="false">
         <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true">
           <path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z" /></svg
         ><span id="repeatOne" class="badge hidden" aria-hidden="true">1</span>
       </button>
       <div id="volume"></div>
-      <button id="settings" type="button" title="Paramètres" aria-label="Ouvrir les paramètres">
+      <button
+        id="settings"
+        type="button"
+        title="Settings"
+        aria-label="Open settings"
+        data-i18n-attr="title:common.settings;aria-label:common.openSettings"
+      >
         <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
           <path
             d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.4-2.5 1a7.6 7.6 0 0 0-1.7-1L15 3.3h-4L10.7 6a7.6 7.6 0 0 0-1.7 1l-2.5-1-2 3.4L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.4 2.5-1a7.6 7.6 0 0 0 1.7 1l.3 2.7h4l.3-2.7a7.6 7.6 0 0 0 1.7-1l2.5 1 2-3.4zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"
@@ -52,8 +69,9 @@
       <button
         id="hide"
         type="button"
-        title="Masquer la scène (la réafficher depuis l'icône Sillon)"
-        aria-label="Masquer la scène (la réafficher depuis l'icône Sillon)"
+        title="Hide the scene (show it again from the Sillon icon)"
+        aria-label="Hide the scene (show it again from the Sillon icon)"
+        data-i18n-attr="title:controls.hide;aria-label:controls.hide"
       >
         <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true">
           <path
@@ -62,6 +80,9 @@
         </svg>
       </button>
     </main>
+    <script src="../shared/locales/en.js"></script>
+    <script src="../shared/locales/fr.js"></script>
+    <script src="../shared/i18n.js"></script>
     <script src="../shared/volume-control.js"></script>
     <script src="controls.js"></script>
   </body>

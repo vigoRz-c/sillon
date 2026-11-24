@@ -1,13 +1,13 @@
 <!doctype html>
-<html lang="fr">
-  <!-- Démo navigateur : affiche les VRAIES pages de src/renderer/pages dans une iframe,
-       avec le faux pont (fake-bridge.js) injecté avant leurs scripts. Voir index.js.
-       À ouvrir depuis un serveur HTTP à la racine du dépôt, par exemple :
-         npx --yes http-server -p 8080     puis     http://localhost:8080/demo/ -->
+<html lang="en">
+  <!-- Browser demo: shows the REAL pages of src/renderer/pages in an iframe,
+       with the fake bridge (fake-bridge.js) injected before their scripts. See index.js.
+       Open it from an HTTP server at the root of the repository, for example:
+         npx --yes http-server -p 8080     then     http://localhost:8080/demo/ -->
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Sillon · démo</title>
+    <title>Sillon · demo</title>
     <style>
       html,
       body {
@@ -58,38 +58,38 @@
   </head>
   <body>
     <header>
-      <strong>Démo Sillon</strong>
+      <strong>Sillon demo</strong>
       <label
         >Page
         <select id="page">
-          <option value="widget">Scène (bandeau)</option>
-          <option value="fullscreen">Plein écran</option>
-          <option value="settings">Paramètres</option>
-          <option value="controls">Boutons du panneau</option>
+          <option value="widget">Scene (strip)</option>
+          <option value="fullscreen">Full screen</option>
+          <option value="settings">Settings</option>
+          <option value="controls">Panel buttons</option>
         </select>
       </label>
       <label
-        >Visualiseur
+        >Visualizer
         <select id="style"></select
       ></label>
       <label
-        >Couleurs
+        >Colors
         <select id="theme"></select
       ></label>
       <label
         >Mode
         <select id="mode">
-          <option value="wallpaper">Fond d'écran</option>
-          <option value="top">Au premier plan</option>
-          <option value="normal">Fenêtre normale</option>
+          <option value="wallpaper">Wallpaper</option>
+          <option value="top">Always on top</option>
+          <option value="normal">Normal window</option>
         </select>
       </label>
-      <span id="hint">Clique dans la page pour activer le son de synthèse.</span>
+      <span id="hint">Click in the page to turn on the synthesized sound.</span>
       <span id="error" hidden></span>
     </header>
-    <iframe id="frame" title="Aperçu de Sillon"></iframe>
+    <iframe id="frame" title="Sillon preview"></iframe>
 
-    <!-- Catalogue partagé avec l'application (visualiseurs et couleurs). -->
+    <!-- Catalog shared with the application (visualizers and colors). -->
     <script src="../src/renderer/shared/catalog.js"></script>
     <script src="index.js"></script>
   </body>

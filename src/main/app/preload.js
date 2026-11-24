@@ -10,6 +10,8 @@ const sub = (channel) => (cb) => {
 
 contextBridge.exposeInMainWorld('bridge', {
   getSettings: () => ipcRenderer.invoke('settings:get'),
+  getLanguage: () => ipcRenderer.invoke('i18n:language'),
+  onLanguage: sub('language'),
   setSettings: (patch) => ipcRenderer.send('settings:set', patch),
   onSettings: sub('settings'),
   onLyrics: sub('lyrics'),

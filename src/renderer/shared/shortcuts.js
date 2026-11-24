@@ -1,40 +1,39 @@
-/* Raccourcis clavier globaux de Sillon : identifiant, touche et libellé.
+/* Sillon's global keyboard shortcuts: id, key and English label.
  *
- * Source unique partagée par le processus principal (enregistrement avec
- * globalShortcut, menu de l'icône) et la page des paramètres (liste lisible).
- * Tous les textes visibles des raccourcis sont ici, pour les traduire d'un coup.
+ * Single source shared by the main process (registration with globalShortcut,
+ * tray menu) and the settings page (readable list). Other languages translate
+ * the labels with the shortcut.<id> keys of shared/locales (see label()).
  *
- * Choix des touches : toujours Ctrl+Alt+<lettre>. Pas de chiffres,
- * de ponctuation ni de E, Q ou M : sur un clavier AZERTY ou QWERTZ, Ctrl+Alt
- * équivaut à AltGr, qui tape € @ # { } [ ] | µ… Un raccourci global sur ces
- * touches empêcherait de taper ces caractères dans toutes les applis. Pas de
- * flèches non plus : Ctrl+Alt+flèche fait pivoter l'écran sur beaucoup de PC
- * (pilotes Intel). Ctrl+Alt+Suppr et Ctrl+Alt+Tab appartiennent à Windows, et
- * Ctrl+Alt+Espace est souvent pris par la saisie rapide d'une appli de bureau.
- * U, J, K se suivent sur le clavier : afficher, retarder, avancer les paroles.
+ * Key choice: always Ctrl+Alt+<letter>. No digits, punctuation, E, Q or M:
+ * on an AZERTY or QWERTZ keyboard, Ctrl+Alt equals AltGr, which types
+ * € @ # { } [ ] | µ… A global shortcut on those keys would prevent typing
+ * these characters in every app. No arrows either: Ctrl+Alt+arrow rotates the
+ * screen on many PCs (Intel drivers). Ctrl+Alt+Del and Ctrl+Alt+Tab belong to
+ * Windows, and Ctrl+Alt+Space is often taken by a desktop app's quick input.
+ * U, J, K follow each other on the keyboard: show, delay, advance the lyrics.
  */
 (function (root) {
   'use strict';
 
-  // [identifiant, touche (accélérateur Electron), libellé], dans l'ordre de la liste des paramètres
+  // [id, key (Electron accelerator), label], in the order of the settings list
   const LIST = [
-    ['playpause', 'P', 'Lecture / pause'],
-    ['next', 'N', 'Morceau suivant'],
-    ['previous', 'B', 'Morceau précédent'],
-    ['shuffle', 'A', 'Lecture aléatoire (avec Spotify)'],
-    ['repeat', 'R', 'Répéter (avec Spotify)'],
-    ['fullscreen', 'F', 'Ouvrir / fermer le plein écran'],
-    ['toggleScene', 'H', 'Afficher / masquer Sillon sur le bureau'],
-    ['toggleLayout', 'T', 'Passer de la scène au bandeau, et inversement'],
-    ['nextStyle', 'V', 'Visualiseur suivant'],
-    ['nextTheme', 'C', 'Couleurs suivantes'],
-    ['veille', 'L', "Lancer l'écran de veille"],
-    ['toggleLyrics', 'U', 'Afficher / masquer les paroles'],
-    ['lyricsLater', 'J', 'Paroles plus tard (−0,25 s)'],
-    ['lyricsEarlier', 'K', 'Paroles plus tôt (+0,25 s)'],
-    ['settings', 'O', 'Ouvrir les paramètres'],
-    ['sceneEditor', 'G', 'Personnaliser la scène'],
-    ['placeStrip', 'D', 'Déplacer / redimensionner le bandeau'],
+    ['playpause', 'P', 'Play / pause'],
+    ['next', 'N', 'Next track'],
+    ['previous', 'B', 'Previous track'],
+    ['shuffle', 'A', 'Shuffle (with Spotify)'],
+    ['repeat', 'R', 'Repeat (with Spotify)'],
+    ['fullscreen', 'F', 'Open / close the full screen'],
+    ['toggleScene', 'H', 'Show / hide Sillon on the desktop'],
+    ['toggleLayout', 'T', 'Switch from the scene to the strip, and back'],
+    ['nextStyle', 'V', 'Next visualizer'],
+    ['nextTheme', 'C', 'Next colors'],
+    ['veille', 'L', 'Start the screen saver'],
+    ['toggleLyrics', 'U', 'Show / hide the lyrics'],
+    ['lyricsLater', 'J', 'Lyrics later (−0.25 s)'],
+    ['lyricsEarlier', 'K', 'Lyrics earlier (+0.25 s)'],
+    ['settings', 'O', 'Open the settings'],
+    ['sceneEditor', 'G', 'Customize the scene'],
+    ['placeStrip', 'D', 'Move / resize the strip'],
   ];
 
   const SHORTCUTS = LIST.map(([id, key, label]) => ({
@@ -43,16 +42,24 @@
     display: `Ctrl+Alt+${key}`,
     label,
   }));
+  const BY_ID = Object.fromEntries(SHORTCUTS.map((s) => [s.id, s]));
 
   const api = {
     SHORTCUTS,
-    BY_ID: Object.fromEntries(SHORTCUTS.map((s) => [s.id, s])),
-    // Autres textes : page des paramètres, journal et diagnostic du processus principal.
+    BY_ID,
+    // Label of a shortcut in the language of `t` (a SillonI18n translate function); English without `t`.
+    label(id, t) {
+      const english = BY_ID[id] ? BY_ID[id].label : id;
+      if (!t) return english;
+      const key = `shortcut.${id}`;
+      const s = t(key);
+      return s === key ? english : s;
+    },
+    // Log and diagnostics texts of the main process (in English, like the rest of the logs).
     TEXT: {
-      taken: 'Pris par une autre application',
-      takenLog: (keys) => `${keys} déjà pris par une autre application`,
-      failedLog: (label, error) => `« ${label} » a échoué : ${error}`,
-      fromShortcut: 'depuis un raccourci clavier',
+      takenLog: (keys) => `${keys} already taken by another application`,
+      failedLog: (label, error) => `"${label}" failed: ${error}`,
+      fromShortcut: 'from a keyboard shortcut',
     },
   };
 

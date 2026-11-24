@@ -1,13 +1,13 @@
-/* Barre de volume du lecteur (Spotify, navigateur…).
+/* Player volume bar (Spotify, browser…).
  *
- * Règle le volume de l'application dans le mélangeur de Windows : le volume
- * général du PC et les autres applications (Discord…) ne bougent pas.
- * Utilisée par les boutons de la scène et le plein écran.
+ * Sets the application's volume in the Windows mixer: the PC's master
+ * volume and the other applications (Discord…) do not move.
+ * Used by the scene's buttons and the full screen.
  *
- *   SillonVolume(élément) -> { update(media) }
+ *   SillonVolume(element) -> { update(media) }
  *
- * L'élément reçoit un bouton (couper / remettre le son) et un curseur ; il est
- * masqué tant que le lecteur n'a pas de son ouvert dans Windows.
+ * The element gets a button (mute / unmute) and a slider; it is hidden
+ * as long as the player has no sound open in Windows.
  */
 (function () {
   'use strict';
@@ -27,28 +27,32 @@
   window.SillonVolume = function (root) {
     const bridge = window.bridge;
     root.classList.add('vol', 'hidden');
+    const t = window.SillonI18n.t;
     root.innerHTML =
-      '<button type="button" class="vol-btn" title="Couper le son du lecteur" aria-label="Couper le son du lecteur"></button>' +
-      '<input class="vol-range" type="range" min="0" max="100" step="1" aria-label="Volume du lecteur" aria-valuetext="0 pour cent">';
+      '<button type="button" class="vol-btn"></button>' +
+      '<input class="vol-range" type="range" min="0" max="100" step="1" data-i18n-attr="aria-label:volume.label">';
     const btn = root.querySelector('button');
     const range = root.querySelector('input');
+    range.setAttribute('aria-label', t('volume.label'));
     let value = -1;
-    let restore = 50; // volume remis après « couper le son »
+    let restore = 50; // volume restored after "mute"
     let dragging = false;
-    let holdUntil = 0; // ignore les relectures juste après un réglage
+    let holdUntil = 0; // ignores readings right after a change
     let pending = null;
 
     function paint(v) {
       range.value = String(v);
       range.style.setProperty('--v', `${v}%`);
       btn.innerHTML = v === 0 ? ICONS.mute : v < 50 ? ICONS.low : ICONS.high;
-      const label = v === 0 ? 'Remettre le son du lecteur' : 'Couper le son du lecteur';
+      const label = v === 0 ? t('volume.unmute') : t('volume.mute');
       btn.title = label;
       btn.setAttribute('aria-label', label);
-      range.setAttribute('aria-valuetext', `${v} pour cent`);
+      range.setAttribute('aria-valuetext', t('volume.percent', { value: v }));
     }
+    paint(0);
+    window.SillonI18n.onChange(() => paint(Math.max(0, value)));
 
-    // Un envoi par image au plus pendant le glissement.
+    // At most one send per frame while dragging.
     function set(v) {
       v = Math.max(0, Math.min(100, Math.round(v)));
       if (v > 0) restore = v;
@@ -65,8 +69,8 @@
     }
 
     range.addEventListener('input', () => set(Number(range.value)));
-    // Fin du geste, même relâché hors de la fenêtre ou interrompu : sinon le
-    // volume réel ne serait plus jamais affiché.
+    // End of the gesture, even released outside the window or interrupted: otherwise
+    // the real volume would never be shown again.
     function endDrag() {
       if (dragging) {
         dragging = false;
@@ -78,7 +82,7 @@
       try {
         range.setPointerCapture(e.pointerId);
       } catch {
-        // Pointeur déjà relâché : les écouteurs ci-dessous suffisent.
+        // Pointer already released: the listeners below are enough.
       }
     });
     window.addEventListener('pointerup', endDrag);

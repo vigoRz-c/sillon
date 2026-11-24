@@ -1,22 +1,25 @@
 (function () {
   'use strict';
   const { currentPosition, fmt } = window.SV;
-  const { STYLE_ORDER, THEME_ORDER, STYLE_NAMES, THEME_NAMES } = window.SillonCatalog;
+  const Catalog = window.SillonCatalog;
+  const { STYLE_ORDER, THEME_ORDER } = Catalog;
+  const I18n = window.SillonI18n;
+  const t = I18n.t;
   const $ = (id) => document.getElementById(id);
   const bridge = window.bridge;
-  // Écran de veille : même page, sans commandes, avec le disque au centre.
-  // Toute action (souris, clavier, perte du focus) la ferme.
+  // Screen saver: same page, without controls, with the disc in the middle.
+  // Any action (mouse, keyboard, focus loss) closes it.
   const VEILLE = new URLSearchParams(location.search).has('veille');
   if (VEILLE) {
     document.body.classList.add('veille');
-    // Annonce aux lecteurs d'écran comment quitter la veille.
-    $('veilleStatus').textContent = 'Écran de veille : appuie sur une touche pour quitter';
+    // Tells screen readers how to leave the screen saver.
+    $('veilleStatus').dataset.i18n = 'fullscreen.veille';
   }
-  // Animations réduites : réglage Sillon (classe posée par common.js) ou réglage Windows.
+  // Reduced motion: Sillon setting (class set by common.js) or Windows setting.
   const reduceQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
   const reduceMotion = () => document.body.classList.contains('reduce-motion') || reduceQuery.matches;
 
-  // En plein écran, le visualiseur et les couleurs se changent ici sans toucher au widget.
+  // In full screen, the visualizer and the colors change here without touching the widget.
   let localStyle = null;
   let localTheme = null;
   let lastRaw = null;
@@ -28,15 +31,15 @@
     onLyrics: (l) => lyrics.set(l),
     onMedia(m, coverChanged) {
       volume.update(m);
-      $('title').textContent = m.active ? m.title || '' : 'Rien en lecture';
+      $('title').textContent = m.active ? m.title || '' : t('common.nothingPlaying');
       $('artist').textContent = m.active ? [m.artist, m.album].filter(Boolean).join(' · ') : '';
       const playing = m.status === 'Playing';
       $('play').innerHTML = playing ? '&#10074;&#10074;' : '&#9654;';
-      $('play').setAttribute('aria-label', playing ? 'Pause' : 'Lecture');
-      // Musique en pause : le fond cesse de dériver.
+      $('play').setAttribute('aria-label', playing ? t('common.pause') : t('common.play'));
+      // Music paused: the background stops drifting.
       document.body.classList.toggle('paused', !playing);
       if (coverChanged) {
-        // La pochette décodée vient de common.js (app.state.coverImg), pas d'un second décodage.
+        // The decoded cover comes from common.js (app.state.coverImg), no second decoding.
         $('cover').src = m.cover || '';
         $('roomImg').src = m.cover || '';
         $('cover').classList.toggle('hidden', !m.cover);
@@ -61,7 +64,7 @@
 
   const apply = (s) => app.applySettings(s);
 
-  // Placement : l'anneau tourne autour de la pochette, les autres montent du bas.
+  // Placement: the ring turns around the cover, the others rise from the bottom.
   function layout() {
     const r = app.renderer;
     const w = window.innerWidth,
@@ -79,7 +82,7 @@
     }
     const coverEl = $('cover');
     coverEl.style.width = coverEl.style.height = `${size}px`;
-    // Paroles à gauche de la pochette.
+    // Lyrics to the left of the cover.
     const ly = $('lyrics').style;
     ly.left = `${w * 0.04}px`;
     ly.width = `${Math.max(200, w / 2 - size * 0.75 - w * 0.06)}px`;
@@ -110,7 +113,7 @@
       rays: st.settings.discRays || 'fine',
       bloom: st.settings.discBloom ?? 0.8,
     };
-    // Couleurs fixes (ou de la roue) choisies pour le disque, sinon celles de la pochette.
+    // Fixed colors (or the wheel's) picked for the disc, otherwise the cover's.
     const fixed = window.SV.themePalette(st.settings.discColors, st.settings.customColor);
     if (fixed) {
       app.renderer.opts.palette = fixed;
@@ -118,7 +121,7 @@
     }
   }
 
-  // ----- Ondes au rythme des basses -----
+  // ----- Ripples on the bass beat -----
   const rc = $('ripples');
   const rctx = rc.getContext('2d');
   const ripples = [];
@@ -142,7 +145,7 @@
       h = window.innerHeight;
     const base = Math.min(w, h) * 0.17;
     const still = reduceMotion();
-    // Pas d'ondes ni de pulsation si les animations sont réduites.
+    // No ripples or pulsing when motion is reduced.
     if (a.beat && app.state.media.active && !still) ripples.push({ r: base, alpha: 0.5 });
     if (hadRipples || ripples.length) rctx.clearRect(0, 0, w, h);
     hadRipples = ripples.length > 0;
@@ -168,7 +171,7 @@
     const m = app.state.media;
     const pos = currentPosition(m);
     if (VEILLE) veilleOpts();
-    // On n'écrit dans le DOM que si la valeur affichée a changé.
+    // Only write to the DOM when the displayed value changed.
     const pct = m.duration ? `${Math.round((pos / m.duration) * 1000) / 10}%` : '0%';
     if (pct !== lastPct) {
       lastPct = pct;
@@ -179,14 +182,14 @@
       lastTime = time;
       $('time').textContent = time;
     }
-    // Barre de position annoncée aux lecteurs d'écran : une mise à jour par seconde au plus.
+    // Position bar announced to screen readers: at most one update per second.
     const sec = m.duration ? Math.floor(pos) : -1;
     if (sec !== lastSecond) {
       lastSecond = sec;
       if (m.duration) {
         progress.setAttribute('aria-valuemax', String(Math.round(m.duration)));
         progress.setAttribute('aria-valuenow', String(sec));
-        progress.setAttribute('aria-valuetext', `${fmt(pos)} sur ${fmt(m.duration)}`);
+        progress.setAttribute('aria-valuetext', t('common.positionOf', { pos: fmt(pos), total: fmt(m.duration) }));
       } else {
         progress.setAttribute('aria-valuemax', '0');
         progress.setAttribute('aria-valuenow', '0');
@@ -198,7 +201,7 @@
     if (showLyrics) lyrics.update(m, pos);
   });
 
-  // ----- Commandes -----
+  // ----- Controls -----
   function toast(text) {
     const t = $('toast');
     t.textContent = text;
@@ -212,12 +215,12 @@
   $('play').onclick = () => cmd('playpause');
   $('settingsBtn').onclick = () => bridge && bridge.openSettings();
 
-  // ----- Sortie de veille -----
+  // ----- Leaving the screen saver -----
   if (VEILLE && bridge) {
     const started = performance.now();
     let origin = null;
     let gone = false;
-    // Délai de grâce : les touches du raccourci sont encore relâchées au lancement.
+    // Grace delay: the shortcut keys are still being released at launch.
     const leave = () => {
       if (gone || performance.now() - started < 1500) return;
       gone = true;
@@ -243,9 +246,9 @@
     window.addEventListener('blur', leave);
   }
 
-  // Un contrôle qui a le focus ne garde que les touches qu'il gère lui-même :
-  // Espace et Entrée sur un bouton, flèches sur un curseur ou une liste. Après un
-  // clic sur un bouton, V, C, [, ] et les flèches continuent donc de marcher.
+  // A focused control only keeps the keys it handles itself:
+  // Space and Enter on a button, arrows on a slider or a list. After clicking
+  // a button, V, C, [, ] and the arrows therefore keep working.
   function keepsKey(el, e) {
     if (!el) return false;
     const tag = el.tagName;
@@ -273,24 +276,24 @@
       const cur = localStyle || s.style || 'bars';
       localStyle = STYLE_ORDER[(STYLE_ORDER.indexOf(cur) + 1) % STYLE_ORDER.length];
       apply(s);
-      toast(STYLE_NAMES[localStyle]);
+      toast(Catalog.name('style', localStyle, t));
     } else if (e.key === 'c' || e.key === 'C') {
       const cur = localTheme || s.theme || 'wallpaper';
       localTheme = THEME_ORDER[(THEME_ORDER.indexOf(cur) + 1) % THEME_ORDER.length];
       apply(s);
-      toast(THEME_NAMES[localTheme]);
+      toast(Catalog.name('theme', localTheme, t));
     } else if (e.key === '[' || e.key === ']') {
-      // Décalage des paroles pour ce morceau.
+      // Lyrics offset for this track.
       const d = e.key === ']' ? 0.25 : -0.25;
       bridge && bridge.nudgeLyrics(d);
-      toast(`Paroles ${d > 0 ? 'plus tôt' : 'plus tard'} (${d > 0 ? '+' : '−'}0,25 s)`);
+      toast(t(d > 0 ? 'fullscreen.lyricsEarlier' : 'fullscreen.lyricsLater'));
     } else if (e.key === '?' || e.key === 'h' || e.key === 'H') {
-      // Aide des raccourcis, affichée ou masquée.
+      // Shortcut help, shown or hidden.
       document.body.classList.toggle('show-keys');
     }
   });
 
-  // Les boutons disparaissent quand la souris ne bouge plus.
+  // The buttons fade out when the mouse stops moving.
   let idle;
   function wake() {
     document.body.classList.remove('idle');
@@ -298,9 +301,12 @@
     idle = setTimeout(() => document.body.classList.add('idle'), 2500);
   }
   window.addEventListener('mousemove', wake);
-  // Clavier ou lecteur d'écran : les boutons doivent réapparaître avec le focus.
+  // Keyboard or screen reader: the buttons must come back with the focus.
   window.addEventListener('keydown', wake);
   window.addEventListener('focusin', wake);
   wake();
   layout();
+  // Texts written from code (title, play button) follow the language too.
+  I18n.onChange(() => app.applyMedia({ ...app.state.media, coverKept: true }));
+  I18n.start(bridge);
 })();

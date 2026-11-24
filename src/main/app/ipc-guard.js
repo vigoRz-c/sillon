@@ -37,8 +37,17 @@ function validRect(r) {
 // droit à rien. test/ipc-contract.test.js vérifie que chaque page a bien les
 // canaux des méthodes du pont qu'elle utilise.
 const PAGE_CHANNELS = {
-  'widget.html': ['settings:get', 'edit:done', 'scene:controls-rect', 'widget:resize', 'layout:cancel', 'layout:done'],
+  'widget.html': [
+    'i18n:language',
+    'settings:get',
+    'edit:done',
+    'scene:controls-rect',
+    'widget:resize',
+    'layout:cancel',
+    'layout:done',
+  ],
   'fullscreen.html': [
+    'i18n:language',
     'settings:get',
     'media:command',
     'media:volume',
@@ -47,8 +56,9 @@ const PAGE_CHANNELS = {
     'fullscreen:close',
     'veille:exit',
   ],
-  'controls.html': ['media:command', 'media:volume', 'settings:open', 'settings:set'],
+  'controls.html': ['i18n:language', 'media:command', 'media:volume', 'settings:open', 'settings:set'],
   'settings.html': [
+    'i18n:language',
     'settings:get',
     'settings:set',
     'diagnostic:copy',

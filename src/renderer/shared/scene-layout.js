@@ -1,32 +1,32 @@
-/* Disposition de la scène : où est chaque élément, s'il est affiché, sa taille.
+/* Layout of the scene: where each element is, whether it is shown, its size.
  *
- * Partagé par la scène (widget.js), l'éditeur de disposition et les tests
- * (node). Les positions sont en fractions de la zone de la scène (0 à 1), pour
- * rester justes quand la résolution ou l'écran change.
+ * Shared by the scene (widget.js), the layout editor and the tests
+ * (node). Positions are fractions of the scene area (0 to 1), so they
+ * stay right when the resolution or the display changes.
  *
- * Chaque élément est placé par un point d'ancrage (ax, ay) pris dans sa propre
- * boîte : 0,0 = coin haut gauche, 0.5,0.5 = centre, 1,0 = coin haut droit.
- * x, y disent où ce point se trouve sur l'écran.
+ * Each element is placed by an anchor point (ax, ay) taken in its own
+ * box: 0,0 = top left corner, 0.5,0.5 = center, 1,0 = top right corner.
+ * x, y say where that point is on the screen.
  */
 (function (root) {
   'use strict';
 
-  // id -> description. scale : taille relative (1 = taille d'origine).
-  // w / h : largeur / hauteur en fraction de l'écran (éléments étirables).
+  // id -> description. scale: relative size (1 = original size).
+  // w / h: width / height as a fraction of the screen (stretchable elements).
   const ELEMENTS = {
-    disc: { label: 'Disque', ax: 0.5, ay: 0.5, scale: [0.4, 2.2] },
-    lyrics: { label: 'Paroles', ax: 0.5, ay: 0.5, scale: [0.5, 1.8], w: [0.15, 0.95] },
-    title: { label: 'Grand titre', ax: 0.5, ay: 0.5, scale: [0.4, 1.6] },
-    cover: { label: 'Pochette du panneau', ax: 0.5, ay: 0.5, scale: [0.4, 2] },
-    info: { label: 'En lecture', ax: 0, ay: 0, scale: [0.6, 2] },
-    buttons: { label: 'Boutons', ax: 0, ay: 0, scale: [1, 1] },
-    queue: { label: 'À suivre', ax: 0, ay: 0, scale: [0.6, 2] },
-    clock: { label: 'Horloge', ax: 1, ay: 0, scale: [0.5, 2.5] },
-    bars: { label: 'Barres', ax: 0.5, ay: 0.5, scale: [1, 1], w: [0.1, 1], h: [0.04, 0.5] },
+    disc: { label: 'Disc', ax: 0.5, ay: 0.5, scale: [0.4, 2.2] },
+    lyrics: { label: 'Lyrics', ax: 0.5, ay: 0.5, scale: [0.5, 1.8], w: [0.15, 0.95] },
+    title: { label: 'Big title', ax: 0.5, ay: 0.5, scale: [0.4, 1.6] },
+    cover: { label: 'Panel cover', ax: 0.5, ay: 0.5, scale: [0.4, 2] },
+    info: { label: 'Now playing', ax: 0, ay: 0, scale: [0.6, 2] },
+    buttons: { label: 'Buttons', ax: 0, ay: 0, scale: [1, 1] },
+    queue: { label: 'Up next', ax: 0, ay: 0, scale: [0.6, 2] },
+    clock: { label: 'Clock', ax: 1, ay: 0, scale: [0.5, 2.5] },
+    bars: { label: 'Bars', ax: 0.5, ay: 0.5, scale: [1, 1], w: [0.1, 1], h: [0.04, 0.5] },
   };
   const ORDER = ['disc', 'lyrics', 'title', 'cover', 'info', 'buttons', 'queue', 'clock', 'bars'];
 
-  // Disposition d'origine (celle d'avant l'éditeur).
+  // Original layout (the one from before the editor).
   const DEFAULTS = {
     disc: { x: 0.6, y: 0.45, scale: 1, visible: true },
     lyrics: { x: 0.27, y: 0.42, scale: 1, w: 0.42, visible: true },
@@ -39,9 +39,9 @@
     bars: { x: 0.5, y: 0.9, scale: 1, w: 0.5, h: 0.12, visible: false },
   };
 
-  // Modèles prêts à l'emploi (seules les différences avec DEFAULTS).
+  // Ready-made templates (only the differences with DEFAULTS).
   const PRESETS = {
-    default: { label: 'Par défaut', layout: {} },
+    default: { label: 'Default', layout: {} },
     minimal: {
       label: 'Minimal',
       layout: {
@@ -53,7 +53,7 @@
       },
     },
     lyricsOnly: {
-      label: 'Paroles seules',
+      label: 'Lyrics only',
       layout: {
         disc: { visible: false },
         cover: { visible: false },
@@ -65,7 +65,7 @@
       },
     },
     empty: {
-      label: 'Vide',
+      label: 'Empty',
       layout: Object.fromEntries(ORDER.map((id) => [id, { visible: false }])),
     },
   };
@@ -73,8 +73,8 @@
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
   const num = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 
-  // Ramène un élément dans des valeurs sûres (position dans l'écran, taille
-  // dans les limites de l'élément).
+  // Brings an element back to safe values (position on screen, size
+  // within the element's limits).
   function clampElement(id, el) {
     const spec = ELEMENTS[id],
       d = DEFAULTS[id];
@@ -89,9 +89,9 @@
     return out;
   }
 
-  // Disposition complète à partir des réglages. Sans disposition enregistrée,
-  // on reprend les anciens réglages (position et taille du disque, paroles,
-  // panneau et horloge affichés ou non).
+  // Full layout from the settings. Without a saved layout, the old
+  // settings are used (disc position and size, lyrics, panel and clock
+  // shown or not).
   function fromSettings(s) {
     s = s || {};
     const saved = s.sceneLayout && typeof s.sceneLayout === 'object' ? s.sceneLayout : null;
@@ -114,7 +114,7 @@
     return out;
   }
 
-  // Applique un modèle : DEFAULTS + ses différences.
+  // Applies a template: DEFAULTS + its differences.
   function preset(name) {
     const p = PRESETS[name] || PRESETS.default;
     const out = {};
