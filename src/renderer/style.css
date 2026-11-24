@@ -214,7 +214,10 @@ body.widget #viz {
 }
 
 /* ----- Mode placement ----- */
-body.editing {
+/* La zone de glisser est le calque d'édition, pas body : posée sur body,
+   Electron ignore les exceptions « no-drag » de ses enfants, et le bouton
+   « Terminé » comme la poignée deviennent une barre de titre (clics avalés). */
+body.editing .edit {
   -webkit-app-region: drag;
   cursor: move;
 }
@@ -406,8 +409,24 @@ body.fullscreen:not(.ring-mode) .big-cover {
   min-width: 80px;
   font-variant-numeric: tabular-nums;
 }
+/* Aide des raccourcis du plein écran : cachée à l'écran (gardée pour les lecteurs
+   d'écran), affichée par la touche ? ou H. */
 .keys {
   position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+body.show-keys .keys {
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip-path: none;
+  white-space: normal;
   right: 24px;
   bottom: 14px;
   max-width: max(220px, 26vw);
@@ -420,8 +439,7 @@ body.fullscreen:not(.ring-mode) .big-cover {
   opacity: 0.8;
   transition: opacity 0.6s;
 }
-body.idle .controls,
-body.idle .keys {
+body.idle .controls {
   opacity: 0;
 }
 /* Le focus clavier garde les boutons visibles même au repos. */

@@ -284,6 +284,9 @@
       const d = e.key === ']' ? 0.25 : -0.25;
       bridge && bridge.nudgeLyrics(d);
       toast(`Paroles ${d > 0 ? 'plus tôt' : 'plus tard'} (${d > 0 ? '+' : '−'}0,25 s)`);
+    } else if (e.key === '?' || e.key === 'h' || e.key === 'H') {
+      // Aide des raccourcis, affichée ou masquée.
+      document.body.classList.toggle('show-keys');
     }
   });
 

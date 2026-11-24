@@ -20,6 +20,7 @@ const S = {
   controlsWin: null, // boutons du panneau de la scène
   controlsRect: null, // où les poser (rapporté par la page du widget)
   editorWin: null, // éditeur de disposition de la scène
+  placeWin: null, // fenêtre de placement du bandeau (« Déplacer / redimensionner »)
   veilleWins: [],
   editing: false, // mode placement du bandeau
   gamePaused: false, // un jeu ou une vidéo couvre l'écran de la scène

@@ -122,12 +122,8 @@ function applyMode() {
   if (S.settings.get('sceneHidden') && !S.editing) {
     widget.hide();
   } else if (S.editing) {
-    widget.setIgnoreMouseEvents(false);
-    widget.setFocusable(true);
-    widget.setAlwaysOnTop(true);
-    widget.setBounds(bounds);
-    widget.show();
-    widget.focus();
+    // Placement : le bandeau est masqué, la fenêtre de placement le remplace.
+    widget.hide();
   } else if (mode === 'wallpaper') {
     widget.setIgnoreMouseEvents(true);
     widget.setFocusable(false);
@@ -151,11 +147,81 @@ function applyMode() {
   S.actions.updateControls();
 }
 
+// Placement du bandeau (« Déplacer / redimensionner ») : une fenêtre à part,
+// au premier plan, qui montre le bandeau (widget.html?place=1), comme
+// l'éditeur de la scène. La fenêtre du bandeau reste accrochée au fond
+// d'écran (masquée) : pas de décrochage / ré-accrochage à chaque placement.
+let placeStart = null;
+
+// Dimensions choisies dans la fenêtre de placement, sans l'arrondi de Windows.
+function placedBounds(win) {
+  const b = win.getBounds();
+  if (!placeStart) return b;
+  const { target, actual } = placeStart;
+  return {
+    ...b,
+    width: Math.max(1, target.width + b.width - actual.width),
+    height: Math.max(1, target.height + b.height - actual.height),
+  };
+}
+
+function openPlacer() {
+  if (S.alive(S.placeWin)) {
+    S.placeWin.focus();
+    return;
+  }
+  const target = widgetBounds();
+  const win = new BrowserWindow({
+    ...target,
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    hasShadow: false,
+    resizable: false, // poignée gérée dans la page (voir widget:resize)
+    minimizable: false,
+    maximizable: false,
+    alwaysOnTop: true,
+    show: false,
+    title: 'Placer le bandeau · Sillon',
+    icon: path.join(S.ASSETS, 'icon.png'),
+    webPreferences: { ...SAFE_PREFS, preload: S.PRELOAD, backgroundThrottling: false },
+  });
+  S.placeWin = win;
+  secureWindow(win);
+  win.loadFile(path.join(S.RENDERER, 'widget.html'), { query: { place: '1' } });
+  win.webContents.on('did-finish-load', () => {
+    S.replayTo(win);
+    S.send([win], 'editing', true);
+    S.actions.startAudio(win);
+  });
+  // Avec une échelle d'affichage fractionnaire (125 %…), Windows arrondit une
+  // fenêtre transparente à quelques pixels de plus que demandé : on retient
+  // l'écart pour ne pas faire grandir le bandeau à chaque placement.
+  placeStart = { target, actual: win.getBounds() };
+  win.once('ready-to-show', () => {
+    win.show();
+    win.focus();
+  });
+  // Fermée autrement que par « Terminé » (Alt+F4…) : le placement s'arrête aussi.
+  win.on('closed', () => {
+    if (S.placeWin !== win) return;
+    S.placeWin = null;
+    if (S.editing) setEditing(false);
+  });
+}
+
 function setEditing(on) {
-  // Si la disposition est devenue la scène pendant le placement, la fenêtre
-  // fait tout l'écran : ce ne sont pas les dimensions du bandeau.
-  if (!on && S.editing && S.alive(S.widget) && !isScene()) saveWidgetBounds(S.widget.getBounds());
+  if (on && isScene()) return; // la scène occupe tout l'écran : rien à placer
+  if (!on && S.alive(S.placeWin)) {
+    // Si la disposition est devenue la scène pendant le placement, ce ne sont
+    // plus les dimensions du bandeau : on ne les enregistre pas.
+    if (!isScene()) saveWidgetBounds(placedBounds(S.placeWin));
+    const win = S.placeWin;
+    S.placeWin = null;
+    win.close();
+  }
   S.editing = on;
+  if (on) openPlacer();
   applyMode();
   S.actions.buildTray();
   if (S.actions.applyRest) S.actions.applyRest();

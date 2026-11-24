@@ -68,7 +68,7 @@ function updateSettings(patch) {
   const { all, changed } = S.settings.change(patch);
   if (!Object.keys(changed).length) return; // rien de nouveau : rien à renvoyer ni à reconstruire
   const has = (...keys) => keys.some((k) => k in changed);
-  S.send([S.widget, S.fullscreen, S.settingsWin, S.editorWin], 'settings', all);
+  S.send([S.widget, S.fullscreen, S.settingsWin, S.editorWin, S.placeWin], 'settings', all);
   // Disposition ou mode changés pendant « Déplacer / redimensionner » : on sort
   // du placement d'abord (la scène plein écran n'a rien à placer).
   if (S.editing && has('layout', 'mode')) widgetWindow.setEditing(false);
@@ -255,13 +255,15 @@ ipc.on('bounds:reset', () => {
   S.settings.set({ bounds: null });
   widgetWindow.applyMode();
 });
-ipc.on('widget:resize', (_e, size) => {
-  if (!S.editing || !S.alive(S.widget) || !size || typeof size !== 'object') return;
+ipc.on('widget:resize', (e, size) => {
+  // Seule la fenêtre de placement se redimensionne (voir setEditing).
+  const win = S.placeWin;
+  if (!S.editing || !S.alive(win) || e.sender !== win.webContents || !size || typeof size !== 'object') return;
   const width = finite(size.width, 0, 20000);
   const height = finite(size.height, 0, 20000);
   if (width === null || height === null) return;
-  const b = S.widget.getBounds();
-  S.widget.setBounds({ ...b, width: Math.max(240, Math.round(width)), height: Math.max(120, Math.round(height)) });
+  const b = win.getBounds();
+  win.setBounds({ ...b, width: Math.max(240, Math.round(width)), height: Math.max(120, Math.round(height)) });
 });
 ipc.on('scene:controls-rect', (e, rect) => {
   if (!S.widget || e.sender !== S.widget.webContents) return;

@@ -92,7 +92,7 @@ Menu de l'icône dans la zone de notification :
 | Écran de veille | Identique à Ctrl + Alt + L |
 | Paramètres… | Tous les réglages, dont le disque (intensité, taille, position), l'écran de la scène, le mode jeu, la veille, « Réduire les animations et les lueurs » et le compte Spotify |
 
-En plein écran : **Espace** lecture/pause · **← →** morceau précédent/suivant · **V** visualiseur suivant · **C** couleurs suivantes · **[ ]** décaler les paroles · **Échap** quitter.
+En plein écran : **Espace** lecture/pause · **← →** morceau précédent/suivant · **V** visualiseur suivant · **C** couleurs suivantes · **[ ]** décaler les paroles · **?** afficher l'aide des raccourcis · **Échap** quitter.
 
 ## Comment ça marche
 

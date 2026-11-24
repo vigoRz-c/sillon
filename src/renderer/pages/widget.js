@@ -394,6 +394,10 @@
       $('edit').classList.toggle('hidden', !on);
     });
     $('done').addEventListener('click', () => bridge.editDone());
+    // Échap ou Entrée : terminer aussi (fenêtre de placement, voir widget-window.js).
+    window.addEventListener('keydown', (e) => {
+      if (document.body.classList.contains('editing') && (e.key === 'Escape' || e.key === 'Enter')) bridge.editDone();
+    });
 
     const grip = $('grip');
     grip.setAttribute('role', 'img');

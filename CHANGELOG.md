@@ -4,6 +4,12 @@ Toutes les évolutions notables de Sillon. Format inspiré de [Keep a Changelog]
 
 ## [Non publié]
 
+### Corrigé
+- « Déplacer / redimensionner le bandeau » : avec le bandeau sur le fond d'écran sous Windows 11, ni « Terminé » ni la poignée ne répondaient (toute la fenêtre servait à la déplacer), il fallait quitter Sillon. Le placement se fait aussi dans une fenêtre à part, comme l'éditeur de la scène, sans décrocher le bandeau du fond d'écran ; Échap ou Entrée terminent aussi.
+
+### Modifié
+- Plein écran : l'aide des raccourcis ne s'affiche plus à chaque mouvement de la souris ; touche **?** (ou **H**) pour l'afficher ou la masquer. Elle reste lue par les lecteurs d'écran.
+
 ## [0.4.0] - 2026-11-24
 
 Personnalisation (roue des couleurs, quatre nouveaux visualiseurs) et seconde passe de l'audit de la version 0.3.0 : chaque page limitée à ses propres messages, cache disque sans blocage, vérification des types.
