@@ -4,6 +4,10 @@ Toutes les évolutions notables de Sillon. Format inspiré de [Keep a Changelog]
 
 ## [Non publié]
 
+## [0.4.1] - 2026-11-24
+
+Correctifs de la 0.4.0 : placement du bandeau de nouveau utilisable, aide des raccourcis du plein écran affichée seulement à la demande.
+
 ### Corrigé
 - « Déplacer / redimensionner le bandeau » : avec le bandeau sur le fond d'écran sous Windows 11, ni « Terminé » ni la poignée ne répondaient (toute la fenêtre servait à la déplacer), il fallait quitter Sillon. Le placement se fait aussi dans une fenêtre à part, comme l'éditeur de la scène, sans décrocher le bandeau du fond d'écran ; Échap ou Entrée terminent aussi.
 
@@ -184,7 +188,8 @@ Nouveaux jeux de couleurs, fenêtre des paramètres refaite, audit complet de la
 
 Première version publique : visualiseur sur le fond d'écran Windows, scène (disque, paroles synchronisées, panneau « en lecture », file d'attente), écran de veille, plein écran, connexion Spotify.
 
-[Non publié]: https://github.com/vigoRz-c/sillon/compare/v0.4.0...HEAD
+[Non publié]: https://github.com/vigoRz-c/sillon/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/vigoRz-c/sillon/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/vigoRz-c/sillon/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/vigoRz-c/sillon/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/vigoRz-c/sillon/compare/v0.2.0...v0.3.0
