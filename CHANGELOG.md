@@ -4,6 +4,10 @@ Toutes les évolutions notables de Sillon. Format inspiré de [Keep a Changelog]
 
 ## [Non publié]
 
+## [0.4.2] - 2026-11-24
+
+Quatre nouvelles formes pour l'anneau du disque de la scène et de la veille.
+
 ### Ajouté
 - Quatre nouvelles formes pour l'anneau du disque (scène et veille), en plus des rayons fins et épais : Onde, Points, Arcs et Ondes concentriques. Au choix dans les paramètres (onglet Scène, « Anneau du disque ») et dans l'éditeur de scène.
 
@@ -191,7 +195,8 @@ Nouveaux jeux de couleurs, fenêtre des paramètres refaite, audit complet de la
 
 Première version publique : visualiseur sur le fond d'écran Windows, scène (disque, paroles synchronisées, panneau « en lecture », file d'attente), écran de veille, plein écran, connexion Spotify.
 
-[Non publié]: https://github.com/vigoRz-c/sillon/compare/v0.4.1...HEAD
+[Non publié]: https://github.com/vigoRz-c/sillon/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/vigoRz-c/sillon/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/vigoRz-c/sillon/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/vigoRz-c/sillon/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/vigoRz-c/sillon/compare/v0.3.0...v0.3.1
