@@ -1,7 +1,7 @@
 {
   "name": "sillon",
   "productName": "Sillon",
-  "version": "0.4.4",
+  "version": "0.5.0",
   "description": "Music visualizer on the Windows wallpaper, synced with Spotify (and any player that exposes its media controls).",
   "main": "src/main/app/main.js",
   "author": "Loïc Restout",
