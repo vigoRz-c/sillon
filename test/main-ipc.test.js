@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const path = require('path');
 const { pathToFileURL } = require('url');
-const { isAppUrl, finite, validRect, MEDIA_COMMANDS } = require('../src/main/app/ipc-guard');
+const { isAppUrl, finite, validRect, MEDIA_COMMANDS, pageOf, allowedFor } = require('../src/main/app/ipc-guard');
 
 const root = path.join(__dirname, '..', 'src', 'renderer', 'pages');
 
@@ -36,4 +36,16 @@ test('liste blanche des commandes média', () => {
     'repeat',
     'shuffle',
   ]);
+});
+
+test('allowedFor : chaque page n’a que ses canaux', () => {
+  const url = (f) => pathToFileURL(path.join(root, f)).href;
+  assert.strictEqual(pageOf(`${url('Widget.html')}?edit=1`), 'widget.html');
+  assert.strictEqual(pageOf('pas une adresse'), '');
+  assert.ok(allowedFor(url('settings.html'), 'spotify:logout'));
+  assert.ok(allowedFor(`${url('fullscreen.html')}?veille=1`, 'veille:exit'));
+  assert.ok(!allowedFor(url('controls.html'), 'spotify:logout'));
+  assert.ok(!allowedFor(url('veille-black.html'), 'settings:set'));
+  assert.ok(!allowedFor(url('inconnue.html'), 'settings:get'));
+  assert.ok(!allowedFor(url('__proto__'), 'settings:get'));
 });

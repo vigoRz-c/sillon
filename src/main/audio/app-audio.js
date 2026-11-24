@@ -19,6 +19,7 @@ const diagnostic = require('../app/diagnostic');
 const { helperExe } = require('./helper');
 const { exeForApp } = require('./app-ids');
 const { retryDelay, createPcmAssembler, appendCapped } = require('./audio-utils');
+const { EXIT } = require('./helper-protocol');
 
 const FLUSH_MS = 30; // regroupement des envois de son (le worklet tolère 80 ms)
 const MAX_STDERR = 4096; // on ne garde que la fin des messages d'erreur de l'assistant
@@ -40,6 +41,23 @@ let proc = null;
 let restartTimer = null;
 let fallback = false; // trop d'échecs : tout le son du PC jusqu'au prochain changement de lecteur
 const listeners = new Set(); // fenêtres qui reçoivent le son
+
+// Relance la capture après `delay` ms, seulement si le lecteur est toujours
+// annoncé actif et qu'une fenêtre écoute (sinon on attend un message média).
+function scheduleRetry(exe, delay) {
+  if (!targetActive(exe) || !activeListeners().length) return;
+  restartTimer = setTimeout(() => {
+    restartTimer = null;
+    refresh();
+  }, delay);
+}
+
+// Tous les compteurs d'échecs repartent de zéro.
+function resetCounters() {
+  state.failures = 0;
+  state.unsupportedCodes = 0;
+  state.absent = 0;
+}
 
 // ---------- Fenêtres concernées ----------
 
@@ -74,11 +92,7 @@ function flushPcm() {
 
 function onPcm(data) {
   // L'assistant fonctionne : tous les compteurs d'échecs repartent de zéro.
-  if (state.failures || state.unsupportedCodes || state.absent) {
-    state.failures = 0;
-    state.unsupportedCodes = 0;
-    state.absent = 0;
-  }
+  if (state.failures || state.unsupportedCodes || state.absent) resetCounters();
   const aligned = assembler.push(data); // jamais d'échantillon 16 bits coupé en deux
   if (!aligned.length) return;
   pending.push(aligned);
@@ -114,11 +128,7 @@ function targetActive(exe) {
 function startHelper(exe) {
   const changed = state.exe !== exe;
   stopHelper();
-  if (changed) {
-    state.failures = 0;
-    state.unsupportedCodes = 0;
-    state.absent = 0;
-  }
+  if (changed) resetCounters();
   state.exe = exe;
   const p = spawn(helperExe(), ['capture', exe], { windowsHide: true });
   proc = p;
@@ -140,7 +150,7 @@ function startHelper(exe) {
     proc = null;
     resetPcm();
     const msg = (/ERR \d+ (.*)/.exec(err) || [])[1] || `arrêt (code ${code})`;
-    if (code === 2) {
+    if (code === EXIT.UNSUPPORTED) {
       // Un seul code 2 peut être passager (lecteur en train de démarrer) : on
       // n'abandonne la capture par application qu'au 3e de suite.
       state.unsupportedCodes += 1;
@@ -156,30 +166,20 @@ function startHelper(exe) {
         'son',
         `capture par application impossible (${msg}) : essai ${state.unsupportedCodes}/${MAX_UNSUPPORTED}`,
       );
-      if (targetActive(exe) && activeListeners().length) {
-        restartTimer = setTimeout(() => {
-          restartTimer = null;
-          refresh();
-        }, retryDelay(state.unsupportedCodes));
-      }
+      scheduleRetry(exe, retryDelay(state.unsupportedCodes));
       return;
     }
     state.reason = msg;
-    if (code === 7) {
+    if (code === EXIT.DEVICE_LOST) {
       // Périphérique audio perdu (sortie changée) : on relance vite, sans
       // compter un échec ni abandonner la capture par application.
       diagnostic.note('son', `capture interrompue (${msg}) : nouvel essai`);
-      if (targetActive(exe) && activeListeners().length) {
-        restartTimer = setTimeout(() => {
-          restartTimer = null;
-          refresh();
-        }, 1000);
-      }
+      scheduleRetry(exe, 1000);
       return;
     }
-    // 3 : application fermée, 4 : pas encore lancée : cas normaux, qui ne
+    // Application fermée ou pas encore lancée : cas normaux, qui ne
     // comptent pas comme des échecs. Le reste est noté et compté.
-    const normal = code === 3 || code === 4;
+    const normal = code === EXIT.CLOSED || code === EXIT.NOT_FOUND;
     if (!normal) {
       diagnostic.note('son', `assistant de capture arrêté (code ${code}) : ${msg}`);
       state.failures += 1;
@@ -202,12 +202,7 @@ function startHelper(exe) {
     }
     // On ne relance que si le lecteur est toujours annoncé actif, avec un
     // délai croissant. Sinon on attend qu'il réapparaisse (voir onMedia).
-    if (targetActive(exe) && activeListeners().length) {
-      restartTimer = setTimeout(() => {
-        restartTimer = null;
-        refresh();
-      }, retryDelay(state.failures));
-    }
+    scheduleRetry(exe, retryDelay(state.failures));
   });
 }
 
@@ -312,9 +307,7 @@ function onMedia(m) {
     state.unsupported = false;
   }
   // Nouveau lecteur ou lecteur revenu : on repart sans attendre les délais.
-  state.failures = 0;
-  state.unsupportedCodes = 0;
-  state.absent = 0;
+  resetCounters();
   fallback = false;
   clearTimeout(restartTimer);
   restartTimer = null;
@@ -323,9 +316,7 @@ function onMedia(m) {
 function onSettingChanged() {
   state.unsupported = false;
   fallback = false;
-  state.failures = 0;
-  state.unsupportedCodes = 0;
-  state.absent = 0;
+  resetCounters();
   if (listeners.size) refresh();
 }
 

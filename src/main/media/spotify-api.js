@@ -1,3 +1,4 @@
+// @ts-check
 // Connexion à l'API Web de Spotify : file d'attente (« À suivre »), et lecture
 // aléatoire / répétition (Spotify ignore ces deux commandes venant de Windows).
 //
@@ -301,6 +302,13 @@ class SpotifyApi extends EventEmitter {
     if (timer.unref) timer.unref();
   }
 
+  // Réponse du point /api/token de Spotify.
+  /**
+   * @typedef {{ access_token: string, refresh_token?: string, expires_in: number, scope?: string,
+   *   error?: string, error_description?: string }} TokenResponse
+   */
+
+  /** @param {Record<string, string>} params @returns {Promise<TokenResponse>} */
   async tokenRequest(params) {
     const res = await fetch(`${ACCOUNTS}/api/token`, {
       method: 'POST',
@@ -308,7 +316,7 @@ class SpotifyApi extends EventEmitter {
       body: new URLSearchParams(params),
       signal: AbortSignal.timeout(10000),
     });
-    const json = await res.json().catch(() => ({}));
+    const json = /** @type {TokenResponse} */ (await res.json().catch(() => ({})));
     if (!res.ok) {
       const hint = json.error === 'invalid_client' ? ' (Client ID ou adresse de retour non enregistrée ?)' : '';
       throw new Error(`Spotify a refusé la connexion : ${json.error_description || json.error || res.status}${hint}`);
@@ -365,7 +373,7 @@ class SpotifyApi extends EventEmitter {
     });
     if (res.status === 403) {
       // La vraie raison donnée par Spotify, pour le diagnostic.
-      const body = await res.json().catch(() => ({}));
+      const body = /** @type {any} */ (await res.json().catch(() => ({})));
       const why = (body.error && (body.error.reason || body.error.message)) || '';
       throw new Error(
         (this.builtIn()
@@ -397,7 +405,7 @@ class SpotifyApi extends EventEmitter {
       signal: AbortSignal.timeout(8000),
     });
     if (res.ok) return;
-    const body = await res.json().catch(() => ({}));
+    const body = /** @type {any} */ (await res.json().catch(() => ({})));
     const why = (body.error && (body.error.reason || body.error.message)) || res.status;
     if (res.status === 403) {
       // Interdit pour l'instant (selon le contexte de lecture ; toujours pour un

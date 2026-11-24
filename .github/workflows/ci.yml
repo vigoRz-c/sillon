@@ -44,6 +44,8 @@ jobs:
         run: npm run check
       - name: ESLint
         run: npm run lint
+      - name: Types (JSDoc, fichiers // @ts-check)
+        run: npm run typecheck
       - name: Formatage (Prettier)
         run: npm run format:check
       - name: Tests

@@ -1,3 +1,4 @@
+// @ts-check
 // État partagé du processus principal.
 //
 // Les modules (fenêtres, morceau en cours, veille, file d'attente, menu...)
@@ -54,12 +55,29 @@ S.send = (wins, channel, data) => {
 
 S.alive = (w) => !!(w && !w.isDestroyed());
 
+// Morceau en cours vers des pages. La pochette (data URL de 100 à 250 Ko) n'est
+// envoyée qu'une fois par fenêtre : ensuite, tant qu'elle ne change pas, le
+// message dit seulement « coverKept » et la page garde la sienne (voir
+// common.js). full : envoi complet (page qui vient de se charger).
+const coverSent = new WeakMap(); // fenêtre -> dernière pochette envoyée
+S.sendMedia = (wins, m, { full = false } = {}) => {
+  for (const w of wins) {
+    if (!S.alive(w)) continue;
+    if (!full && m.cover && coverSent.get(w) === m.cover) {
+      S.send([w], 'media', { ...m, cover: undefined, coverKept: true });
+    } else {
+      coverSent.set(w, m.cover);
+      S.send([w], 'media', m);
+    }
+  }
+};
+
 // Rejoue l'état courant dans une page qui vient de se charger (ou de se
 // recharger après un plantage) : réglages, morceau, paroles, file, fond.
 S.replayTo = (win) => {
   if (!S.alive(win)) return;
   S.send([win], 'settings', S.settings.get());
-  S.send([win], 'media', S.lastMedia);
+  S.sendMedia([win], S.lastMedia, { full: true });
   if (S.lastLyrics) S.send([win], 'lyrics', S.lastLyrics);
   S.send([win], 'queue', S.lastQueue);
   if (S.wallpaperSample) S.send([win], 'wallpaper', S.wallpaperSample);

@@ -6,7 +6,7 @@ const { WindowsMediaSource } = require('./media');
 const { lookupCover } = require('./cover-lookup');
 const { lookupLyrics } = require('./lyrics');
 const diagnostic = require('../app/diagnostic');
-const { exeForApp } = require('../audio/app-audio');
+const { exeForApp } = require('../audio/app-ids');
 
 // ---------- Décalage des paroles (par morceau) ----------
 // Pour les titres où LRCLIB a les paroles d'une autre version. Positif : les
@@ -62,7 +62,7 @@ function startMedia() {
           }
         : { shuffleAllowed: true, repeatAllowed: true }),
     };
-    S.send([S.widget, S.fullscreen, S.editorWin], 'media', S.lastMedia);
+    S.sendMedia([S.widget, S.fullscreen, S.editorWin], S.lastMedia);
     // La fenêtre des boutons n'utilise pas la pochette (100 à 250 Ko par message).
     if (S.alive(S.controlsWin)) {
       const light = { ...S.lastMedia };

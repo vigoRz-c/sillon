@@ -61,15 +61,15 @@ test("pochette : artiste différent -> rien (on garde l'image de Windows)", asyn
   }
 });
 
-test('cache disque : valeur relue, "rien trouvé" gardé aussi', () => {
+test('cache disque : valeur relue, "rien trouvé" gardé aussi', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sillon-test-'));
   try {
     disk.init(dir);
-    assert.equal(disk.get('covers', 'a'), undefined);
-    disk.set('covers', 'a', 'data:image/png;base64,xx');
-    disk.set('covers', 'b', null);
-    assert.equal(disk.get('covers', 'a'), 'data:image/png;base64,xx');
-    assert.equal(disk.get('covers', 'b'), null);
+    assert.equal(await disk.get('covers', 'a'), undefined);
+    await disk.set('covers', 'a', 'data:image/png;base64,xx');
+    await disk.set('covers', 'b', null);
+    assert.equal(await disk.get('covers', 'a'), 'data:image/png;base64,xx');
+    assert.equal(await disk.get('covers', 'b'), null);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -151,7 +151,7 @@ test('lookupCover : « rien trouvé » (requêtes abouties) est mis en cache', a
       assert.ok(n > 0);
       assert.equal(await lookupCover(media), null);
       assert.equal(calls.length, n, 'pas de nouvelle requête : le résultat vide est en cache');
-      assert.equal(disk.get('covers', 'personne|nulle part|inconnu'), null);
+      assert.equal(await disk.get('covers', 'personne|nulle part|inconnu'), null);
     },
   );
 });

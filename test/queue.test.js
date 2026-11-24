@@ -24,7 +24,11 @@ const queue = require('../src/main/media/queue');
 Module._load = realLoad;
 
 const tick = () => new Promise((r) => setImmediate(r));
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Appel asynchrone qui rend la main quelques tours (sans horloge réelle) :
+// assez pour que deux commandes se chevauchent si rien ne les sérialise.
+const yieldTurns = async (n = 3) => {
+  for (let i = 0; i < n; i++) await tick();
+};
 
 // Faux SpotifyApi : tout est configurable par test.
 function fakeSpotify(over = {}) {
@@ -45,11 +49,11 @@ function fakeSpotify(over = {}) {
       return [{ title: 'Suivant', artist: 'X', image: null }];
     },
     setShuffle: async (on) => {
-      await sleep(5);
+      await yieldTurns();
       sp.calls.setShuffle.push(on);
     },
     setRepeat: async (mode) => {
-      await sleep(5);
+      await yieldTurns();
       sp.calls.setRepeat.push(mode);
     },
     ...over,

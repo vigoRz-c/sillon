@@ -80,7 +80,7 @@ function updateControls() {
     win.loadFile(path.join(S.RENDERER, 'controls.html'));
     win.webContents.on('did-finish-load', () => {
       if (!S.alive(win)) return;
-      S.send([win], 'media', S.lastMedia);
+      S.send([win], 'media', { ...S.lastMedia, cover: undefined }); // les boutons n'affichent pas la pochette
       win.showInactive();
       sendToBottom(win);
       placeAboveDesktop(win);

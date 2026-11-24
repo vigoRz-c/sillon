@@ -62,10 +62,13 @@ Avant de lancer, la section `## [x.y.z]` correspondant à la nouvelle version do
 ### Vérifications
 
 ```bash
-npm run verify        # syntaxe, ESLint, Prettier, tests, et Rust si cargo est installé
+npm run verify        # syntaxe, ESLint, types, Prettier, tests, et Rust si cargo est installé
+npm run typecheck     # vérification des types (JSDoc) des fichiers marqués // @ts-check
 npm run verify:rust   # formatage, clippy (avertissements = erreurs) et tests Rust ; échoue sans cargo
 npm test              # tests JavaScript seuls (node --test)
 ```
+
+À chaque commit, un hook (installé par `npm install`, voir `simple-git-hooks` dans `package.json`) vérifie ESLint et le formatage des fichiers modifiés.
 
 Ce qu'exécute la CI (`.github/workflows/ci.yml`) est la même chose : tests JavaScript sous Node 20 et 22, Rust, audits (`npm audit`, `cargo audit`), empaquetage sans publication et vérification que l'assistant n'embarque pas le runtime VC++.
 

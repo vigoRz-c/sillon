@@ -14,15 +14,17 @@ const readline = require('readline');
 const { helperExe } = require('../audio/helper');
 const { note: diagNote } = require('./text-norm');
 
+const protocol = require('../audio/helper-protocol');
+
 // Version du protocole de l'assistant (message "ready"). Un assistant plus
 // ancien (ou plus récent) est signalé, sans bloquer.
-const HELPER_PROTOCOL = 1;
+const HELPER_PROTOCOL = protocol.PROTOCOL;
 // Commandes acceptées par l'assistant : le reste n'est jamais écrit sur son stdin.
-const SIMPLE_COMMANDS = new Set(['playpause', 'play', 'pause', 'next', 'previous', 'shuffle', 'repeat']);
-const PREFIXED_COMMANDS = ['volume:', 'prefer:', 'volume-target:'];
+const SIMPLE_COMMANDS = new Set(protocol.MEDIA_COMMANDS);
+const { PREFIXED_COMMANDS } = protocol;
 const STABLE_MS = 10000; // fonctionnement stable : le compteur de redémarrages repart de zéro
 const REPLAY_MS = 5000; // une commande de lecture perdue pendant la relance est rejouée si elle a moins de 5 s
-const PLAYBACK_COMMANDS = new Set(['playpause', 'play', 'pause', 'next', 'previous']);
+const PLAYBACK_COMMANDS = new Set(protocol.PLAYBACK_COMMANDS);
 const MAX_BAD_LINES = 3; // lignes non JSON journalisées par lancement
 
 // Position de lecture fiable pour synchroniser les paroles.

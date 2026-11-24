@@ -4,6 +4,22 @@ Toutes les évolutions notables de Sillon. Format inspiré de [Keep a Changelog]
 
 ## [Non publié]
 
+### Sécurité
+- Chaque page ne peut plus demander que ce dont elle a besoin : la fenêtre des boutons ne peut pas déconnecter Spotify, l'écran noir de la veille ne peut que la quitter. Une demande refusée est notée au diagnostic.
+- Les écrans noirs de la veille (écrans secondaires) sont une page de l'app au lieu d'une page `data:`, avec les mêmes règles de sécurité que les autres.
+- L'assistant natif refuse une commande trop longue au lieu de l'exécuter tronquée.
+
+### Performance
+- La pochette n'est plus renvoyée aux pages à chaque changement de volume ou de lecture : elle part une fois, puis seulement quand elle change.
+- Le cache des pochettes et des paroles lit et écrit le disque sans bloquer le processus principal ; une entrée abîmée est supprimée.
+
+### Interne
+- Commandes et codes de sortie de l'assistant natif réunis dans un seul module (`helper-protocol.js`).
+- Vérification des types (JSDoc, `npm run typecheck`) sur les modules principaux, aussi en CI.
+- Hook avant commit : ESLint et formatage des fichiers modifiés.
+- Nouveaux tests : contrôle des pages qui envoient des messages, connexion Spotify (réussite, code absent, refus), erreurs de mise à jour, envoi de la pochette ; plus d'attentes en temps réel dans les tests.
+- Dépendance des outils de construction (`minimatch`) mise à jour : `npm audit` ne signale plus rien.
+
 ## [0.3.1] - 2026-11-24
 
 Correctifs rapides issus de l'audit de la version 0.3.0 : autorisations limitées aux pages de Sillon, démarrage raté signalé, moins de travail quand la scène est cachée.

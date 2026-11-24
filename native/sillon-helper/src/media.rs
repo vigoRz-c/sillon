@@ -59,6 +59,8 @@ fn emit(v: &Value) {
 enum Msg {
     /// Une ligne de commande (4 Ko au plus).
     Line(String),
+    /// Une ligne plus longue que 4 Ko : refusée (tronquée, elle changerait de sens).
+    TooLong(String),
     /// Fin de l'entrée : Sillon est parti.
     Eof,
     /// Erreur d'E/S sur l'entrée.
@@ -108,11 +110,20 @@ fn parse_command(line: &str) -> Option<Cmd> {
     None
 }
 
+/// Ligne lue sur l'entrée : ses octets (au plus `cap`) et si elle a été coupée.
+#[derive(Debug, PartialEq, Eq)]
+struct Line {
+    bytes: Vec<u8>,
+    truncated: bool,
+}
+
 /// Lit une ligne (sans le `\n`) en gardant au plus `cap` octets : le reste de
-/// la ligne est lu puis ignoré. `Ok(None)` à la fin de l'entrée.
-fn read_line_capped<R: BufRead>(r: &mut R, cap: usize) -> std::io::Result<Option<Vec<u8>>> {
+/// la ligne est lu puis ignoré, et la ligne est marquée `truncated`.
+/// `Ok(None)` à la fin de l'entrée.
+fn read_line_capped<R: BufRead>(r: &mut R, cap: usize) -> std::io::Result<Option<Line>> {
     let mut line = Vec::new();
     let mut any = false;
+    let mut truncated = false;
     loop {
         let chunk = match r.fill_buf() {
             Ok(c) => c,
@@ -121,17 +132,18 @@ fn read_line_capped<R: BufRead>(r: &mut R, cap: usize) -> std::io::Result<Option
         };
         if chunk.is_empty() {
             // Fin de l'entrée : une dernière ligne sans `\n` compte quand même.
-            return Ok(any.then_some(line));
+            return Ok(any.then_some(Line { bytes: line, truncated }));
         }
         any = true;
         let newline = chunk.iter().position(|&b| b == b'\n');
         let used = newline.map_or(chunk.len(), |i| i + 1);
         let data = newline.unwrap_or(chunk.len());
         let room = cap.saturating_sub(line.len());
+        truncated |= data > room;
         line.extend_from_slice(&chunk[..data.min(room)]);
         r.consume(used);
         if newline.is_some() {
-            return Ok(Some(line));
+            return Ok(Some(Line { bytes: line, truncated }));
         }
     }
 }
@@ -634,11 +646,18 @@ fn spawn_stdin_reader(tx: SyncSender<Msg>) {
         let mut input = std::io::stdin().lock();
         loop {
             let msg = match read_line_capped(&mut input, MAX_LINE) {
-                Ok(Some(bytes)) => Msg::Line(String::from_utf8_lossy(&bytes).into_owned()),
+                Ok(Some(Line { bytes, truncated })) => {
+                    let text = String::from_utf8_lossy(&bytes).into_owned();
+                    if truncated {
+                        Msg::TooLong(text)
+                    } else {
+                        Msg::Line(text)
+                    }
+                }
                 Ok(None) => Msg::Eof,
                 Err(e) => Msg::InputError(e.to_string()),
             };
-            let last = !matches!(msg, Msg::Line(_));
+            let last = !matches!(msg, Msg::Line(_) | Msg::TooLong(_));
             if tx.send(msg).is_err() || last {
                 return;
             }
@@ -655,6 +674,12 @@ enum Flow {
 fn handle(st: &mut State, msg: Msg, woke: &mut bool) -> Flow {
     match msg {
         Msg::Line(l) => st.command(&l),
+        Msg::TooLong(l) => emit(&json!({
+            "type": "cmd",
+            "cmd": truncate_chars(l.trim(), 64),
+            "ok": false,
+            "reason": "ligne trop longue",
+        })),
         Msg::Wake => *woke = true,
         Msg::Eof => return Flow::Exit(0),
         Msg::InputError(e) => {
@@ -891,35 +916,52 @@ mod tests {
     #[test]
     fn lecture_de_lignes() {
         let mut r = Cursor::new(b"play\nnext\r\nlast".to_vec());
-        assert_eq!(read_line_capped(&mut r, 100).unwrap(), Some(b"play".to_vec()));
-        assert_eq!(read_line_capped(&mut r, 100).unwrap(), Some(b"next\r".to_vec()));
-        assert_eq!(read_line_capped(&mut r, 100).unwrap(), Some(b"last".to_vec()));
+        assert_eq!(read_line_capped(&mut r, 100).unwrap(), Some(ok_line(b"play")));
+        assert_eq!(read_line_capped(&mut r, 100).unwrap(), Some(ok_line(b"next\r")));
+        assert_eq!(read_line_capped(&mut r, 100).unwrap(), Some(ok_line(b"last")));
         assert_eq!(read_line_capped(&mut r, 100).unwrap(), None);
     }
 
     #[test]
     fn lecture_ligne_vide_et_fin() {
         let mut r = Cursor::new(b"\n".to_vec());
-        assert_eq!(read_line_capped(&mut r, 100).unwrap(), Some(Vec::new()));
+        assert_eq!(read_line_capped(&mut r, 100).unwrap(), Some(ok_line(b"")));
         assert_eq!(read_line_capped(&mut r, 100).unwrap(), None);
     }
 
     #[test]
-    fn lecture_ligne_trop_longue_tronquee() {
+    fn lecture_ligne_trop_longue_marquee() {
         let mut data = vec![b'a'; 10_000];
         data.extend_from_slice(b"\nnext\n");
         let mut r = Cursor::new(data);
         let first = read_line_capped(&mut r, MAX_LINE).unwrap().unwrap();
-        assert_eq!(first.len(), MAX_LINE);
+        assert_eq!(first.bytes.len(), MAX_LINE);
+        assert!(first.truncated, "ligne coupée : à refuser, pas à exécuter");
         // La ligne suivante reste intacte.
-        assert_eq!(read_line_capped(&mut r, MAX_LINE).unwrap(), Some(b"next".to_vec()));
+        assert_eq!(read_line_capped(&mut r, MAX_LINE).unwrap(), Some(ok_line(b"next")));
+    }
+
+    #[test]
+    fn lecture_ligne_de_taille_exacte_non_marquee() {
+        let mut data = vec![b'a'; MAX_LINE];
+        data.push(b'\n');
+        let line = read_line_capped(&mut Cursor::new(data), MAX_LINE).unwrap().unwrap();
+        assert_eq!(line.bytes.len(), MAX_LINE);
+        assert!(!line.truncated);
+    }
+
+    fn ok_line(b: &[u8]) -> Line {
+        Line {
+            bytes: b.to_vec(),
+            truncated: false,
+        }
     }
 
     #[test]
     fn lecture_octets_invalides_tolerée() {
         let mut r = Cursor::new(vec![0xff, 0xfe, b'\n']);
-        let bytes = read_line_capped(&mut r, 100).unwrap().unwrap();
-        assert!(!String::from_utf8_lossy(&bytes).is_empty());
+        let line = read_line_capped(&mut r, 100).unwrap().unwrap();
+        assert!(!String::from_utf8_lossy(&line.bytes).is_empty());
     }
 
     #[test]

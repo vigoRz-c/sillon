@@ -1,3 +1,4 @@
+// @ts-check
 // Contrôle des messages reçus des pages (IPC).
 //
 // Un handler ne doit obéir qu'aux pages de Sillon : l'expéditeur doit être une
@@ -6,7 +7,7 @@
 const { pathToFileURL } = require('url');
 
 // Les commandes média acceptées (celles que comprend l'assistant natif).
-const MEDIA_COMMANDS = ['playpause', 'play', 'pause', 'next', 'previous', 'shuffle', 'repeat'];
+const { MEDIA_COMMANDS } = require('../audio/helper-protocol');
 
 const norm = (u) => String(u).replace(/\\/g, '/').toLowerCase();
 
@@ -30,4 +31,55 @@ function validRect(r) {
   return { x, y, width, height };
 }
 
-module.exports = { MEDIA_COMMANDS, isAppUrl, finite, validRect };
+// Canaux que chaque page peut envoyer au processus principal (moindre
+// privilège) : la fenêtre des boutons ne peut pas déconnecter Spotify, l'écran
+// noir de la veille ne peut que la quitter. Une page absente de la liste n'a
+// droit à rien. test/ipc-contract.test.js vérifie que chaque page a bien les
+// canaux des méthodes du pont qu'elle utilise.
+const PAGE_CHANNELS = {
+  'widget.html': ['settings:get', 'edit:done', 'scene:controls-rect', 'widget:resize', 'layout:cancel', 'layout:done'],
+  'fullscreen.html': [
+    'settings:get',
+    'media:command',
+    'media:volume',
+    'lyrics:nudge',
+    'settings:open',
+    'fullscreen:close',
+    'veille:exit',
+  ],
+  'controls.html': ['media:command', 'media:volume', 'settings:open', 'settings:set'],
+  'settings.html': [
+    'settings:get',
+    'settings:set',
+    'diagnostic:copy',
+    'update:status',
+    'update:check',
+    'update:install',
+    'spotify:status',
+    'spotify:login',
+    'spotify:logout',
+    'spotify:dashboard',
+    'layout:open',
+    'edit:start',
+    'bounds:reset',
+    'veille:start',
+  ],
+  'veille-black.html': ['veille:exit'],
+};
+
+// Nom du fichier de la page (« widget.html »), en minuscules ; '' si l'adresse est invalide.
+function pageOf(url) {
+  try {
+    return decodeURIComponent(new URL(url).pathname.split('/').pop()).toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+// La page à l'adresse `url` a-t-elle le droit d'envoyer sur `channel` ?
+function allowedFor(url, channel) {
+  const list = Object.hasOwn(PAGE_CHANNELS, pageOf(url)) ? PAGE_CHANNELS[pageOf(url)] : null;
+  return !!list && list.includes(channel);
+}
+
+module.exports = { MEDIA_COMMANDS, PAGE_CHANNELS, isAppUrl, pageOf, allowedFor, finite, validRect };

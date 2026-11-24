@@ -215,9 +215,10 @@ function fakeServer(t) {
   return srv;
 }
 function fakeRes() {
-  const r = { status: null, body: '' };
-  r.writeHead = (s) => {
+  const r = { status: null, headers: {}, body: '' };
+  r.writeHead = (s, h = {}) => {
     r.status = s;
+    r.headers = h;
     return r;
   };
   r.end = (b = '') => {
@@ -251,6 +252,81 @@ test('OAuth : message d’erreur échappé dans la page de retour', async (t) =>
   assert.ok(res.body.includes('&lt;img'));
   assert.equal(srv.closed, 1);
   n.restore();
+});
+
+const stateOf = () => new URL(state.openedUrls.at(-1)).searchParams.get('state');
+
+test('OAuth : connexion réussie -> jetons enregistrés, page sans cache, serveur fermé', async (t) => {
+  const api = await makeApi(t);
+  const srv = fakeServer(t);
+  const n = net({ api: () => json({}), token: () => goodToken(7) });
+  let connected = 0;
+  api.on('connected', () => connected++);
+  api.login();
+  const auth = new URL(state.openedUrls[0]);
+  assert.equal(auth.origin + auth.pathname, 'https://accounts.spotify.com/authorize');
+  assert.equal(auth.searchParams.get('code_challenge_method'), 'S256');
+  assert.equal(auth.searchParams.get('client_id'), CLIENT_ID);
+  const res = fakeRes();
+  await srv.handler({ url: `/callback?state=${stateOf()}&code=bon` }, res);
+  assert.equal(res.status, 200);
+  assert.equal(res.headers['Cache-Control'], 'no-store');
+  assert.equal(res.headers['Referrer-Policy'], 'no-referrer');
+  assert.match(res.headers['Content-Security-Policy'], /default-src 'none'/);
+  assert.equal(api.tokens.access, 'acc7');
+  assert.equal(api.status().connected, true);
+  assert.equal(connected, 1);
+  assert.equal(srv.closed, 1);
+  assert.equal(api.server, null);
+  assert.ok(fs.readFileSync(api.file, 'utf8').startsWith('enc:'), 'jetons chiffrés sur disque');
+  n.restore();
+});
+
+test('OAuth : retour sans code -> refusé sans appel réseau', async (t) => {
+  const api = await makeApi(t);
+  const srv = fakeServer(t);
+  const n = net({ api: () => json({}), token: () => goodToken() });
+  api.login();
+  const res = fakeRes();
+  await srv.handler({ url: `/callback?state=${stateOf()}` }, res);
+  assert.equal(n.c.token, 0);
+  assert.equal(res.status, 200);
+  assert.match(res.body, /incomplète/);
+  assert.match(api.status().error, /code absent/);
+  assert.equal(api.tokens, null);
+  assert.equal(srv.closed, 1);
+  n.restore();
+});
+
+test('OAuth : accès refusé dans Spotify -> message clair, aucun jeton', async (t) => {
+  const api = await makeApi(t);
+  const srv = fakeServer(t);
+  api.login();
+  const res = fakeRes();
+  await srv.handler({ url: `/callback?state=${stateOf()}&error=access_denied` }, res);
+  assert.equal(api.status().error, 'Connexion refusée dans Spotify.');
+  assert.equal(api.tokens, null);
+  assert.equal(srv.closed, 1);
+});
+
+test('OAuth : autre chemin -> 404, serveur toujours ouvert', async (t) => {
+  const api = await makeApi(t);
+  const srv = fakeServer(t);
+  api.login();
+  const res = fakeRes();
+  await srv.handler({ url: '/favicon.ico' }, res);
+  assert.equal(res.status, 404);
+  assert.equal(srv.closed, 0);
+});
+
+test('OAuth : Client ID invalide -> pas de serveur ni de navigateur', async (t) => {
+  const api = await makeApi(t);
+  api.getConfig = () => ({ custom: true, clientId: 'pas-un-id' });
+  const srv = fakeServer(t);
+  api.login();
+  assert.equal(srv.handler, null);
+  assert.equal(state.openedUrls.length, 0);
+  assert.match(api.status().error, /Client ID/);
 });
 
 test('OAuth : sans retour au bout de 5 minutes -> « Connexion Spotify expirée »', async (t) => {

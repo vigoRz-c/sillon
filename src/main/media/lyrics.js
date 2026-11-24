@@ -135,7 +135,7 @@ async function findLyrics({ title, artist, album, duration }) {
 async function lookupLyrics(media, { volatile = false } = {}) {
   const key = `${norm(firstArtist(media.artist))}|${norm(media.title)}|${Math.round((media.duration || 0) / 5)}`;
   if (cache.has(key)) return cache.get(key);
-  const stored = disk.get('lyrics', key);
+  const stored = await disk.get('lyrics', key);
   if (stored !== undefined) {
     cache.set(key, stored);
     return stored;
@@ -151,7 +151,7 @@ async function lookupLyrics(media, { volatile = false } = {}) {
   if (volatile && !result) return result;
   if (cache.size > 200) cache.delete(cache.keys().next().value);
   cache.set(key, result);
-  disk.set('lyrics', key, result);
+  await disk.set('lyrics', key, result); // erreurs gérées (et notées) par le cache
   return result;
 }
 

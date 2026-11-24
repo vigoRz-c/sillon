@@ -1,3 +1,4 @@
+// @ts-check
 // Normalisation des titres et des noms d'artistes, partagée par la recherche
 // de pochettes (Deezer) et de paroles (LRCLIB).
 

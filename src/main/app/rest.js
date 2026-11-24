@@ -1,3 +1,4 @@
+// @ts-check
 // Repos : la scène dort quand aucune musique ne joue depuis un moment.
 // Même règle que la page de la scène (widget.js, updateRest), pour que le
 // processus principal sache quand couper la capture du son.

@@ -1,3 +1,4 @@
+// @ts-check
 // Réglages : valeurs par défaut et validation, sans dépendance à Electron
 // (testé à part, voir test/settings.test.js).
 

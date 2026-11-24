@@ -48,6 +48,11 @@
     }
 
     function applyMedia(m) {
+      // Pochette inchangée : le processus principal ne la renvoie pas (lourde).
+      if (m.coverKept) {
+        m = { ...m, cover: state.media.cover };
+        delete m.coverKept;
+      }
       const coverChanged = m.cover !== state.media.cover;
       state.media = m;
       if (coverChanged) {

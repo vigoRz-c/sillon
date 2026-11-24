@@ -21,7 +21,7 @@ Une faille de sécurité ne se signale pas dans une issue publique : voir [SECUR
    ```
 3. Avant d'envoyer, vérifie que tout passe :
    ```bash
-   npm run verify        # syntaxe, ESLint, Prettier, tests JavaScript, et Rust si cargo est installé
+   npm run verify        # syntaxe, ESLint, types, Prettier, tests JavaScript, et Rust si cargo est installé
    npm run verify:rust   # formatage, clippy (avertissements = erreurs) et tests de l'assistant natif
    ```
    Sans Rust, `npm run verify` saute l'étape Rust avec un message ; la CI, elle, la lance toujours. Si tu modifies `native/sillon-helper`, lance `npm run verify:rust`.

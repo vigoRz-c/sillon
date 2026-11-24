@@ -14,7 +14,9 @@
 //!   * Entrée : une commande par ligne, 4 Ko au plus (`playpause`, `next`,
 //!     `previous`, `play`, `pause`, `shuffle`, `repeat`, `prefer:<texte>`,
 //!     `volume-target:<programme.exe>`, `volume:<0-100>`). Une commande
-//!     inconnue reçoit `{"type":"cmd","ok":false,"reason":"commande inconnue"}`.
+//!     inconnue reçoit `{"type":"cmd","ok":false,"reason":"commande inconnue"}`,
+//!     une ligne de plus de 4 Ko `{"type":"cmd","ok":false,"reason":"ligne trop longue"}`
+//!     (elle n'est pas exécutée).
 //!   * Codes de sortie : 0 = fin normale (entrée ou sortie fermée),
 //!     1 = SMTC ou COM indisponible, 6 = erreur de lecture de l'entrée.
 //!     Erreur interne (panique) : ligne « ERR 5 … » sur stderr, puis arrêt

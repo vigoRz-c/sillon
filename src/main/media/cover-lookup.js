@@ -84,7 +84,7 @@ async function findCoverUrl({ title, artist, album }) {
 async function lookupCover(media) {
   const key = `${norm(media.artist)}|${norm(media.album)}|${norm(media.title)}`;
   if (cache.has(key)) return cache.get(key);
-  const stored = disk.get('covers', key);
+  const stored = await disk.get('covers', key);
   if (stored !== undefined) {
     cache.set(key, stored);
     return stored;
@@ -101,7 +101,7 @@ async function lookupCover(media) {
   // Chaque entrée est une image (100 à 250 Ko) : 30 suffisent, le cache disque fait le reste.
   if (cache.size > 30) cache.delete(cache.keys().next().value);
   cache.set(key, result);
-  disk.set('covers', key, result);
+  await disk.set('covers', key, result); // erreurs gérées (et notées) par le cache
   return result;
 }
 

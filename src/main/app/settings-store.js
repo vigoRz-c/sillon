@@ -1,3 +1,4 @@
+// @ts-check
 // Stockage des réglages : lecture tolérante, écriture atomique et différée.
 // Sans dépendance à Electron (le dossier est donné par settings.js), pour
 // pouvoir le tester dans un dossier temporaire.
@@ -19,6 +20,7 @@ class SettingsStore {
     this.onCorrupt = opts.onCorrupt || (() => {});
     this.timer = null;
     this.dirty = false;
+    /** @type {Record<string, any>} réglages connus (DEFAULTS) et clés internes (fps30…) */
     this.data = { ...DEFAULTS };
     // Fichier présent mais illisible (EBUSY, EACCES...) : les valeurs en mémoire
     // sont celles par défaut, pas celles de l'utilisateur. Tant que c'est le cas,

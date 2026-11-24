@@ -42,12 +42,7 @@ function startVeille() {
       S.fullscreen = win; // reçoit les mises à jour du morceau, des paroles et des réglages
     } else {
       // Les autres écrans : noirs, et ils réveillent aussi.
-      win.loadURL(
-        'data:text/html,' +
-          encodeURIComponent(
-            '<body style="margin:0;background:#000;cursor:none"><script>setTimeout(()=>{for(const e of ["mousedown","keydown","wheel"])addEventListener(e,()=>bridge.veilleExit())},1500)</script></body>',
-          ),
-      );
+      win.loadFile(path.join(S.RENDERER, 'veille-black.html'));
     }
     win.once('ready-to-show', () => {
       if (main) {

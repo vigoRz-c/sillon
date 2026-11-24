@@ -19,13 +19,15 @@
     "build:helper": "node scripts/build-helper.js",
     "check": "node scripts/check.js",
     "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc -p jsconfig.json",
     "format": "prettier --write \"**/*.{js,css,html,yml}\" package.json",
     "format:check": "prettier --check \"**/*.{js,css,html,yml}\" package.json",
     "test": "node --test",
-    "verify": "npm run check && npm run lint && npm run format:check && npm test && node scripts/verify-rust.js",
+    "verify": "npm run check && npm run lint && npm run typecheck && npm run format:check && npm test && node scripts/verify-rust.js",
     "verify:rust": "node scripts/verify-rust.js --strict",
     "dist": "node scripts/build-helper.js --strict && electron-builder --win",
-    "release": "node scripts/release.js"
+    "release": "node scripts/release.js",
+    "prepare": "simple-git-hooks"
   },
   "dependencies": {
     "electron-updater": "^6.8.11",
@@ -37,7 +39,10 @@
     "electron-builder": "^26.18.0",
     "eslint": "^10.15.0",
     "globals": "^17.14.0",
-    "prettier": "^3.10.1"
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.10.1",
+    "simple-git-hooks": "^2.14.0",
+    "typescript": "^5.9.3"
   },
   "build": {
     "appId": "com.loicrestout.sillon",
@@ -92,5 +97,18 @@
     "trailingComma": "all",
     "arrowParens": "always",
     "endOfLine": "lf"
+  },
+  "overrides": {
+    "minimatch@>=7.0.0 <11.0.1": "^11.0.9"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "npx lint-staged"
+  },
+  "lint-staged": {
+    "*.js": [
+      "eslint --max-warnings 0",
+      "prettier --check"
+    ],
+    "*.{css,html,yml}": "prettier --check"
   }
 }

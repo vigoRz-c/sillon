@@ -3,7 +3,8 @@
 //   1. chaque canal envoyé par le preload (send / invoke) a un ipcMain.on / handle ;
 //   2. chaque canal « on… » du preload est émis quelque part dans src/main ;
 //   3. chaque bridge.X utilisé par src/renderer existe dans le preload ;
-//   4. demo/fake-bridge.js expose exactement les méthodes du preload.
+//   4. demo/fake-bridge.js expose exactement les méthodes du preload ;
+//   5. chaque page a le droit (PAGE_CHANNELS) d'envoyer ce qu'elle utilise.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -44,10 +45,17 @@ const preloadBlock = blockAfter(preloadText, "exposeInMainWorld('bridge'");
 // Clés de premier niveau (indentation de deux espaces dans preload.js).
 const preloadKeys = [...preloadBlock.matchAll(/^ {2}(\w+):/gm)].map((m) => m[1]);
 // Canaux utilisés par chaque méthode : ipcRenderer.send/invoke/on('canal', …).
-const preloadChannels = [...preloadBlock.matchAll(/ipcRenderer\.(send|invoke|on)\('([^']+)'/g)].map((m) => ({
-  kind: m[1],
-  channel: m[2],
-}));
+// Les abonnements passent par sub('canal') (équivaut à ipcRenderer.on).
+const preloadChannels = [...preloadBlock.matchAll(/(?:ipcRenderer\.(send|invoke|on)|\b(sub))\('([^']+)'/g)].map(
+  (m) => ({
+    kind: m[1] || 'on',
+    channel: m[3],
+  }),
+);
+// Méthode du pont -> canal envoyé au processus principal (send / invoke seulement).
+const methodChannel = {};
+for (const m of preloadBlock.matchAll(/^ {2}(\w+):.*?ipcRenderer\.(?:send|invoke)\('([^']+)'/gm))
+  methodChannel[m[1]] = m[2];
 
 const main = sourcesOf('src/main');
 // Le processus principal écrit « ipc.handle » ou « ipcMain.handle » (alias).
@@ -97,4 +105,29 @@ test('demo/fake-bridge.js expose exactement les méthodes du preload', () => {
   const absentFromPreload = demoKeys.filter((k) => !preloadKeys.includes(k));
   assert.deepEqual(absentFromDemo, [], `manquants dans demo/fake-bridge.js : ${absentFromDemo.join(', ')}`);
   assert.deepEqual(absentFromPreload, [], `en trop dans demo/fake-bridge.js : ${absentFromPreload.join(', ')}`);
+});
+
+test('chaque page peut envoyer les canaux des méthodes du pont qu’elle utilise, et rien d’inutile', () => {
+  const { PAGE_CHANNELS } = require('../src/main/app/ipc-guard');
+  const pagesDir = 'src/renderer/pages';
+  const pages = fs.readdirSync(path.join(ROOT, pagesDir)).filter((f) => f.endsWith('.html'));
+  assert.deepEqual(
+    pages.slice().sort(),
+    Object.keys(PAGE_CHANNELS).sort(),
+    'une page HTML sans liste de canaux (ou l’inverse)',
+  );
+  for (const page of pages) {
+    const html = read(`${pagesDir}/${page}`);
+    const scripts = [...html.matchAll(/<script src="([^"]+)"/g)].map((m) => path.posix.join(pagesDir, m[1]));
+    const needed = new Set();
+    for (const js of scripts) {
+      for (const m of read(js).matchAll(/\bbridge\.(\w+)/g)) if (methodChannel[m[1]]) needed.add(methodChannel[m[1]]);
+    }
+    const allowed = PAGE_CHANNELS[page];
+    const missing = [...needed].filter((c) => !allowed.includes(c));
+    const unused = allowed.filter((c) => !needed.has(c));
+    assert.deepEqual(missing, [], `${page} utilise des canaux non autorisés : ${missing.join(', ')}`);
+    assert.deepEqual(unused, [], `${page} a des canaux qu’elle n’utilise pas : ${unused.join(', ')}`);
+    for (const c of allowed) assert.ok(mainHandled.has(c), `${page} : canal ${c} sans ipcMain.on/handle`);
+  }
 });

@@ -1,3 +1,4 @@
+// @ts-check
 // Petites fonctions pures de la chaîne audio (sans Electron), testées à part.
 
 // Délais avant de relancer l'assistant de capture après un échec :

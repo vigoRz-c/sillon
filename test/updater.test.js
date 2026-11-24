@@ -52,3 +52,44 @@ test('téléchargement terminé : pas d’abandon ensuite', (t) => {
   t.mock.timers.tick(updater.DOWNLOAD_STALL * 2);
   assert.equal(updater.status().state, 'ready');
 });
+
+test('erreurs : messages lisibles (réseau, aucune version publiée, autre)', () => {
+  autoUpdater.emit('error', new Error('net::ERR_INTERNET_DISCONNECTED'));
+  assert.equal(updater.status().state, 'error');
+  assert.match(updater.status().error, /Pas de connexion/);
+  autoUpdater.emit('error', new Error('HttpError: 404 Not Found'));
+  assert.match(updater.status().error, /Aucune version publiée/);
+  autoUpdater.emit('error', new Error(['signature invalide', 'détails techniques'].join('\n')));
+  assert.equal(updater.status().error, 'Mise à jour impossible : signature invalide');
+});
+
+test('check : échec de la vérification -> état « error », pas d’exception', async (t) => {
+  t.mock.method(autoUpdater, 'checkForUpdates', async () => {
+    throw new Error('getaddrinfo ENOTFOUND github.com');
+  });
+  autoUpdater.emit('update-not-available');
+  updater.check();
+  await new Promise((r) => setImmediate(r));
+  assert.equal(updater.status().state, 'error');
+  assert.match(updater.status().error, /Pas de connexion/);
+});
+
+test('check : pas de nouvelle vérification pendant un téléchargement ou une fois prête', (t) => {
+  const check = t.mock.method(autoUpdater, 'checkForUpdates', async () => {});
+  autoUpdater.emit('update-available', { version: '9.9.9' });
+  updater.check();
+  autoUpdater.emit('update-downloaded', { version: '9.9.9' });
+  updater.check();
+  assert.equal(check.mock.callCount(), 0);
+});
+
+test('installNow : seulement une fois la mise à jour prête', (t) => {
+  const install = t.mock.fn();
+  autoUpdater.quitAndInstall = install;
+  autoUpdater.emit('update-available', { version: '9.9.9' });
+  updater.installNow();
+  assert.equal(install.mock.callCount(), 0);
+  autoUpdater.emit('update-downloaded', { version: '9.9.9' });
+  updater.installNow();
+  assert.deepEqual(install.mock.calls[0].arguments, [true, true]);
+});
