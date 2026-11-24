@@ -4,6 +4,9 @@ Toutes les évolutions notables de Sillon. Format inspiré de [Keep a Changelog]
 
 ## [Non publié]
 
+### Ajouté
+- Karaoké : toute la ligne est lisible dès qu'elle commence, les mots à venir en pâle et le prochain mot un peu plus marqué ; la ligne suivante est annoncée en petit dessous (quand elle arrive dans moins de 8 s).
+
 ## [0.4.4] - 2026-11-24
 
 Karaoké mieux calé sur les paroles sans minutage mot à mot.

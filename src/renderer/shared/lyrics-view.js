@@ -89,6 +89,9 @@
       this.data = null;
       this.index = -2;
       this.current = null;
+      // Ligne suivante annoncée en petit sous la ligne chantée.
+      this.preview = null;
+      this.previewIndex = -1;
       this.fallbackKey = '';
     }
 
@@ -210,6 +213,44 @@
       old.classList.add('ghost');
     }
 
+    // Annonce la ligne `i` (ou rien si -1) sous la ligne chantée, petite et pâle.
+    setPreview(i) {
+      if (i === this.previewIndex) return;
+      this.previewIndex = i;
+      const old = this.preview;
+      this.preview = null;
+      if (old) {
+        old.classList.add('out');
+        setTimeout(() => old.remove(), 450);
+      }
+      const line = i >= 0 && this.data ? this.data.lines[i] : null;
+      if (!line || !line.text || /^[♪♫\s]*$/.test(line.text)) return;
+      const node = this.render(this.words(line, this.data.lines[i + 1]), 'preview');
+      // Déjà lue avec la ligne en cours par les lecteurs d'écran : pas deux fois.
+      node.setAttribute('aria-hidden', 'true');
+      this.el.appendChild(node);
+      this.preview = node;
+      this.placePreview();
+    }
+
+    // Sous la ligne chantée (ou au centre s'il n'y en a pas : pause avant le couplet).
+    placePreview() {
+      const node = this.preview;
+      if (!node) return;
+      const cur = this.current && !this.current.classList.contains('fallback') ? this.current : null;
+      const gap = parseFloat(getComputedStyle(node).fontSize) * 0.25;
+      const shift = cur ? cur.offsetHeight / 2 + (node.offsetHeight * 0.6) / 2 + gap : 0;
+      node.style.setProperty('--py', `${shift}px`);
+    }
+
+    // Prochaine ligne à annoncer : la suivante tant qu'elle arrive dans moins de 8 s.
+    upcoming(pos) {
+      const lines = this.data.lines;
+      let j = this.index >= 0 ? this.index + 1 : 0;
+      while (j < lines.length && lines[j].t <= pos) j++;
+      return j < lines.length && lines[j].t - pos < 8 ? j : -1;
+    }
+
     // À appeler à chaque image.
     update(media, pos) {
       const d = this.data;
@@ -225,6 +266,7 @@
         if (key !== this.fallbackKey || (!key && this.current)) {
           this.fallbackKey = key;
           this.index = -2;
+          this.setPreview(-1);
           if (!key) {
             this.swap(null);
             return;
@@ -264,8 +306,17 @@
         const line = i >= 0 ? d.lines[i] : null;
         const empty = !line || !line.text || /^[♪♫\s]*$/.test(line.text);
         this.swap(empty ? null : this.render(this.words(line, d.lines[i + 1])));
+        this.placePreview();
       }
+      this.setPreview(this.upcoming(pos + 0.15));
       if (this.current && this.current._words) {
+        // Le prochain mot à chanter est un peu plus marqué que les suivants.
+        const nextWord = this.current._words.find((sp) => pos + 0.1 < sp._t) || null;
+        if (nextWord !== this.current._next) {
+          if (this.current._next) this.current._next.classList.remove('next');
+          if (nextWord) nextWord.classList.add('next');
+          this.current._next = nextWord;
+        }
         for (const span of this.current._words) {
           if (pos + 0.1 < span._t) {
             // Retour en arrière (seek, décalage) : le mot déjà coloré redevient éteint.

@@ -180,3 +180,28 @@ test('ligne LRC : reste affichée tant qu’elle est chantée, même au-delà de
   assert.equal(v.lineAt(6), 0);
   assert.equal(v.lineAt(11.5), 0); // la suivante arrive dans moins d'une seconde
 });
+
+test('mot à venir et ligne suivante : le prochain mot est marqué, la ligne suivante annoncée', () => {
+  const v = new LyricsView(makeEl());
+  const ls = lines();
+  ls[1].t = 9; // arrive dans moins de 8 s
+  v.set({ title: 'T', artist: 'A', lines: ls });
+  v.update(media, 2.5); // dans « deux »
+  const ws = words(v);
+  assert.ok(ws[2].classes.has('next'));
+  assert.equal(ws.filter((w) => w.classes.has('next')).length, 1);
+  assert.ok(v.preview && v.preview.classes.has('preview'));
+  assert.equal(v.preview.attrs['aria-hidden'], 'true');
+  assert.equal(v.previewIndex, 1);
+  v.update(media, 4.5); // « trois » chanté : « quatre » devient le prochain
+  assert.ok(!ws[2].classes.has('next') && ws[3].classes.has('next'));
+});
+
+test('ligne suivante lointaine (pause instrumentale) : pas encore annoncée', () => {
+  const v = new LyricsView(makeEl());
+  v.set({ title: 'T', artist: 'A', lines: lines() }); // suivante à 20 s
+  v.update(media, 2);
+  assert.equal(v.preview, null);
+  v.update(media, 13); // à moins de 8 s
+  assert.equal(v.previewIndex, 1);
+});

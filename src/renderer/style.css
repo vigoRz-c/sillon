@@ -626,6 +626,14 @@ body.scene .lyrics {
 .lyr-line.ghost.out {
   opacity: 0;
 }
+/* Ligne suivante : annoncée sous la ligne chantée, réduite et pâle. */
+.lyr-line.preview {
+  opacity: 0.55;
+  transform: translateY(calc(-50% + var(--py, 60px))) scale(0.6);
+}
+.lyr-line.preview.out {
+  opacity: 0;
+}
 .lyr-row {
   white-space: nowrap;
 }
@@ -633,9 +641,9 @@ body.scene .lyrics {
   display: inline-block;
   margin: 0 0.12em;
   vertical-align: baseline;
-  opacity: 0;
-  transform: translateY(0.25em) scale(0.92);
-  filter: blur(4px);
+  /* Mot à venir : déjà lisible, en pâle, comme au karaoké. */
+  opacity: 0.38;
+  transform: translateY(0.08em) scale(0.96);
   transition:
     opacity 0.25s ease,
     transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.3),
@@ -644,7 +652,16 @@ body.scene .lyrics {
 .lyr-word.small {
   font-size: 0.52em;
   letter-spacing: 0.02em;
-  opacity: 0;
+}
+/* Prochain mot à chanter : un peu plus marqué. */
+.lyr-word.next {
+  opacity: 0.7;
+  transform: none;
+}
+/* Ligne annoncée : tous ses mots au même niveau (elle est déjà pâle). */
+.lyr-line.preview .lyr-word {
+  opacity: 1;
+  transform: none;
 }
 .lyr-word.on {
   opacity: 1;
