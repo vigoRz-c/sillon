@@ -44,6 +44,7 @@ const DEFAULTS = {
   preferApp: 'spotify', // session média préférée ('' = celle que Windows met en avant)
   launchAtLogin: false,
   autoUpdate: true, // chercher et installer les nouvelles versions (version installée)
+  globalShortcuts: true, // raccourcis Ctrl+Alt+<touche> actifs partout (voir shared/shortcuts.js)
 };
 
 // Clés acceptées en plus de celles de DEFAULTS.

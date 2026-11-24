@@ -476,6 +476,31 @@ body.settings .state.error {
   color: #fca5a5;
 }
 
+/* ----- Liste des raccourcis clavier ----- */
+body.settings .shortcut .row {
+  padding: 5px 0;
+}
+body.settings .shortcut .shortcut-keys {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+body.settings .shortcut .state {
+  padding-bottom: 0;
+}
+body.settings .shortcut kbd {
+  font-family: Consolas, monospace;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  padding: 2px 8px;
+  border: 1px solid var(--line-hi);
+  border-radius: 6px;
+  background: var(--surface);
+}
+body.settings .shortcut.off kbd {
+  opacity: 0.45;
+}
+
 /* ----- Galerie des styles du visualiseur ----- */
 body.settings .gallery {
   display: grid;

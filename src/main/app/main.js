@@ -43,6 +43,9 @@ const appAudio = require('../audio/app-audio');
 const ipc = require('./ipc');
 const { MEDIA_COMMANDS, finite, validRect } = require('./ipc-guard');
 const { isAsleep } = require('./rest');
+const { createShortcuts } = require('./shortcuts');
+const { TEXT: SHORTCUT_TEXT } = require('../../renderer/shared/shortcuts');
+const { STYLE_ORDER, THEME_ORDER } = require('../../renderer/shared/catalog');
 
 // Mémoire graphique : par défaut, Chromium garde un gros cache sur la carte
 // graphique (~300 Mo pour la scène). Plafonné, il reste vers 180 Mo sans
@@ -68,6 +71,8 @@ function updateSettings(patch) {
   const { all, changed } = S.settings.change(patch);
   if (!Object.keys(changed).length) return; // rien de nouveau : rien à renvoyer ni à reconstruire
   const has = (...keys) => keys.some((k) => k in changed);
+  // Avant l'envoi : les paramètres redemandent l'état des raccourcis en recevant les réglages.
+  if (has('globalShortcuts')) shortcuts.apply(changed.globalShortcuts);
   S.send([S.widget, S.fullscreen, S.settingsWin, S.editorWin, S.placeWin], 'settings', all);
   // Disposition ou mode changés pendant « Déplacer / redimensionner » : on sort
   // du placement d'abord (la scène plein écran n'a rien à placer).
@@ -124,6 +129,51 @@ Object.assign(S.actions, {
   checkUpdates: updater.check,
   installUpdate: updater.installNow,
 });
+
+// ---------- Raccourcis clavier globaux ----------
+// Ctrl+Alt+<touche> (liste et libellés dans renderer/shared/shortcuts.js).
+
+const next = (list, cur) => list[(list.indexOf(cur) + 1) % list.length];
+const toggle = (key, fallback = false) => {
+  const v = S.settings.get(key);
+  updateSettings({ [key]: !(v === undefined ? fallback : v) });
+};
+const shortcutCommand = (cmd) => () => {
+  diagnostic.note('clic', `${cmd} ${SHORTCUT_TEXT.fromShortcut}`);
+  queue.mediaCommand(cmd);
+};
+const shortcuts = createShortcuts({
+  globalShortcut,
+  note: (msg) => diagnostic.note('raccourci', msg),
+  actions: {
+    playpause: shortcutCommand('playpause'),
+    next: shortcutCommand('next'),
+    previous: shortcutCommand('previous'),
+    shuffle: shortcutCommand('shuffle'),
+    repeat: shortcutCommand('repeat'),
+    fullscreen: windows.toggleFullscreen,
+    toggleScene: () => toggle('sceneHidden'),
+    toggleLayout: () => updateSettings({ layout: widgetWindow.isScene() ? 'strip' : 'scene' }),
+    nextStyle: () => updateSettings({ style: next(STYLE_ORDER, S.settings.get('style')) }),
+    nextTheme: () => updateSettings({ theme: next(THEME_ORDER, S.settings.get('theme')) }),
+    veille: veille.startVeille,
+    toggleLyrics: () => toggle('showLyrics', true),
+    lyricsLater: () => nowPlaying.nudgeLyrics(-0.25),
+    lyricsEarlier: () => nowPlaying.nudgeLyrics(0.25),
+    settings: windows.openSettings,
+    // L'éditeur ne sert qu'à la scène, le placement qu'au bandeau (comme dans le menu de l'icône).
+    sceneEditor: () => widgetWindow.isScene() && layoutEditor.openLayoutEditor(),
+    placeStrip: () => {
+      if (widgetWindow.isScene()) return;
+      if (!S.editing) {
+        if (S.alive(S.fullscreen)) S.fullscreen.close();
+        if (S.alive(S.settingsWin)) S.settingsWin.close();
+      }
+      widgetWindow.setEditing(!S.editing);
+    },
+  },
+});
+S.actions.shortcutAccelerator = shortcuts.acceleratorOf;
 
 // ---------- Repos et mode jeu ----------
 // Un jeu, une vidéo ou une présentation en plein écran cache le bureau : la
@@ -283,6 +333,12 @@ ipc.handle('update:status', () => updater.status());
 ipc.on('update:check', () => updater.check());
 ipc.on('update:install', () => updater.installNow());
 ipc.on('fullscreen:close', () => S.alive(S.fullscreen) && S.fullscreen.close());
+// État des raccourcis pour la liste des paramètres ; réessaie ceux qui étaient pris.
+ipc.handle('shortcuts:status', () => {
+  const st = shortcuts.status({ retry: true });
+  scheduleTray(); // un raccourci libéré entre-temps apparaît aussi dans le menu
+  return st;
+});
 
 ipc.handle('spotify:status', () => (S.spotify ? S.spotify.status() : { connected: false }));
 ipc.on('spotify:login', () => S.spotify && S.spotify.login());
@@ -342,18 +398,11 @@ function start() {
   widgetWindow.createWidget();
   nowPlaying.startMedia();
   queue.startSpotify();
+  // Avant le menu de l'icône, qui affiche les combinaisons enregistrées.
+  shortcuts.apply(S.settings.get('globalShortcuts') !== false);
   buildTray();
   restTick();
   setInterval(restTick, 2000);
-  for (const [keys, fn] of [
-    ['CommandOrControl+Alt+F', windows.toggleFullscreen],
-    ['CommandOrControl+Alt+L', veille.startVeille],
-  ]) {
-    if (!globalShortcut.register(keys, fn)) {
-      console.error(`Raccourci ${keys} déjà pris par une autre application.`);
-      diagnostic.note('raccourci', `${keys} déjà pris par une autre application`);
-    }
-  }
   veille.watchIdle();
   updater.init();
   watchDisplays();
@@ -375,7 +424,8 @@ app
 app.on('second-instance', () => S.tray && S.tray.popUpContextMenu());
 app.on('window-all-closed', (e) => e.preventDefault()); // on vit dans la zone de notification
 app.on('will-quit', () => {
-  globalShortcut.unregisterAll();
+  shortcuts.unregisterAll();
+  globalShortcut.unregisterAll(); // filet : rien ne doit rester pris après la sortie
   clearTimeout(trayTimer);
   if (S.settings) S.settings.flush(); // écrit ce qui est encore en attente
   appAudio.stop();

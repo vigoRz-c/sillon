@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld('bridge', {
   onUpdateStatus: sub('update-status'),
   checkUpdates: () => ipcRenderer.send('update:check'),
   installUpdate: () => ipcRenderer.send('update:install'),
+  shortcutsStatus: () => ipcRenderer.invoke('shortcuts:status'),
   onAudioStart: sub('audio:start'),
   onAudioPcm: sub('audio-pcm'),
   onMedia: sub('media'),

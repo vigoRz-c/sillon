@@ -482,6 +482,18 @@
               <button id="veilleNow" type="button">Lancer la veille maintenant (Ctrl+Alt+L)</button>
             </div>
           </div>
+          <h3>Raccourcis clavier</h3>
+          <div class="item" id="globalShortcutsItem" data-keywords="raccourcis clavier touches ctrl alt global">
+            <label class="row"
+              >Raccourcis Ctrl+Alt, même quand Sillon n'est pas au premier plan
+              <input id="globalShortcuts" type="checkbox" aria-describedby="globalShortcutsHelp" />
+            </label>
+            <p id="globalShortcutsHelp" class="help">
+              À désactiver si une combinaison gêne une autre application. Une combinaison déjà prise ailleurs est
+              signalée dans la liste ci-dessous.
+            </p>
+          </div>
+          <!-- Une ligne par raccourci, ajoutée par settings.js depuis shared/shortcuts.js. -->
         </section>
 
         <section id="panel-spotify" class="panel" role="tabpanel" aria-labelledby="tab-spotify" hidden>
@@ -564,6 +576,7 @@
     </main>
 
     <script src="../shared/catalog.js"></script>
+    <script src="../shared/shortcuts.js"></script>
     <script src="../shared/audio-engine.js"></script>
     <script src="../shared/colors.js"></script>
     <script src="../shared/visualizers.js"></script>

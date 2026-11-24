@@ -50,6 +50,14 @@ test('allowedFor : chaque page n’a que ses canaux', () => {
   assert.ok(!allowedFor(url('__proto__'), 'settings:get'));
 });
 
+test('allowedFor : seuls les paramètres lisent l’état des raccourcis clavier', () => {
+  const url = (f) => pathToFileURL(path.join(root, f)).href;
+  assert.ok(allowedFor(url('settings.html'), 'shortcuts:status'));
+  for (const f of ['widget.html', 'fullscreen.html', 'controls.html', 'veille-black.html']) {
+    assert.ok(!allowedFor(url(f), 'shortcuts:status'), f);
+  }
+});
+
 test('allowedFor : la fenêtre de placement du bandeau (widget.html?place=1) peut terminer et redimensionner', () => {
   const url = `${pathToFileURL(path.join(root, 'widget.html')).href}?place=1`;
   assert.strictEqual(pageOf(url), 'widget.html');

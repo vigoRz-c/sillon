@@ -26,6 +26,13 @@ test('sanitize : style et thème viennent du catalogue', () => {
   assert.ok(!('layout' in sanitize({ layout: 'x' })));
 });
 
+test('sanitize : raccourcis clavier globaux (oui / non seulement)', () => {
+  assert.strictEqual(DEFAULTS.globalShortcuts, true);
+  assert.strictEqual(sanitize({ globalShortcuts: false }).globalShortcuts, false);
+  assert.strictEqual(sanitize({ globalShortcuts: true }).globalShortcuts, true);
+  for (const v of ['false', 0, 1, null, {}]) assert.ok(!('globalShortcuts' in sanitize({ globalShortcuts: v })));
+});
+
 test('sanitize : bornes numériques', () => {
   assert.strictEqual(sanitize({ opacity: 5 }).opacity, 1);
   assert.strictEqual(sanitize({ opacity: -1 }).opacity, 0.2);

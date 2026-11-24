@@ -38,6 +38,11 @@ function buildTray() {
   const s = S.settings.get();
   const offset = A.lyricsOffsetFor(m);
   const up = A.updateStatus ? A.updateStatus() : {};
+  // Combinaison affichée à droite d'une entrée, si son raccourci global est actif.
+  const key = (id) => {
+    const accelerator = A.shortcutAccelerator && A.shortcutAccelerator(id);
+    return accelerator ? { accelerator, registerAccelerator: false } : {};
+  };
   S.tray.setContextMenu(
     Menu.buildFromTemplate([
       ...(up.state === 'ready'
@@ -45,19 +50,32 @@ function buildTray() {
         : []),
       { label: now, enabled: false },
       ...(s.sceneHidden
-        ? [{ label: 'Réafficher Sillon sur le bureau', click: () => set({ sceneHidden: false }) }]
+        ? [
+            {
+              label: 'Réafficher Sillon sur le bureau',
+              click: () => set({ sceneHidden: false }),
+              ...key('toggleScene'),
+            },
+          ]
         : []),
-      { label: 'Lecture / pause', click: () => cmd('playpause') },
-      { label: 'Suivant', click: () => cmd('next') },
-      { label: 'Précédent', click: () => cmd('previous') },
+      { label: 'Lecture / pause', click: () => cmd('playpause'), ...key('playpause') },
+      { label: 'Suivant', click: () => cmd('next'), ...key('next') },
+      { label: 'Précédent', click: () => cmd('previous'), ...key('previous') },
       ...(m.canShuffle
         ? [
-            { label: 'Lecture aléatoire', type: 'checkbox', checked: !!m.shuffle, click: () => cmd('shuffle') },
+            {
+              label: 'Lecture aléatoire',
+              type: 'checkbox',
+              checked: !!m.shuffle,
+              click: () => cmd('shuffle'),
+              ...key('shuffle'),
+            },
             {
               label: 'Répéter',
               type: 'checkbox',
               checked: !!m.repeat && m.repeat !== 'None',
               click: () => cmd('repeat'),
+              ...key('repeat'),
             },
           ]
         : []),
@@ -67,8 +85,8 @@ function buildTray() {
             {
               label: `Paroles de ce morceau : décalage ${offset > 0 ? '+' : ''}${offset.toFixed(2)} s`,
               submenu: [
-                { label: 'Plus tôt (+0,25 s)', click: () => A.nudgeLyrics(0.25) },
-                { label: 'Plus tard (−0,25 s)', click: () => A.nudgeLyrics(-0.25) },
+                { label: 'Plus tôt (+0,25 s)', click: () => A.nudgeLyrics(0.25), ...key('lyricsEarlier') },
+                { label: 'Plus tard (−0,25 s)', click: () => A.nudgeLyrics(-0.25), ...key('lyricsLater') },
                 { label: 'Réinitialiser', click: () => A.nudgeLyrics(null) },
               ],
             },
@@ -93,6 +111,7 @@ function buildTray() {
             type: 'checkbox',
             checked: s.showLyrics !== false,
             click: (i) => set({ showLyrics: i.checked }),
+            ...key('toggleLyrics'),
           },
           {
             label: 'Sensibilité',
@@ -169,6 +188,12 @@ function buildTray() {
             click: (i) => set({ launchAtLogin: i.checked }),
           },
           {
+            label: 'Raccourcis clavier Ctrl+Alt',
+            type: 'checkbox',
+            checked: s.globalShortcuts !== false,
+            click: (i) => set({ globalShortcuts: i.checked }),
+          },
+          {
             label: 'Mises à jour automatiques',
             type: 'checkbox',
             checked: s.autoUpdate !== false,
@@ -193,15 +218,16 @@ function buildTray() {
         ],
       },
       { type: 'separator' },
-      { label: 'Paramètres…', click: A.openSettings },
-      { label: 'Personnaliser la scène…', click: A.openLayoutEditor, enabled: A.isScene() },
+      { label: 'Paramètres…', click: A.openSettings, ...key('settings') },
+      { label: 'Personnaliser la scène…', click: A.openLayoutEditor, enabled: A.isScene(), ...key('sceneEditor') },
       {
         label: S.editing ? '✔ Terminer le placement' : 'Déplacer / redimensionner…',
         click: () => A.setEditing(!S.editing),
         enabled: S.editing || !A.isScene(),
+        ...key('placeStrip'),
       },
-      { label: 'Plein écran   Ctrl+Alt+F', click: A.toggleFullscreen },
-      { label: 'Écran de veille   Ctrl+Alt+L', click: A.startVeille },
+      { label: 'Plein écran', click: A.toggleFullscreen, ...key('fullscreen') },
+      { label: 'Écran de veille', click: A.startVeille, ...key('veille') },
       { type: 'separator' },
       { label: 'Quitter', click: () => app.quit() },
     ]),

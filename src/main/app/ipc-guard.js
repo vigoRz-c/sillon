@@ -63,6 +63,7 @@ const PAGE_CHANNELS = {
     'edit:start',
     'bounds:reset',
     'veille:start',
+    'shortcuts:status',
   ],
   'veille-black.html': ['veille:exit'],
 };

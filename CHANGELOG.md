@@ -6,6 +6,7 @@ Toutes les évolutions notables de Sillon. Format inspiré de [Keep a Changelog]
 
 ### Ajouté
 - Karaoké : toute la ligne est lisible dès qu'elle commence, les mots à venir en pâle et le prochain mot un peu plus marqué ; la ligne suivante est annoncée en petit dessous (quand elle arrive dans moins de 8 s).
+- Raccourcis clavier Ctrl+Alt pour presque tout, même quand Sillon n'est pas au premier plan : lecture / pause (P), suivant (N), précédent (B), aléatoire (A), répéter (R), plein écran (F), afficher / masquer Sillon (H), scène ou bandeau (T), visualiseur suivant (V), couleurs suivantes (C), veille (L), paroles affichées ou non (U), paroles plus tard / plus tôt (J / K), paramètres (O), éditeur de scène (G), placement du bandeau (D). La liste est dans les paramètres (onglet Comportement), qui signalent une combinaison déjà prise par une autre application ; une case les désactive tous (aussi dans le menu de l'icône, Réglages). Les combinaisons actives sont affichées dans le menu de l'icône. Aucune ne prend une touche qui tape un caractère avec AltGr (€, @, #, {…).
 
 ## [0.4.4] - 2026-11-24
 

@@ -50,6 +50,7 @@
     preferApp: 'spotify',
     launchAtLogin: false,
     autoUpdate: true,
+    globalShortcuts: true,
   };
   for (const key of ['style', 'theme', 'mode', 'layout']) if (params.get(key)) settings[key] = params.get(key);
 
@@ -210,6 +211,15 @@
     onUpdateStatus: on('update-status'),
     checkUpdates: () => {},
     installUpdate: () => {},
+
+    // Raccourcis clavier globaux : tous actifs dans la démo (sauf si désactivés).
+    shortcutsStatus: async () => ({
+      enabled: settings.globalShortcuts !== false,
+      items: (window.SillonShortcuts ? window.SillonShortcuts.SHORTCUTS : []).map((s) => ({
+        id: s.id,
+        state: settings.globalShortcuts !== false ? 'ok' : 'off',
+      })),
+    }),
 
     // Son
     onAudioStart: on('audio-start'),

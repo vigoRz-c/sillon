@@ -6,6 +6,46 @@
   const $ = (id) => document.getElementById(id);
   const bridge = window.bridge;
   const Catalog = window.SillonCatalog;
+  const Shortcuts = window.SillonShortcuts;
+
+  // ----- Raccourcis clavier : une ligne par raccourci (avant l'index de la recherche) -----
+  const shortcutState = {}; // identifiant -> élément qui dit « pris » ou « désactivé »
+  {
+    let last = $('globalShortcutsItem');
+    for (const s of Shortcuts.SHORTCUTS) {
+      const item = document.createElement('div');
+      item.className = 'item shortcut';
+      item.dataset.keywords = 'raccourci clavier touche';
+      const row = document.createElement('div');
+      row.className = 'row';
+      const label = document.createElement('span');
+      label.textContent = s.label;
+      const keys = document.createElement('span');
+      keys.className = 'shortcut-keys';
+      const state = document.createElement('span');
+      state.className = 'state';
+      const kbd = document.createElement('kbd');
+      kbd.textContent = s.display;
+      keys.append(state, kbd);
+      row.append(label, keys);
+      item.append(row);
+      last.after(item);
+      last = item;
+      shortcutState[s.id] = state;
+    }
+  }
+  function showShortcuts(st) {
+    if (!st) return;
+    for (const { id, state } of st.items) {
+      const el = shortcutState[id];
+      if (!el) continue;
+      el.textContent = state === 'taken' ? Shortcuts.TEXT.taken : ''; // désactivés : seulement grisés
+      el.className = state === 'taken' ? 'state error' : 'state';
+      el.closest('.item').classList.toggle('off', state === 'off');
+    }
+  }
+  const refreshShortcuts = () => bridge.shortcutsStatus().then(showShortcuts);
+  let shownShortcuts = null; // valeur de globalShortcuts lors du dernier état demandé
 
   const selects = [
     'layout',
@@ -28,6 +68,7 @@
     'dimOnPause',
     'autoUpdate',
     'reduceMotion',
+    'globalShortcuts',
   ];
   const numeric = new Set(['fps', 'veilleDelay', 'sleepAfter']);
   const pct = (v) => `${Math.round(v * 100)} %`;
@@ -553,6 +594,12 @@
     $('gameMode').checked = s.gameMode !== false;
     $('autoUpdate').checked = s.autoUpdate !== false;
     $('dimOnPause').checked = s.dimOnPause !== false;
+    $('globalShortcuts').checked = s.globalShortcuts !== false;
+    // Seulement à l'ouverture et quand le réglage change (pas à chaque mouvement de curseur).
+    if (shownShortcuts !== s.globalShortcuts) {
+      shownShortcuts = s.globalShortcuts;
+      refreshShortcuts();
+    }
     // Scène choisie et réellement affichée (seulement sur le fond d'écran).
     const wantsScene = (s.layout || 'scene') !== 'strip';
     const scene = wantsScene && s.mode === 'wallpaper';

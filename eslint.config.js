@@ -17,7 +17,11 @@ module.exports = [
   },
   {
     // Partagés navigateur + tests node (modules UMD : « module » si présent, sinon window).
-    files: ['src/renderer/shared/scene-layout.js', 'src/renderer/shared/catalog.js'],
+    files: [
+      'src/renderer/shared/scene-layout.js',
+      'src/renderer/shared/catalog.js',
+      'src/renderer/shared/shortcuts.js',
+    ],
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
   },
   {
