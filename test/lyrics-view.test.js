@@ -144,3 +144,39 @@ test('paroles d’un autre morceau ou autres lignes : reconstruction normale', (
   v.set({ title: 'U', artist: 'A', lines: lines() });
   assert.equal(v.index, -2);
 });
+
+// Paroles LRC (sans minutage mot à mot) : fin plafonnée comme dans parseLrc.
+const lrc = (gap) => [
+  { t: 0, end: Math.min(gap, 4.4), text: 'tout doucement', words: null },
+  { t: gap, end: gap + 5, text: 'suite', words: null },
+];
+
+test('ligne LRC chantée lentement : les mots se répartissent jusqu’à la ligne suivante', () => {
+  const v = new LyricsView(makeEl());
+  const ls = lrc(8);
+  const list = v.words(ls[0], ls[1]);
+  // 4 syllabes : 1,2 + 0,7 × 4 = 4 s ; écart 8 s × 0,9 = 7,2 s → 4 s.
+  assert.equal(list[list.length - 1].end, 4);
+  // « doucement » (3 syllabes approchées) dure trois fois plus que « tout » (1).
+  const d0 = list[0].end - list[0].t;
+  const d1 = list[1].end - list[1].t;
+  assert.ok(Math.abs(d1 / d0 - 3) < 1e-9, `${d0} ${d1}`);
+});
+
+test('ligne LRC suivie d’une courte pause : remplissage sur presque tout l’écart', () => {
+  const v = new LyricsView(makeEl());
+  const ls = lrc(3);
+  const list = v.words(ls[0], ls[1]);
+  assert.ok(Math.abs(list[list.length - 1].end - 2.7) < 1e-9);
+});
+
+test('ligne LRC : reste affichée tant qu’elle est chantée, même au-delà de sa fin', () => {
+  const v = new LyricsView(makeEl());
+  const ls = [
+    { t: 0, end: 4, text: 'une très longue ligne chantée avec beaucoup de syllabes', words: null },
+    { t: 12, end: 17, text: 'suite', words: null },
+  ];
+  v.set({ title: 'T', artist: 'A', lines: ls });
+  assert.equal(v.lineAt(6), 0);
+  assert.equal(v.lineAt(11.5), 0); // la suivante arrive dans moins d'une seconde
+});

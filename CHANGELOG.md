@@ -4,6 +4,9 @@ Toutes les évolutions notables de Sillon. Format inspiré de [Keep a Changelog]
 
 ## [Non publié]
 
+### Corrigé
+- Karaoké : sur les paroles sans minutage mot à mot, une ligne chantée lentement ne s'allume plus en deux ou trois secondes (ce qui donnait de l'avance puis du retard). Le temps est réparti jusqu'à la ligne suivante, selon les syllabes de chaque mot, et la ligne reste affichée tant qu'elle est chantée. Avec le minutage mot à mot, une note tenue colore son mot jusqu'au bout (3 s au lieu de 1,5 s).
+
 ## [0.4.3] - 2026-11-24
 
 L'intensité du disque ne touche plus la lumière derrière lui.

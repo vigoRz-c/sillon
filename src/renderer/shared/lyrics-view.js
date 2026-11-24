@@ -54,6 +54,27 @@
   ]);
   const isSmall = (w, last) => !last && (SMALL.has(w.toLowerCase().replace(/[^a-z'à-ÿ]/g, '')) || w.length <= 2);
 
+  // Nombre de syllabes approché (groupes de voyelles) : sert à répartir le temps
+  // d'une ligne entre ses mots quand les paroles n'ont pas de minutage mot à mot.
+  const syllables = (w) => Math.max(1, (w.toLowerCase().match(/[aeiouyàâäéèêëîïôöùûüÿœæ]+/g) || []).length);
+
+  // Ligne sans minutage mot à mot (LRC) : durée pendant laquelle elle est
+  // chantée. Jusqu'à la ligne suivante (le chanteur peut tenir les notes), sauf
+  // si l'écart est trop long pour ce nombre de syllabes (pause instrumentale).
+  const spans = new WeakMap();
+  function sungSpan(line, next) {
+    let v = spans.get(line);
+    if (v !== undefined) return v;
+    const syl = line.text
+      .split(/\s+/)
+      .filter(Boolean)
+      .reduce((n, w) => n + syllables(w), 0);
+    const gap = next ? next.t - line.t : Math.max(line.end - line.t, 5);
+    v = Math.max(0.3, Math.min(gap * 0.9, 1.2 + 0.7 * syl));
+    spans.set(line, v);
+    return v;
+  }
+
   // Même morceau et mêmes lignes (seul le décalage a pu changer).
   function sameLyrics(a, b) {
     if (!a || !b || !a.lines || !b.lines || !a.lines.length) return false;
@@ -99,26 +120,38 @@
       if (found >= 0) {
         const l = lines[found];
         const next = lines[found + 1];
-        if (pos > l.end + 1.5 && (!next || next.t - pos > 1)) return -1;
+        // Sans minutage mot à mot, la ligne reste au moins le temps d'être chantée.
+        const end = l.words && l.words.length ? l.end : Math.max(l.end, l.t + sungSpan(l, next));
+        if (pos > end + 1.5 && (!next || next.t - pos > 1)) return -1;
       }
       return found;
     }
 
-    // Construit les mots d'une ligne, avec leur instant d'apparition.
-    words(line) {
-      let list;
-      if (line.words && line.words.length) list = line.words.map((w) => ({ ...w }));
-      else {
-        const parts = line.text.split(/\s+/).filter(Boolean);
-        const span = Math.max(0.6, Math.min(line.end - line.t, 4) * 0.7);
-        list = parts.map((text, i) => ({ text, t: line.t + (span * i) / parts.length }));
+    // Construit les mots d'une ligne, avec leur début et leur fin.
+    words(line, nextLine) {
+      if (line.words && line.words.length) {
+        // Minutage mot à mot : chaque mot dure jusqu'au suivant (note tenue
+        // comprise, dans la limite de 3 s), le dernier jusqu'à la fin de la ligne.
+        const list = line.words.map((w) => ({ ...w }));
+        list.forEach((w, i) => {
+          const next = list[i + 1];
+          w.end = Math.min(next ? next.t : line.end, w.t + 3);
+          if (w.end <= w.t) w.end = w.t + 0.25;
+        });
+        return list;
       }
-      list.forEach((w, i) => {
-        const next = list[i + 1];
-        w.end = Math.min(next ? next.t : line.end, w.t + 1.5);
-        if (w.end <= w.t) w.end = w.t + 0.25;
+      // Sans minutage mot à mot : le temps chanté de la ligne est réparti entre
+      // les mots selon leurs syllabes (un mot long dure plus qu'un « de »).
+      const parts = line.text.split(/\s+/).filter(Boolean);
+      const syl = parts.map(syllables);
+      const total = syl.reduce((a, b) => a + b, 0);
+      const span = sungSpan(line, nextLine);
+      let acc = 0;
+      return parts.map((text, i) => {
+        const t = line.t + (span * acc) / total;
+        acc += syl[i];
+        return { text, t, end: line.t + (span * acc) / total };
       });
-      return list;
     }
 
     render(wordList, extraClass) {
@@ -230,7 +263,7 @@
         this.index = i;
         const line = i >= 0 ? d.lines[i] : null;
         const empty = !line || !line.text || /^[♪♫\s]*$/.test(line.text);
-        this.swap(empty ? null : this.render(this.words(line)));
+        this.swap(empty ? null : this.render(this.words(line, d.lines[i + 1])));
       }
       if (this.current && this.current._words) {
         for (const span of this.current._words) {
