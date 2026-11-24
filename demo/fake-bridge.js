@@ -1,21 +1,21 @@
-/* Faux pont Electron (window.bridge) pour la démo navigateur.
+/* Fake Electron bridge (window.bridge) for the browser demo.
  *
- * Chargé par demo/index.html AVANT les scripts de la vraie page (src/renderer/pages),
- * à l'intérieur de son iframe. Il expose exactement les méthodes de
- * src/main/app/preload.js : test/ipc-contract.test.js vérifie que les deux listes
- * restent identiques. Réglages par défaut : ceux de src/main/app/settings-schema.js.
+ * Loaded by demo/index.html BEFORE the scripts of the real page (src/renderer/pages),
+ * inside its iframe. It exposes exactly the methods of
+ * src/main/app/preload.js: test/ipc-contract.test.js checks that both lists
+ * stay identical. Default settings: those of src/main/app/settings-schema.js.
  *
- * Paramètres d'URL de demo/index.html (lus dans la page parente) :
+ * URL parameters of demo/index.html (read in the parent page):
  *   ?page=widget|fullscreen|settings|controls  &style=ring  &theme=violet  &mode=normal
  */
 (function () {
   'use strict';
 
-  // Même origine que demo/index.html : on lit ses paramètres d'URL.
+  // Same origin as demo/index.html: read its URL parameters.
   const top = window.top && window.top !== window ? window.top : window;
   const params = new URLSearchParams(top.location.search);
 
-  // Valeurs par défaut de settings-schema.js (fps 30, réduction des animations désactivée).
+  // Default values of settings-schema.js (fps 30, reduced animations off).
   const settings = {
     style: 'bars',
     theme: 'wallpaper',
@@ -54,7 +54,7 @@
   };
   for (const key of ['style', 'theme', 'mode', 'layout']) if (params.get(key)) settings[key] = params.get(key);
 
-  // ----- Abonnements : chaque onXxx(cb) enregistre cb, emit() l'appelle -----
+  // ----- Subscriptions: each onXxx(cb) registers cb, emit() calls it -----
   const subs = {};
   const on = (name) => (cb) => {
     (subs[name] = subs[name] || []).push(cb);
@@ -62,7 +62,7 @@
   const emit = (name, payload) => (subs[name] || []).forEach((cb) => cb(payload));
   const later = (fn, ms = 50) => setTimeout(fn, ms);
 
-  // Dessins de démo : pochette et fond d'écran en dégradé.
+  // Demo drawings: cover and wallpaper as gradients.
   function drawImage(w, h, from, to, draw) {
     const c = document.createElement('canvas');
     c.width = w;
@@ -91,9 +91,9 @@
   const media = {
     active: true,
     app: 'Spotify.exe',
-    title: 'Morceau de démonstration',
+    title: 'Demo track',
     artist: 'Sillon',
-    album: 'Démo',
+    album: 'Demo',
     status: 'Playing',
     position: 42,
     duration: 214,
@@ -106,9 +106,12 @@
     title: media.title,
     artist: media.artist,
     instrumental: false,
-    lines: ['Premier vers', 'Deuxième vers', 'Troisième vers', 'Quatrième vers', 'Cinquième vers', 'Sixième vers'].map(
-      (text, i) => ({ t: 10 + i * 30, end: 40 + i * 30, text, words: null }),
-    ),
+    lines: ['First line', 'Second line', 'Third line', 'Fourth line', 'Fifth line', 'Sixth line'].map((text, i) => ({
+      t: 10 + i * 30,
+      end: 40 + i * 30,
+      text,
+      words: null,
+    })),
   };
 
   const queue = {
@@ -119,8 +122,8 @@
     ],
   };
 
-  // Son de synthèse (grosse caisse, basse et nappe) pour faire bouger les visuels.
-  // Le contexte audio ne démarre qu'après un geste de l'utilisateur (voir resumeAudio).
+  // Synthetic sound (kick drum, bass and pad) to move the visuals.
+  // The audio context only starts after a user gesture (see resumeAudio).
   let audio = null;
   function startAudio() {
     if (audio || !window.AudioContext) return;
@@ -163,7 +166,7 @@
   }
 
   window.bridge = {
-    // Réglages
+    // Settings
     getSettings: async () => JSON.parse(JSON.stringify(settings)),
     setSettings: (patch) => {
       Object.assign(settings, JSON.parse(JSON.stringify(patch || {})));
@@ -173,7 +176,7 @@
     getLanguage: async () => (settings.language === 'fr' || settings.language === 'en' ? settings.language : 'en'),
     onLanguage: on('language'),
 
-    // Morceau, paroles, file, fond d'écran
+    // Track, lyrics, queue, wallpaper
     onMedia: (cb) => {
       on('media')(cb);
       later(() => cb(media));
@@ -196,25 +199,25 @@
     },
     onRenderPause: on('render-pause'),
     reportControlsRect: () => {},
-    nudgeLyrics: (delta) => console.log('décalage des paroles', delta),
+    nudgeLyrics: (delta) => console.log('lyrics offset', delta),
     command: (c) => console.log('commande', c),
     setVolume: (percent) => console.log('volume', percent),
 
     // Spotify
     spotifyStatus: async () => ({ connected: false, redirectUri: 'http://127.0.0.1:43821/callback' }),
     onSpotifyStatus: on('spotify-status'),
-    spotifyLogin: () => console.log('connexion Spotify (démo)'),
-    spotifyLogout: () => console.log('déconnexion Spotify (démo)'),
+    spotifyLogin: () => console.log('Spotify sign-in (demo)'),
+    spotifyLogout: () => console.log('Spotify sign-out (demo)'),
     openSpotifyDashboard: () => {},
     copyDiagnostic: async () => true,
 
-    // Mises à jour
+    // Updates
     updateStatus: async () => ({ state: 'dev', enabled: false, auto: true, current: '0.2.0' }),
     onUpdateStatus: on('update-status'),
     checkUpdates: () => {},
     installUpdate: () => {},
 
-    // Raccourcis clavier globaux : tous actifs dans la démo (sauf si désactivés).
+    // Global keyboard shortcuts: all active in the demo (unless turned off).
     shortcutsStatus: async () => ({
       enabled: settings.globalShortcuts !== false,
       items: (window.SillonShortcuts ? window.SillonShortcuts.SHORTCUTS : []).map((s) => ({
@@ -227,7 +230,7 @@
     onAudioStart: on('audio-start'),
     onAudioPcm: on('audio-pcm'),
 
-    // Fenêtres et édition
+    // Windows and editing
     openSettings: () => top.dispatchEvent(new CustomEvent('sillon-demo', { detail: { page: 'settings' } })),
     closeFullscreen: () => top.dispatchEvent(new CustomEvent('sillon-demo', { detail: { page: 'widget' } })),
     editDone: () => {},
@@ -245,7 +248,7 @@
     layoutCancel: () => {},
   };
 
-  // Ce que la page parente (demo/index.html) peut appeler.
+  // What the parent page (demo/index.html) can call.
   window.sillonDemo = { resumeAudio };
 
   window.addEventListener('load', startAudio);

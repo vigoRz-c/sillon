@@ -1,6 +1,6 @@
-/* Fenêtre de paramètres : chaque changement est appliqué tout de suite.
- * Sections en onglets (menu à gauche), recherche dans tous les réglages,
- * aperçu en direct du visualiseur et pastilles de couleurs. */
+/* Settings window: every change is applied right away.
+ * Sections in tabs (menu on the left), search in every setting,
+ * live preview of the visualizer and color swatches. */
 (function () {
   'use strict';
   const I18n = window.SillonI18n;
@@ -16,8 +16,8 @@
     // Number with one decimal, in the page's language (1.5 / 1,5).
     const dec = (v) => v.toLocaleString(I18n.language(), { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-    // ----- Raccourcis clavier : une ligne par raccourci (avant l'index de la recherche) -----
-    const shortcutState = {}; // identifiant -> élément qui dit « pris » ou « désactivé »
+    // ----- Keyboard shortcuts: one line per shortcut (before the search index) -----
+    const shortcutState = {}; // id -> element that says "taken" or "off"
     {
       let last = $('globalShortcutsItem');
       for (const s of Shortcuts.SHORTCUTS) {
@@ -47,13 +47,13 @@
       for (const { id, state } of st.items) {
         const el = shortcutState[id];
         if (!el) continue;
-        el.textContent = state === 'taken' ? t('settings.shortcutTaken') : ''; // désactivés : seulement grisés
+        el.textContent = state === 'taken' ? t('settings.shortcutTaken') : ''; // off: only grayed out
         el.className = state === 'taken' ? 'state error' : 'state';
         el.closest('.item').classList.toggle('off', state === 'off');
       }
     }
     const refreshShortcuts = () => bridge.shortcutsStatus().then(showShortcuts);
-    let shownShortcuts = null; // valeur de globalShortcuts lors du dernier état demandé
+    let shownShortcuts = null; // value of globalShortcuts at the last requested state
 
     const selects = [
       'layout',
@@ -83,7 +83,7 @@
     const pct = (v) => `${Math.round(v * 100)} %`;
     const times = (v) => `× ${dec(v)}`;
     const timesSay = (v) => t('settings.timesSay', { value: dec(v) });
-    // Pour chaque curseur : texte affiché, et texte lu par les lecteurs d'écran (avec l'unité).
+    // For each slider: text shown, and text read by screen readers (with the unit).
     const ranges = {
       sensitivity: { show: times, say: timesSay },
       opacity: { show: pct, say: (v) => t('volume.percent', { value: Math.round(v * 100) }) },
@@ -102,7 +102,7 @@
       $(k).setAttribute('aria-valuetext', ranges[k].say(v));
     }
 
-    // Formes de l'anneau du disque : depuis le catalogue (avant l'index de recherche).
+    // Shapes of the disc's ring: from the catalog (before the search index).
     for (const [id, name] of Catalog.list('rays', t)) $('discRays').append(new Option(name, id));
 
     // Style gallery: one animated preview per visualizer of the catalog.
@@ -120,11 +120,11 @@
       $('styleGallery').append(b);
     }
 
-    // Le focus arrive sur le titre à l'ouverture : le lecteur d'écran annonce la fenêtre.
+    // The focus lands on the title on opening: the screen reader announces the window.
     $('pageTitle').focus({ preventScroll: true });
 
     // ----- Groupes de boutons radio (styles, couleurs) -----
-    // Une seule tabulation par groupe, flèches / Début / Fin pour changer, choix appliqué tout de suite.
+    // A single tab stop per group, arrows / Home / End to change, choice applied right away.
     function radioGroup(buttons, choose) {
       for (const [i, b] of buttons.entries()) {
         b.addEventListener('click', () => choose(b));
@@ -150,7 +150,7 @@
       }
     }
 
-    // ----- Pastilles de couleurs, rangées par familles -----
+    // ----- Color swatches, sorted by families -----
     const FAMILIES = [
       [t('settings.family.image'), ['wallpaper', 'album']],
       [t('settings.family.classic'), ['spotify', 'neon', 'sunset', 'ocean', 'violet', 'mono']],
@@ -160,7 +160,7 @@
       [t('settings.family.dark'), ['gold', 'blood', 'midnight']],
       [t('settings.family.wheel'), ['custom']],
     ];
-    // Noms courts sous les pastilles « image » (le nom complet du catalogue est trop long).
+    // Short names under the "image" swatches (the full catalog name is too long).
     const SHORT = {
       wallpaper: t('settings.short.wallpaper'),
       album: t('settings.short.album'),
@@ -169,7 +169,7 @@
 
     function buildSwatches(container, allowed) {
       const placed = new Set(FAMILIES.flatMap(([, ids]) => ids));
-      // Un jeu ajouté au catalogue sans famille reste choisissable.
+      // A set added to the catalog without a family can still be chosen.
       const extra = Catalog.THEME_ORDER.filter((id) => !placed.has(id));
       const families = extra.length ? [...FAMILIES, [t('settings.family.other'), extra]] : FAMILIES;
       const buttons = [];
@@ -215,11 +215,11 @@
       new Set(['album', 'custom', ...Catalog.FIXED_THEMES.map(([id]) => id)]),
     );
 
-    // ----- Roue des couleurs (réglage customColor, jeu « custom ») -----
-    // Teinte = angle, saturation = distance au centre, luminosité = curseur à côté.
-    // Chaque changement choisit aussi le jeu « custom » pour le visualiseur.
+    // ----- Color wheel (customColor setting, "custom" set) -----
+    // Hue = angle, saturation = distance to the center, lightness = slider next to it.
+    // Each change also chooses the "custom" set for the visualizer.
     const { hexToRgb, rgbToHsl, paletteFromCustom } = window.SillonColors;
-    // Composante (0 à 1) d'une couleur HSL : n = 0 rouge, 8 vert, 4 bleu.
+    // Component (0 to 1) of an HSL color: n = 0 red, 8 green, 4 blue.
     function hslChannel(n, h, s, l) {
       const k = (n + h / 30) % 12;
       return l - s * Math.min(l, 1 - l) * Math.max(-1, Math.min(k - 3, 9 - k, 1));
@@ -246,11 +246,11 @@
       timer: 0,
       pending: false,
     };
-    // Pixels de la roue pour une luminosité : recalculés seulement quand elle change.
+    // Wheel pixels for a lightness: computed again only when it changes.
     function paintWheel() {
       const c = wheel.canvas;
       const css = wheel.el.clientWidth;
-      if (!css) return; // onglet caché : dessinée à l'ouverture (voir selectTab)
+      if (!css) return; // hidden tab: drawn on opening (see selectTab)
       const size = Math.round(css * (window.devicePixelRatio || 1));
       if (c.width === size && wheel.drawnL === wheel.l) return;
       c.width = c.height = size;
@@ -295,8 +295,8 @@
       if (document.activeElement !== $('customHex')) $('customHex').value = wheel.hex;
       paletteFromCustom(wheel.hex).forEach((c, i) => ($(`customChip${i + 1}`).style.background = c));
     }
-    // Envoi groupé (au plus ~16 fois par seconde pendant un glissé) : chaque envoi
-    // repart vers toutes les fenêtres.
+    // Grouped send (at most ~16 times per second during a drag): each send
+    // goes out to every window.
     function sendColor() {
       if (wheel.timer) {
         wheel.pending = true;
@@ -321,11 +321,11 @@
       showWheel();
       sendColor();
     }
-    // Couleur reçue des réglages : la roue la reprend, sauf pendant qu'on la manipule.
+    // Color received from the settings: the wheel takes it, except while it is being handled.
     function wheelFrom(hex) {
       if (!hex || hex === wheel.hex || wheel.dragging || wheel.timer) return;
       const [h, s, l] = rgbToHsl(...hexToRgb(hex));
-      // Gris (saturation nulle) : la teinte ne veut rien dire, on garde la précédente.
+      // Gray (zero saturation): the hue means nothing, keep the previous one.
       if (s > 0.001) wheel.h = h;
       wheel.s = s;
       wheel.l = Math.max(0.1, Math.min(0.9, l));
@@ -379,7 +379,7 @@
       wheelFrom(v);
       sendColor();
     });
-    // Pastilles « Personnalisée » : aux couleurs de la roue.
+    // "Custom" swatches: in the wheel's colors.
     function paintCustomSwatches(hex) {
       const pal = paletteFromCustom(hex);
       for (const b of [...themeSwatches, ...discSwatches]) {
@@ -402,7 +402,7 @@
       }
       if (focus) tab.focus();
       $('panels').scrollTop = 0;
-      showWheel(); // la roue n'a pas de taille tant que son onglet est caché
+      showWheel(); // the wheel has no size as long as its tab is hidden
       paintSoon();
     }
     for (const t of tabs) {
@@ -429,11 +429,11 @@
     }
     const activeTab = () => tabs.find((t) => t.getAttribute('aria-selected') === 'true');
 
-    // ----- Recherche : toutes sections confondues, seulement les réglages trouvés -----
+    // ----- Search: across every section, only the settings found -----
     const items = [...document.querySelectorAll('#panels .item')];
     const panels = tabs.map(panelOf);
     const fold = (s) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
-    // Texte de chaque réglage (libellés, options, aide, mots-clés) et de sa section.
+    // Text of each setting (labels, options, help, keywords) and of its section.
     const haystack = new Map(
       items.map((it) => {
         const panel = it.closest('.panel');
@@ -458,7 +458,7 @@
         const tabHidden = tabs[i].classList.contains('hidden');
         const any = p.querySelector('.item:not(.miss):not(.hidden)');
         p.hidden = on ? tabHidden || !any : tabs[i] !== current;
-        // Sous-titres (Disque, Écran de veille…) masqués si rien dessous n'est trouvé.
+        // Subtitles (Disc, Screen saver…) hidden if nothing under them is found.
         for (const h of p.querySelectorAll('h3')) {
           let next = h.nextElementSibling,
             visible = false;
@@ -483,7 +483,7 @@
       runSearch();
     }
     $('search').addEventListener('input', runSearch);
-    // Entrée : aller au premier réglage trouvé.
+    // Enter: go to the first setting found.
     $('search').addEventListener('keydown', (e) => {
       if (e.key !== 'Enter' || !searching()) return;
       const first = [...document.querySelectorAll('#panels .item:not(.miss):not(.hidden)')].find(
@@ -494,12 +494,12 @@
       if (target) target.focus();
     });
 
-    // ----- Aperçus animés : galerie des styles + aperçu en direct -----
+    // ----- Animated previews: style gallery + live preview -----
     const { VISUALIZERS, THEMES, FakeAudio, themePalette } = window.SV;
     const gallery = [...document.querySelectorAll('#styleGallery button')];
     let current = {};
     const fake = new FakeAudio();
-    // Animations réduites : réglage Sillon ou réglage Windows. Les aperçus restent figés.
+    // Reduced animations: Sillon setting or Windows setting. The previews stay still.
     const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     const still = () => !!current.reduceMotion || motionQuery.matches;
     let needsPaint = true;
@@ -509,9 +509,9 @@
     });
     radioGroup(gallery, (b) => bridge.setSettings({ style: b.dataset.style }));
 
-    // Légèreté : on ne dessine que les aperçus visibles (onglet ouvert, à l'écran),
-    // à 30 i/s, rien pendant le défilement (sinon la fenêtre saccade) ni quand la
-    // fenêtre est cachée. Les tailles sont lues une fois par l'observateur.
+    // Lightness: only the visible previews are drawn (tab open, on screen),
+    // at 30 fps, nothing while scrolling (otherwise the window stutters) nor when the
+    // window is hidden. The sizes are read once by the observer.
     const live = { c: $('liveCanvas'), w: 0, h: 0, visible: false, live: true };
     const previews = [live, ...gallery.map((b) => ({ b, c: b.querySelector('canvas'), w: 0, h: 0, visible: false }))];
     const dpr = window.devicePixelRatio || 1;
@@ -547,7 +547,7 @@
       },
       { passive: true },
     );
-    // Relance la boucle de dessin (elle s'arrête d'elle-même quand il n'y a rien à animer).
+    // Restarts the drawing loop (it stops by itself when there is nothing to animate).
     function paintSoon() {
       needsPaint = true;
       if (!frame && !document.hidden) frame = requestAnimationFrame(draw);
@@ -558,15 +558,15 @@
         frame = 0;
       } else paintSoon();
     });
-    // Palette de l'aperçu : « fond d'écran » et « pochette » dépendent de l'image du
-    // moment, inconnue ici ; on montre le violet de Sillon.
+    // Preview palette: "wallpaper" and "cover" depend on the image of the
+    // moment, unknown here; Sillon's violet is shown.
     const paletteOf = (s) => themePalette(s.theme, s.customColor) || THEMES.violet;
     function draw(now) {
       frame = 0;
       if (document.hidden) return;
       const frozen = still();
       const visible = previews.filter((p) => p.visible && p.w);
-      // Figé ou rien à l'écran : une seule image, puis la boucle s'arrête.
+      // Still or nothing on screen: a single frame, then the loop stops.
       if ((frozen || !visible.length) && !needsPaint) return;
       frame = requestAnimationFrame(draw);
       if (scrolling || now - lastDraw < 1000 / 30 - 2) return;
@@ -626,12 +626,12 @@
       $('autoUpdate').checked = s.autoUpdate !== false;
       $('dimOnPause').checked = s.dimOnPause !== false;
       $('globalShortcuts').checked = s.globalShortcuts !== false;
-      // Seulement à l'ouverture et quand le réglage change (pas à chaque mouvement de curseur).
+      // Only on opening and when the setting changes (not on every slider move).
       if (shownShortcuts !== s.globalShortcuts) {
         shownShortcuts = s.globalShortcuts;
         refreshShortcuts();
       }
-      // Scène choisie et réellement affichée (seulement sur le fond d'écran).
+      // Scene chosen and really shown (only on the wallpaper).
       const wantsScene = (s.layout || 'scene') !== 'strip';
       const scene = wantsScene && s.mode === 'wallpaper';
       $('tab-scene').classList.toggle('hidden', !scene);
@@ -639,9 +639,9 @@
       $('sceneScreenRow').classList.toggle('hidden', !scene);
       $('sceneNeedsWallpaper').classList.toggle('hidden', !(wantsScene && s.mode !== 'wallpaper'));
       $('showNowPlayingRow').classList.toggle('hidden', scene);
-      // La scène occupe tout le bureau : rien à déplacer.
+      // The scene fills the whole desktop: nothing to move.
       $('editRow').classList.toggle('hidden', scene);
-      // Onglet « Scène » ouvert alors que la scène disparaît : retour à « Disposition ».
+      // "Scene" tab open while the scene disappears: back to "Layout".
       if (!scene && activeTab() === $('tab-scene')) selectTab($('tab-layout'));
       if (searching()) runSearch();
       for (const k of Object.keys(ranges)) {
@@ -669,7 +669,7 @@
     $('resetBounds').onclick = () => bridge.resetBounds();
     $('veilleNow').onclick = () => bridge.startVeille();
     $('close').onclick = () => window.close();
-    // Échap : vide d'abord la recherche, puis ferme la fenêtre.
+    // Esc: first clears the search, then closes the window.
     window.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
       if (e.target === $('search') && $('search').value) {
@@ -679,7 +679,7 @@
       }
       window.close();
     });
-    // Ctrl+F : aller à la recherche.
+    // Ctrl+F: go to the search.
     window.addEventListener('keydown', (e) => {
       if (e.ctrlKey && !e.altKey && e.key.toLowerCase() === 'f') {
         e.preventDefault();
@@ -730,7 +730,7 @@
     bridge.onSpotifyStatus(showSpotify);
     bridge.spotifyStatus().then(showSpotify);
 
-    // ----- Mises à jour -----
+    // ----- Updates -----
     function showUpdate(u) {
       if (!u) return;
       const el = $('updateState');
@@ -757,7 +757,7 @@
     bridge.onUpdateStatus(showUpdate);
     bridge.updateStatus().then(showUpdate);
 
-    // ----- Scène et diagnostic -----
+    // ----- Scene and diagnostic -----
     $('openLayout').onclick = () => bridge.openLayoutEditor();
     $('copyDiagnostic').onclick = async () => {
       const el = $('diagnosticState');

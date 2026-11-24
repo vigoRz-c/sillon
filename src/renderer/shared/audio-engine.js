@@ -19,7 +19,7 @@
       this.gen = 0; // generation token: a late start of a stale source gives up
       this.suspended = false; // rendering paused: audio context suspended
       this.reduceMotion = false; // reduced motion: slower smoothing, no beat
-      this.pcmRest = null; // octet restant d'un morceau PCM de longueur impaire
+      this.pcmRest = null; // byte left over from a PCM chunk of odd length
       this.pulse = 0; // smoothed bass (for the glows: never more than a few flashes per second)
       this.glowLevel = 0; // smoothed level, same
       this.lastFrameT = 0;

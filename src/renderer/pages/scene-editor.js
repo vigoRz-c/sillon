@@ -162,7 +162,7 @@
         n.addEventListener('keydown', (e) => {
           if (e.target !== n || (e.key !== 'Enter' && e.key !== ' ')) return;
           e.preventDefault();
-          e.stopPropagation(); // Entrée choisit l'élément, elle ne valide pas la scène
+          e.stopPropagation(); // Enter chooses the element, it does not validate the scene
           selected = id;
           fillSide();
           drawSelection();

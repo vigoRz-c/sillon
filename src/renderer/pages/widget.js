@@ -371,7 +371,7 @@
   let gamePause = false;
   let asleep = false;
   function updateRest() {
-    if (EDIT) return; // l'éditeur reste toujours affiché
+    if (EDIT) return; // the editor always stays shown
     const s = app.state.settings;
     const playing = app.state.media.active && app.state.media.status === 'Playing';
     if (playing) silentSince = Date.now();

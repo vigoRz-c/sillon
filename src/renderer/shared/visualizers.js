@@ -653,7 +653,7 @@
         const b = Math.floor(Math.random() * 32);
         const v = bands[b];
         const o = i * 6;
-        P[o] = (b + Math.random()) / 32; // x (0 à 1)
+        P[o] = (b + Math.random()) / 32; // x (0 to 1)
         P[o + 1] = 1.02; // y (0 at the top, 1 at the bottom)
         P[o + 2] = (Math.random() - 0.5) * 0.06; // x speed
         P[o + 3] = -(0.12 + v * 0.55 + Math.random() * 0.1) * (rm ? 0.4 : 1); // y speed

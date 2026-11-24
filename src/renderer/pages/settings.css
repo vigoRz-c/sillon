@@ -1,6 +1,6 @@
-/* Fenêtre des paramètres (chargée seulement par settings.html).
- * Menu des sections à gauche, aperçu en direct en haut à droite, réglages dessous.
- * Toutes les règles sont préfixées par body.settings : style.css reste partagé. */
+/* Settings window (loaded only by settings.html).
+ * Sections menu on the left, live preview at the top right, settings below.
+ * Every rule is prefixed with body.settings: style.css stays shared. */
 
 body.settings {
   --bg: rgba(19, 19, 25, 0.97);
@@ -10,8 +10,8 @@ body.settings {
   --line: rgba(255, 255, 255, 0.08);
   --line-hi: rgba(255, 255, 255, 0.16);
   --text: #f3f4f6;
-  --muted: #a3a3b2; /* 7:1 sur le fond */
-  --accent-text: #3ee08a; /* vert de l'accent, lisible en texte sur le fond sombre */
+  --muted: #a3a3b2; /* 7:1 on the background */
+  --accent-text: #3ee08a; /* green of the accent, readable as text on the dark background */
   --on-accent: #04170b;
 
   color-scheme: dark;
@@ -26,7 +26,7 @@ body.settings {
   overflow: hidden;
 }
 
-/* ----- Barre du haut : titre, recherche, fermeture (zone de déplacement de la fenêtre) ----- */
+/* ----- Top bar: title, search, close (window drag area) ----- */
 body.settings .top {
   grid-column: 1 / -1;
   display: flex;
@@ -139,7 +139,7 @@ body.settings [role='tab'][aria-selected='true'] {
   background: var(--surface-hi);
   font-weight: 600;
 }
-/* Repère de la section ouverte : un sillon vert à gauche. */
+/* Marker of the open section: a green groove on the left. */
 body.settings [role='tab'][aria-selected='true']::before {
   content: '';
   position: absolute;
@@ -153,7 +153,7 @@ body.settings [role='tab'][aria-selected='true']::before {
 body.settings [role='tab'][aria-selected='true'] svg {
   color: var(--accent-text);
 }
-/* Recherche en cours : aucune section n'est « ouverte ». */
+/* Search in progress: no section is "open". */
 body.settings.searching [role='tab'][aria-selected='true'] {
   background: none;
   font-weight: 400;
@@ -180,7 +180,7 @@ body.settings #panels {
   scrollbar-gutter: stable;
 }
 
-/* Aperçu en direct */
+/* Live preview */
 body.settings .live {
   position: relative;
   margin: 16px 24px 8px;
@@ -220,7 +220,7 @@ body.settings #liveTheme {
   gap: 6px;
   color: var(--muted);
 }
-/* Pastille de la couleur principale du jeu, devant son nom. */
+/* Dot of the set's main color, in front of its name. */
 body.settings #liveTheme::before {
   content: '';
   width: 8px;
@@ -285,7 +285,7 @@ body.settings .panel > .help {
   margin-top: 12px;
 }
 
-/* Résultats de recherche : toutes les sections, seulement les lignes trouvées. */
+/* Search results: every section, only the lines found. */
 body.settings.searching .panel {
   padding-top: 16px;
 }
@@ -301,7 +301,7 @@ body.settings .miss {
   display: none;
 }
 
-/* ----- Contrôles ----- */
+/* ----- Controls ----- */
 body.settings output {
   margin-left: auto;
   color: var(--muted);
@@ -312,7 +312,7 @@ body.settings input[type='range'] {
   min-height: 24px;
   accent-color: var(--accent);
 }
-/* Cases à cocher présentées en interrupteurs (toujours des cases pour les lecteurs d'écran). */
+/* Checkboxes shown as switches (still checkboxes for screen readers). */
 body.settings input[type='checkbox'] {
   appearance: none;
   position: relative;
@@ -414,7 +414,7 @@ body.settings button:disabled {
 body.settings .copy-row {
   justify-content: flex-start;
 }
-/* Barre de défilement sombre, discrète. */
+/* Dark, discreet scrollbar. */
 body.settings ::-webkit-scrollbar {
   width: 10px;
 }
@@ -427,7 +427,7 @@ body.settings ::-webkit-scrollbar-thumb {
 body.settings ::-webkit-scrollbar-thumb:hover {
   background-color: rgba(255, 255, 255, 0.26);
 }
-/* Bouton qui ouvre une page externe : présenté comme un lien. */
+/* Button that opens an external page: shown as a link. */
 body.settings button.link {
   display: inline;
   min-height: 0;
@@ -501,7 +501,7 @@ body.settings .shortcut.off kbd {
   opacity: 0.45;
 }
 
-/* ----- Galerie des styles du visualiseur ----- */
+/* ----- Visualizer style gallery ----- */
 body.settings .gallery {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -540,7 +540,7 @@ body.settings .gallery span {
   padding: 0 2px 2px;
 }
 
-/* ----- Pastilles de couleurs : de petits disques gravés aux couleurs du jeu ----- */
+/* ----- Color swatches: small engraved discs in the set's colors ----- */
 body.settings .family {
   margin: 14px 0 6px;
   font-size: 0.75rem;
@@ -576,7 +576,7 @@ body.settings .disc {
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  /* trou central, sillons, étiquette, puis les trois couleurs du jeu */
+  /* center hole, grooves, label, then the set's three colors */
   background:
     radial-gradient(circle, #0c0c11 0 6%, transparent 7%),
     radial-gradient(circle, transparent 0 30%, rgba(0, 0, 0, 0.32) 31%, transparent 33%),
@@ -586,7 +586,7 @@ body.settings .disc {
     inset 0 0 0 1px rgba(255, 255, 255, 0.12),
     0 2px 8px rgba(0, 0, 0, 0.4);
 }
-/* Fond d'écran : un petit paysage (ciel, collines) gravé de sillons. */
+/* Wallpaper: a small landscape (sky, hills) engraved with grooves. */
 body.settings .disc.wallpaper {
   background:
     radial-gradient(circle, #0c0c11 0 6%, transparent 7%),
@@ -595,7 +595,7 @@ body.settings .disc.wallpaper {
     radial-gradient(110% 55% at 85% 100%, #15803d 0 60%, transparent 61%),
     radial-gradient(circle at 70% 30%, #fde68a 0 9%, transparent 10%), linear-gradient(#38bdf8, #c4b5fd 70%);
 }
-/* Pochette : un vinyle noir dont l'étiquette prend les couleurs de l'image. */
+/* Cover: a black record whose label takes the colors of the image. */
 body.settings .disc.album {
   background:
     radial-gradient(circle, #0c0c11 0 6%, transparent 7%),
@@ -622,7 +622,7 @@ body.settings .swatches.small .disc {
   height: 32px;
 }
 
-/* Couleur personnalisée : pastille de repli (la vraie palette est posée par settings.js). */
+/* Custom color: fallback swatch (the real palette is set by settings.js). */
 body.settings .disc.custom {
   --c1: #8b5cf6;
   --c2: #a78bfa;
@@ -694,7 +694,7 @@ body.settings .wheel-chips span {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
 }
 
-/* ----- Animations réduites ----- */
+/* ----- Reduced animations ----- */
 body.settings.reduce-motion *,
 body.settings.reduce-motion *::after {
   transition: none !important;
@@ -706,7 +706,7 @@ body.settings.reduce-motion *::after {
   }
 }
 
-/* ----- Fenêtre étroite (démo dans un petit cadre) : menu en ligne au-dessus ----- */
+/* ----- Narrow window (demo in a small frame): menu in a row above ----- */
 @media (max-width: 640px) {
   body.settings {
     grid-template-columns: minmax(0, 1fr);
