@@ -1,6 +1,6 @@
 /* Catalogue des visualiseurs et des jeux de couleurs : identifiants et libellés.
  *
- * Source unique partagée par le moteur (engine.js), le plein écran, la page des
+ * Source unique partagée par le moteur (engine.js, visualizers.js), le plein écran, la page des
  * réglages, le menu de l'icône (tray.js) et la validation des réglages
  * (processus principal, via require). L'ordre est celui des menus et des
  * raccourcis V / C du plein écran.

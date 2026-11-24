@@ -453,4 +453,4 @@ class SpotifyApi extends EventEmitter {
   }
 }
 
-module.exports = { SpotifyApi, REDIRECT_URI, BUILTIN_CLIENT_ID };
+module.exports = { SpotifyApi };

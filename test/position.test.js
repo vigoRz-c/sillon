@@ -105,7 +105,9 @@ const vm = require('vm');
 function loadEngine() {
   const window = { SillonCatalog: require('../src/renderer/shared/catalog.js') };
   const ctx = vm.createContext({ window, console });
-  vm.runInContext(fs.readFileSync(path.join(__dirname, '../src/renderer/shared/engine.js'), 'utf8'), ctx);
+  for (const f of ['audio-engine', 'colors', 'visualizers', 'engine']) {
+    vm.runInContext(fs.readFileSync(path.join(__dirname, `../src/renderer/shared/${f}.js`), 'utf8'), ctx);
+  }
   return window.SV;
 }
 const { currentPosition } = loadEngine();

@@ -3,3 +3,6 @@ dist/
 *.log
 .DS_Store
 native/sillon-helper/target/
+
+# Rapport d'audit local (non publié)
+AUDIT.md

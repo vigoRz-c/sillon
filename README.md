@@ -104,7 +104,7 @@ En plein écran : **Espace** lecture/pause · **← →** morceau précédent/su
 | Boutons de la scène | La scène est sous les icônes du bureau et ne reçoit pas les clics : les boutons du panneau sont une petite fenêtre à part (`controls.html`), gardée tout en bas de la pile des fenêtres. |
 | Réagir au son | **Par application** : l'assistant natif capte seulement le son du lecteur suivi (Spotify, navigateur…), ce qui laisse de côté le chat vocal, les notifications et les jeux. **Repli** : si Windows ne permet pas la capture par application, Sillon écoute tout le son du PC (capture « loopback » d'Electron, `getDisplayMedia` + `audio: 'loopback'`). Jamais le micro. Le son n'est ni enregistré ni envoyé nulle part. Réglage : Paramètres → « Son analysé ». |
 | Être sur le fond d'écran | `src/main/windows/wallpaper.js` place la fenêtre dans le `WorkerW` d'Explorer (via `koffi` + `user32.dll`), avec une variante pour Windows 11 24H2. Ré-accroche automatique si Explorer redémarre. |
-| Dessiner | Canvas 2D dans `src/renderer/shared/engine.js`, analyse FFT en bandes logarithmiques (35 Hz → 16 kHz). Les visualiseurs et les couleurs viennent d'un catalogue unique, `src/renderer/shared/catalog.js`. |
+| Dessiner | Canvas 2D (`src/renderer/shared/visualizers.js`, boucle dans `engine.js`), analyse FFT en bandes logarithmiques (35 Hz → 16 kHz). Les visualiseurs et les couleurs viennent d'un catalogue unique, `src/renderer/shared/catalog.js`. |
 
 ```
 src/
@@ -148,12 +148,16 @@ src/
   renderer/
     pages/
       widget.*           la scène et le bandeau
+      scene-editor.js    éditeur de disposition de la scène (widget.html?edit=1)
       controls.*         boutons du panneau
       fullscreen.*       plein écran et écran de veille
       settings.*         fenêtre de paramètres
     shared/
       catalog.js         visualiseurs et jeux de couleurs (source unique)
-      engine.js          audio, couleurs, visualiseurs (dont le disque)
+      audio-engine.js    analyse audio (capture, bandes, battement), audio simulé
+      colors.js          palettes (pochette, couleur), opacité des couleurs
+      visualizers.js     visualiseurs (dont le disque), bord lumineux, anneaux
+      engine.js          boucle de rendu, position du morceau, assemble window.SV
       common.js          logique partagée widget / plein écran
       lyrics-view.js     paroles en karaoké
       scene-layout.js    disposition de la scène (modèles, placement)

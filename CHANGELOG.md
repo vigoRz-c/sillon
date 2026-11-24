@@ -6,7 +6,7 @@ Toutes les évolutions notables de Sillon. Format inspiré de [Keep a Changelog]
 
 ## [0.3.0] - 2026-11-23
 
-Nouveaux jeux de couleurs, fenêtre des paramètres refaite, audit complet de la version 0.2.0 (voir `AUDIT.md`) et une trentaine de bugs corrigés.
+Nouveaux jeux de couleurs, fenêtre des paramètres refaite, audit complet de la version 0.2.0 et une trentaine de bugs corrigés.
 
 ### Ajouté
 - 14 nouveaux jeux de couleurs pour le visualiseur et le disque : Cyberpunk, Synthwave, Acide, Pastel, Lavande, Pêche, Menthe, Forêt, Braise, Glace, Désert, Or et noir, Rouge sang, Minuit. Toutes les listes (paramètres, éditeur de la scène, menu de l'icône, raccourci C du plein écran) viennent du même catalogue.
