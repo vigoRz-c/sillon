@@ -1,11 +1,11 @@
-// Vue des paroles (lyrics-view.js) : chargée dans un faux DOM minimal.
+// Lyrics view (lyrics-view.js): loaded in a minimal fake DOM.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-// Élément factice : juste ce que LyricsView utilise.
+// Dummy element: just what LyricsView uses.
 function makeEl() {
   const el = {
     children: [],
@@ -67,7 +67,7 @@ function load() {
     window,
     document: { createElement: makeEl },
     getComputedStyle: () => ({ fontSize: '16px' }),
-    setTimeout: () => 0, // les retraits différés ne servent pas ici
+    setTimeout: () => 0, // the delayed removals are not needed here
   });
   const file = path.join(__dirname, '../src/renderer/shared/lyrics-view.js');
   vm.runInContext(fs.readFileSync(file, 'utf8'), ctx);
@@ -92,13 +92,13 @@ const lines = () => [
 ];
 const words = (v) => v.current._words;
 
-test('retour en arrière dans la ligne : les mots déjà colorés sont réinitialisés', () => {
+test('going back within the line: the words already colored are reset', () => {
   const v = new LyricsView(makeEl());
   v.set({ title: 'T', artist: 'A', lines: lines() });
   v.update(media, 7);
   assert.ok(words(v)[0].classes.has('full'));
   assert.ok(words(v)[3].classes.has('on'));
-  v.update(media, 1); // seek en arrière, même ligne
+  v.update(media, 1); // seek backwards, same line
   const [w0, w1, w2, w3] = words(v);
   assert.ok(w0.classes.has('on') && !w0.classes.has('full'));
   for (const w of [w1, w2, w3]) {
@@ -108,17 +108,17 @@ test('retour en arrière dans la ligne : les mots déjà colorés sont réinitia
   }
 });
 
-test('retour en arrière au milieu d’un mot déjà complet : le mot se recolore partiellement', () => {
+test('going back in the middle of a word already complete: the word is partly colored again', () => {
   const v = new LyricsView(makeEl());
   v.set({ title: 'T', artist: 'A', lines: lines() });
   v.update(media, 7);
-  v.update(media, 2.7); // dans « deux » (2 à 4 s)
+  v.update(media, 2.7); // in « deux » (2 to 4 s)
   const w1 = words(v)[1];
   assert.ok(!w1.classes.has('full'));
   assert.ok(w1._p > 0 && w1._p < 100);
 });
 
-test('mêmes paroles, nouveau décalage : la ligne n’est pas reconstruite', () => {
+test('same lyrics, new offset: the line is not rebuilt', () => {
   const v = new LyricsView(makeEl());
   v.set({ title: 'T', artist: 'A', lines: lines(), offset: 0 });
   v.update(media, 5);
@@ -131,7 +131,7 @@ test('mêmes paroles, nouveau décalage : la ligne n’est pas reconstruite', ()
   assert.equal(v.data.offset, 0.25);
 });
 
-test('paroles d’un autre morceau ou autres lignes : reconstruction normale', () => {
+test('lyrics of another track or other lines: normal rebuild', () => {
   const v = new LyricsView(makeEl());
   v.set({ title: 'T', artist: 'A', lines: lines() });
   v.update(media, 5);
@@ -145,32 +145,32 @@ test('paroles d’un autre morceau ou autres lignes : reconstruction normale', (
   assert.equal(v.index, -2);
 });
 
-// Paroles LRC (sans minutage mot à mot) : fin plafonnée comme dans parseLrc.
+// LRC lyrics (no word-by-word timing): end capped as in parseLrc.
 const lrc = (gap) => [
   { t: 0, end: Math.min(gap, 4.4), text: 'tout doucement', words: null },
   { t: gap, end: gap + 5, text: 'suite', words: null },
 ];
 
-test('ligne LRC chantée lentement : les mots se répartissent jusqu’à la ligne suivante', () => {
+test('LRC line sung slowly: the words spread up to the next line', () => {
   const v = new LyricsView(makeEl());
   const ls = lrc(8);
   const list = v.words(ls[0], ls[1]);
-  // 4 syllabes : 1,2 + 0,7 × 4 = 4 s ; écart 8 s × 0,9 = 7,2 s → 4 s.
+  // 4 syllables: 1.2 + 0.7 × 4 = 4 s; gap 8 s × 0.9 = 7.2 s → 4 s.
   assert.equal(list[list.length - 1].end, 4);
-  // « doucement » (3 syllabes approchées) dure trois fois plus que « tout » (1).
+  // « doucement » (3 approximate syllables) lasts three times as long as « tout » (1).
   const d0 = list[0].end - list[0].t;
   const d1 = list[1].end - list[1].t;
   assert.ok(Math.abs(d1 / d0 - 3) < 1e-9, `${d0} ${d1}`);
 });
 
-test('ligne LRC suivie d’une courte pause : remplissage sur presque tout l’écart', () => {
+test('LRC line followed by a short pause: filling over almost the whole gap', () => {
   const v = new LyricsView(makeEl());
   const ls = lrc(3);
   const list = v.words(ls[0], ls[1]);
   assert.ok(Math.abs(list[list.length - 1].end - 2.7) < 1e-9);
 });
 
-test('ligne LRC : reste affichée tant qu’elle est chantée, même au-delà de sa fin', () => {
+test('LRC line: stays shown as long as it is sung, even beyond its end', () => {
   const v = new LyricsView(makeEl());
   const ls = [
     { t: 0, end: 4, text: 'une très longue ligne chantée avec beaucoup de syllabes', words: null },
@@ -178,30 +178,30 @@ test('ligne LRC : reste affichée tant qu’elle est chantée, même au-delà de
   ];
   v.set({ title: 'T', artist: 'A', lines: ls });
   assert.equal(v.lineAt(6), 0);
-  assert.equal(v.lineAt(11.5), 0); // la suivante arrive dans moins d'une seconde
+  assert.equal(v.lineAt(11.5), 0); // the next one arrives in less than a second
 });
 
-test('mot à venir et ligne suivante : le prochain mot est marqué, la ligne suivante annoncée', () => {
+test('upcoming word and next line: the next word is marked, the next line announced', () => {
   const v = new LyricsView(makeEl());
   const ls = lines();
-  ls[1].t = 9; // arrive dans moins de 8 s
+  ls[1].t = 9; // arrives in less than 8 s
   v.set({ title: 'T', artist: 'A', lines: ls });
-  v.update(media, 2.5); // dans « deux »
+  v.update(media, 2.5); // in « deux »
   const ws = words(v);
   assert.ok(ws[2].classes.has('next'));
   assert.equal(ws.filter((w) => w.classes.has('next')).length, 1);
   assert.ok(v.preview && v.preview.classes.has('preview'));
   assert.equal(v.preview.attrs['aria-hidden'], 'true');
   assert.equal(v.previewIndex, 1);
-  v.update(media, 4.5); // « trois » chanté : « quatre » devient le prochain
+  v.update(media, 4.5); // « trois » sung: « quatre » becomes the next one
   assert.ok(!ws[2].classes.has('next') && ws[3].classes.has('next'));
 });
 
-test('ligne suivante lointaine (pause instrumentale) : pas encore annoncée', () => {
+test('distant next line (instrumental break): not announced yet', () => {
   const v = new LyricsView(makeEl());
-  v.set({ title: 'T', artist: 'A', lines: lines() }); // suivante à 20 s
+  v.set({ title: 'T', artist: 'A', lines: lines() }); // next one at 20 s
   v.update(media, 2);
   assert.equal(v.preview, null);
-  v.update(media, 13); // à moins de 8 s
+  v.update(media, 13); // less than 8 s away
   assert.equal(v.previewIndex, 1);
 });

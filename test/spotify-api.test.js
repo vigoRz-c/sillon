@@ -1,6 +1,6 @@
-// SpotifyApi : jetons (rafraîchissement unique, persistance, déconnexion),
-// codes de réponse de l'API, serveur de retour OAuth. Electron et le réseau
-// sont simulés.
+// SpotifyApi: tokens (single refresh, persistence, sign-out),
+// API reply codes, OAuth return server. Electron and the network
+// are simulated.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Module = require('module');
@@ -24,7 +24,7 @@ const fakeElectron = {
     },
     decryptStringAsync: async (buf) => {
       const t = buf.toString('utf8');
-      if (!t.startsWith('enc:')) throw new Error('déchiffrement impossible');
+      if (!t.startsWith('enc:')) throw new Error('decryption impossible');
       return { result: t.slice(4), shouldReEncrypt: false };
     },
   },
@@ -43,7 +43,7 @@ const json = (body, status = 200, headers = {}) => ({
   json: async () => body,
 });
 
-// Routeur réseau : { api: (url, n) => res, token: (n) => res } avec compteurs.
+// Network router: { api: (url, n) => res, token: (n) => res } with counters.
 function net({ api, token }) {
   const c = { api: 0, token: 0 };
   const m = mock.method(global, 'fetch', async (url) => {
@@ -84,7 +84,7 @@ test('204 -> null, 200 -> JSON', async (t) => {
   n.restore();
 });
 
-test('401 : un seul nouvel essai après rafraîchissement', async (t) => {
+test('401: a single new attempt after refresh', async (t) => {
   const api = await makeApi(t, fresh);
   const n = net({ api: () => json({}, 401), token: goodToken });
   await assert.rejects(api.get('/me/player'), /Spotify 401/);
@@ -93,7 +93,7 @@ test('401 : un seul nouvel essai après rafraîchissement', async (t) => {
   n.restore();
 });
 
-test('401 puis 200 : la requête réussit au second essai', async (t) => {
+test('401 then 200: the request succeeds on the second attempt', async (t) => {
   const api = await makeApi(t, fresh);
   const n = net({ api: (u, i) => (i === 1 ? json({}, 401) : json({ ok: 1 })), token: goodToken });
   assert.deepEqual(await api.get('/me/player'), { ok: 1 });
@@ -101,7 +101,7 @@ test('401 puis 200 : la requête réussit au second essai', async (t) => {
   n.restore();
 });
 
-test('429 : retryAfter transmis (30 s par défaut)', async (t) => {
+test('429: retryAfter passed on (30 s by default)', async (t) => {
   const api = await makeApi(t, fresh);
   let headers = { 'retry-after': '12' };
   const n = net({ api: () => json({}, 429, headers), token: goodToken });
@@ -111,14 +111,14 @@ test('429 : retryAfter transmis (30 s par défaut)', async (t) => {
   n.restore();
 });
 
-test('403 : message explicite, avec la raison de Spotify', async (t) => {
+test("403: explicit message, with Spotify's reason", async (t) => {
   const api = await makeApi(t, fresh);
   const n = net({ api: () => json({ error: { reason: 'PREMIUM_REQUIRED' } }, 403), token: goodToken });
   await assert.rejects(api.get('/x'), /PREMIUM_REQUIRED/);
   n.restore();
 });
 
-test('rafraîchissement concurrent : une seule requête de jeton', async (t) => {
+test('concurrent refresh: a single token request', async (t) => {
   const api = await makeApi(t, expired);
   const n = net({ api: () => json({ ok: 1 }), token: goodToken });
   const r = await Promise.all([api.get('/a'), api.get('/b'), api.get('/c')]);
@@ -129,7 +129,7 @@ test('rafraîchissement concurrent : une seule requête de jeton', async (t) => 
   n.restore();
 });
 
-test('invalid_grant au rafraîchissement : déconnexion et message', async (t) => {
+test('invalid_grant on refresh: sign-out and message', async (t) => {
   const api = await makeApi(t, expired);
   const n = net({ api: () => json({}), token: () => json({ error: 'invalid_grant' }, 400) });
   assert.equal(await api.get('/a'), null);
@@ -138,7 +138,7 @@ test('invalid_grant au rafraîchissement : déconnexion et message', async (t) =
   n.restore();
 });
 
-test('save : jetons chiffrés sur disque, relus au démarrage', async (t) => {
+test('save: tokens encrypted on disk, read again at startup', async (t) => {
   const api = await makeApi(t);
   await api.save({ ...fresh, clientId: CLIENT_ID });
   assert.equal(fs.readFileSync(api.file, 'utf8').startsWith('enc:'), true);
@@ -148,7 +148,7 @@ test('save : jetons chiffrés sur disque, relus au démarrage', async (t) => {
   assert.equal(again.status().error, '');
 });
 
-test('logout pendant save : rien n’est écrit, jetons non rétablis', async (t) => {
+test('logout during save: nothing is written, tokens not restored', async (t) => {
   const api = await makeApi(t);
   let release;
   state.encryptGate = new Promise((r) => (release = r));
@@ -161,7 +161,7 @@ test('logout pendant save : rien n’est écrit, jetons non rétablis', async (t
   assert.equal(api.tokens, null);
 });
 
-test('logout : ne tait que ENOENT', async (t) => {
+test('logout: only silences ENOENT', async (t) => {
   const api = await makeApi(t);
   api.logout(); // fichier absent : silencieux
   assert.equal(api.status().error, '');
@@ -173,20 +173,20 @@ test('logout : ne tait que ENOENT', async (t) => {
   assert.match(api.status().error, /EPERM/);
 });
 
-test('sans chiffrement Windows : rien en clair sur disque, jetons gardés en mémoire, message', async (t) => {
+test('without Windows encryption: nothing in plain text on disk, tokens kept in memory, message', async (t) => {
   const api = await makeApi(t);
   state.encryption = false;
   await api.save({ ...fresh, clientId: CLIENT_ID });
   assert.equal(fs.existsSync(api.file), false);
   assert.equal(api.tokens.refresh, 'ref0');
   assert.match(api.status().error, /Windows encryption unavailable: sign-in not remembered/);
-  api.clearError(); // l'avertissement persiste tant que les jetons ne sont pas mémorisés
+  api.clearError(); // the warning stays as long as the tokens are not remembered
   assert.match(api.status().error, /not remembered/);
   api.logout();
   assert.equal(api.status().error, '');
 });
 
-test('load : fichier absent silencieux, fichier corrompu signalé', async (t) => {
+test('load: missing file silent, corrupted file reported', async (t) => {
   const api = await makeApi(t);
   assert.equal(api.status().error, '');
   fs.writeFileSync(api.file, 'n’importe quoi');
@@ -196,7 +196,7 @@ test('load : fichier absent silencieux, fichier corrompu signalé', async (t) =>
   assert.equal(bad.status().error, 'Unreadable Spotify tokens: sign in again');
 });
 
-test('ancien fichier en clair : relu puis chiffré', async (t) => {
+test('old plain-text file: read then encrypted', async (t) => {
   const api = await makeApi(t);
   fs.writeFileSync(api.file, JSON.stringify({ ...fresh, clientId: CLIENT_ID }));
   const old = new SpotifyApi(() => ({ custom: true, clientId: CLIENT_ID }));
@@ -205,7 +205,7 @@ test('ancien fichier en clair : relu puis chiffré', async (t) => {
   assert.equal(fs.readFileSync(old.file, 'utf8').startsWith('enc:'), true);
 });
 
-// ---------- serveur de retour OAuth (http simulé) ----------
+// ---------- OAuth return server (simulated http) ----------
 function fakeServer(t) {
   const srv = { closed: 0, handler: null, on() {}, listen: (p, h, cb) => cb(), close: () => srv.closed++ };
   t.mock.method(http, 'createServer', (handler) => {
@@ -228,7 +228,7 @@ function fakeRes() {
   return r;
 }
 
-test('OAuth : state invalide -> 400 sans fermer le serveur', async (t) => {
+test('OAuth: invalid state -> 400 without closing the server', async (t) => {
   const api = await makeApi(t);
   const srv = fakeServer(t);
   api.login();
@@ -239,7 +239,7 @@ test('OAuth : state invalide -> 400 sans fermer le serveur', async (t) => {
   assert.equal(api.server, srv);
 });
 
-test('OAuth : message d’erreur échappé dans la page de retour', async (t) => {
+test('OAuth: error message escaped in the return page', async (t) => {
   const api = await makeApi(t);
   const srv = fakeServer(t);
   const n = net({ api: () => json({}), token: () => json({ error_description: '<img src=x onerror=alert(1)>' }, 400) });
@@ -256,7 +256,7 @@ test('OAuth : message d’erreur échappé dans la page de retour', async (t) =>
 
 const stateOf = () => new URL(state.openedUrls.at(-1)).searchParams.get('state');
 
-test('OAuth : connexion réussie -> jetons enregistrés, page sans cache, serveur fermé', async (t) => {
+test('OAuth: successful sign-in -> tokens saved, page without cache, server closed', async (t) => {
   const api = await makeApi(t);
   const srv = fakeServer(t);
   const n = net({ api: () => json({}), token: () => goodToken(7) });
@@ -278,11 +278,11 @@ test('OAuth : connexion réussie -> jetons enregistrés, page sans cache, serveu
   assert.equal(connected, 1);
   assert.equal(srv.closed, 1);
   assert.equal(api.server, null);
-  assert.ok(fs.readFileSync(api.file, 'utf8').startsWith('enc:'), 'jetons chiffrés sur disque');
+  assert.ok(fs.readFileSync(api.file, 'utf8').startsWith('enc:'), 'tokens encrypted on disk');
   n.restore();
 });
 
-test('OAuth : retour sans code -> refusé sans appel réseau', async (t) => {
+test('OAuth: return without a code -> refused without a network call', async (t) => {
   const api = await makeApi(t);
   const srv = fakeServer(t);
   const n = net({ api: () => json({}), token: () => goodToken() });
@@ -298,7 +298,7 @@ test('OAuth : retour sans code -> refusé sans appel réseau', async (t) => {
   n.restore();
 });
 
-test('OAuth : accès refusé dans Spotify -> message clair, aucun jeton', async (t) => {
+test('OAuth: access refused in Spotify -> clear message, no token', async (t) => {
   const api = await makeApi(t);
   const srv = fakeServer(t);
   api.login();
@@ -309,7 +309,7 @@ test('OAuth : accès refusé dans Spotify -> message clair, aucun jeton', async 
   assert.equal(srv.closed, 1);
 });
 
-test('OAuth : autre chemin -> 404, serveur toujours ouvert', async (t) => {
+test('OAuth: other path -> 404, server still open', async (t) => {
   const api = await makeApi(t);
   const srv = fakeServer(t);
   api.login();
@@ -319,7 +319,7 @@ test('OAuth : autre chemin -> 404, serveur toujours ouvert', async (t) => {
   assert.equal(srv.closed, 0);
 });
 
-test('OAuth : Client ID invalide -> pas de serveur ni de navigateur', async (t) => {
+test('OAuth: invalid Client ID -> no server and no browser', async (t) => {
   const api = await makeApi(t);
   api.getConfig = () => ({ custom: true, clientId: 'pas-un-id' });
   const srv = fakeServer(t);
@@ -329,7 +329,7 @@ test('OAuth : Client ID invalide -> pas de serveur ni de navigateur', async (t) 
   assert.match(api.status().error, /Client ID/);
 });
 
-test('OAuth : sans retour au bout de 5 minutes -> « Connexion Spotify expirée »', async (t) => {
+test('OAuth: no return after 5 minutes -> "Spotify sign-in expired"', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const api = await makeApi(t);
   const srv = fakeServer(t);
@@ -340,7 +340,7 @@ test('OAuth : sans retour au bout de 5 minutes -> « Connexion Spotify expirée 
   assert.equal(api.server, null);
 });
 
-test('player : champs interdits par Spotify, 204 -> null', async (t) => {
+test('player: fields forbidden by Spotify, 204 -> null', async (t) => {
   const api = await makeApi(t, fresh);
   let body = { shuffle_state: true, repeat_state: 'track', actions: { disallows: { toggling_shuffle: true } } };
   const n = net({ api: () => (body ? json(body) : json(null, 204)), token: goodToken });
@@ -355,7 +355,7 @@ test('player : champs interdits par Spotify, 204 -> null', async (t) => {
   n.restore();
 });
 
-test('queue : jeton impossible à rafraîchir -> null (pas une file vide)', async (t) => {
+test('queue: token impossible to refresh -> null (not an empty queue)', async (t) => {
   const api = await makeApi(t, expired);
   const n = net({ api: () => json({ queue: [] }), token: () => json({ error: 'server_error' }, 500) });
   assert.equal(await api.queue(), null);
@@ -363,7 +363,7 @@ test('queue : jeton impossible à rafraîchir -> null (pas une file vide)', asyn
   n.restore();
 });
 
-test('queue : file vraiment vide (204 ou liste vide) -> []', async (t) => {
+test('queue: really empty queue (204 or empty list) -> []', async (t) => {
   const api = await makeApi(t, fresh);
   let body = null;
   const n = net({ api: () => (body ? json(body) : json(null, 204)), token: goodToken });
@@ -373,7 +373,7 @@ test('queue : file vraiment vide (204 ou liste vide) -> []', async (t) => {
   n.restore();
 });
 
-test('playbackDevice : appareil actif, sinon un ordinateur', async (t) => {
+test('playbackDevice: active device, otherwise a computer', async (t) => {
   const api = await makeApi(t, fresh);
   let devices = [
     { id: 'tel', type: 'Smartphone', is_active: false },

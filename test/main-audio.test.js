@@ -3,13 +3,13 @@ const assert = require('node:assert');
 const { retryDelay, createPcmAssembler, appendCapped } = require('../src/main/audio/audio-utils');
 const { isAsleep } = require('../src/main/app/rest');
 
-test('retryDelay : 3 s, 30 s puis 60 s', () => {
+test('retryDelay: 3 s, 30 s then 60 s', () => {
   assert.deepStrictEqual([1, 2, 3, 4, 50].map(retryDelay), [3000, 30000, 60000, 60000, 60000]);
   assert.strictEqual(retryDelay(0), 3000);
   assert.strictEqual(retryDelay(NaN), 3000);
 });
 
-test('PCM : un morceau impair garde son octet pour le suivant', () => {
+test('PCM: an odd chunk keeps its byte for the next one', () => {
   const a = createPcmAssembler();
   const out1 = a.push(Buffer.from([1, 2, 3]));
   assert.deepStrictEqual([...out1], [1, 2]);
@@ -19,7 +19,7 @@ test('PCM : un morceau impair garde son octet pour le suivant', () => {
   assert.deepStrictEqual([...out3], [7, 8]);
 });
 
-test('PCM : toujours une longueur paire, aucun octet perdu', () => {
+test('PCM: always an even length, no byte lost', () => {
   const a = createPcmAssembler();
   const input = Buffer.from(Array.from({ length: 101 }, (_, i) => i));
   const got = [];
@@ -36,12 +36,12 @@ test('PCM : toujours une longueur paire, aucun octet perdu', () => {
   assert.deepStrictEqual([...a.push(Buffer.from([9, 9]))], [9, 9]);
 });
 
-test('appendCapped : plafonne en gardant la fin', () => {
+test('appendCapped: caps while keeping the end', () => {
   assert.strictEqual(appendCapped('abc', 'de', 10), 'abcde');
   assert.strictEqual(appendCapped('abc', 'defg', 5), 'cdefg');
 });
 
-test('isAsleep : après N minutes sans musique', () => {
+test('isAsleep: after N minutes without music', () => {
   const base = { silentSince: 0, minutes: 5 };
   assert.strictEqual(isAsleep({ ...base, playing: true, now: 1e9 }), false);
   assert.strictEqual(isAsleep({ ...base, playing: false, now: 4 * 60000 }), false);

@@ -1,5 +1,5 @@
-// Choix de la source audio : codes de sortie de l'assistant de capture
-// (2 = Windows ne sait pas, 3/4 = lecteur absent). Assistant et horloge simulés.
+// Choice of the audio source: exit codes of the capture helper
+// (2 = Windows cannot, 3/4 = player missing). Simulated helper and clock.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Module = require('module');
@@ -51,13 +51,13 @@ function fakeWindow() {
 const spotify = { active: true, app: 'Spotify.exe', status: 'Playing' };
 const chrome = { active: true, app: 'Chrome', status: 'Playing' };
 
-// Le module garde son état : chaque test change de lecteur pour repartir à zéro.
+// The module keeps its state: each test changes player to start again from zero.
 let seq = 0;
 function setup(t, media) {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   S.settings = { get: (k) => (k === 'audioSource' ? 'app' : k === 'preferApp' ? 'spotify' : null) };
   S.lastMedia = { active: false };
-  appAudio.onMedia({ active: false, app: `reset${seq++}` }); // repart sans délai
+  appAudio.onMedia({ active: false, app: `reset${seq++}` }); // starts again without delay
   S.lastMedia = media;
   spawned.length = 0;
   const win = fakeWindow();
@@ -69,17 +69,17 @@ function setup(t, media) {
 
 const exitWith = (code) => spawned.at(-1).emit('exit', code);
 
-test('un seul code 2 : pas de bascule définitive, nouvel essai', (t) => {
+test('a single code 2: no final switch, new attempt', (t) => {
   setup(t, spotify);
   assert.equal(spawned.length, 1);
   exitWith(2);
   assert.equal(appAudio.status().unsupported, false);
   assert.equal(appAudio.status().mode, 'app');
   t.mock.timers.tick(3000);
-  assert.equal(spawned.length, 2); // relancé
+  assert.equal(spawned.length, 2); // restarted
 });
 
-test('trois codes 2 de suite : tout le son du PC', (t) => {
+test('three codes 2 in a row: all the PC sound', (t) => {
   setup(t, spotify);
   for (let i = 0; i < 3; i++) {
     exitWith(2);
@@ -89,16 +89,16 @@ test('trois codes 2 de suite : tout le son du PC', (t) => {
   assert.equal(appAudio.status().mode, 'system');
 });
 
-test('du son reçu remet le compteur des codes 2 à zéro', (t) => {
+test('sound received resets the code 2 counter', (t) => {
   setup(t, spotify);
   exitWith(2);
-  exitWith(2); // sans effet : plus de processus suivi
+  exitWith(2); // no effect: no followed process any more
   t.mock.timers.tick(60000);
   spawned.at(-1).stdout.emit('data', Buffer.from([1, 0]));
   assert.equal(appAudio.status().unsupportedCodes, 0);
 });
 
-test('lecteur changé : « non supporté » levé', (t) => {
+test('player changed: "not supported" lifted', (t) => {
   setup(t, spotify);
   for (let i = 0; i < 3; i++) {
     exitWith(2);
@@ -110,7 +110,7 @@ test('lecteur changé : « non supporté » levé', (t) => {
   assert.equal(appAudio.status().mode, 'app');
 });
 
-test('5 codes 4 de suite avec le lecteur annoncé actif : tout le son du PC', (t) => {
+test('5 codes 4 in a row with the player announced active: all the PC sound', (t) => {
   setup(t, spotify);
   for (let i = 0; i < 4; i++) {
     exitWith(4);

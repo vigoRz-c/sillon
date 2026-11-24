@@ -1,5 +1,5 @@
-// Logique pure de scripts/release.js : numéro de version, notes tirées du
-// CHANGELOG, empreintes SHA-256 (sans git ni GitHub).
+// Pure logic of scripts/release.js: version number, notes taken from the
+// CHANGELOG, SHA-256 checksums (without git or GitHub).
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -7,7 +7,7 @@ const os = require('os');
 const path = require('path');
 const { bumpVersion, extractReleaseNotes, checksumLines, sha256File } = require('../scripts/release-lib');
 
-test('bumpVersion : patch, minor, major', () => {
+test('bumpVersion: patch, minor, major', () => {
   assert.equal(bumpVersion('0.1.0', 'patch'), '0.1.1');
   assert.equal(bumpVersion('0.1.9', 'patch'), '0.1.10');
   assert.equal(bumpVersion('0.1.4', 'minor'), '0.2.0');
@@ -15,56 +15,56 @@ test('bumpVersion : patch, minor, major', () => {
   assert.equal(bumpVersion('1.12.3', 'minor'), '1.13.0');
 });
 
-test('bumpVersion : refuse les versions et types invalides', () => {
+test('bumpVersion: refuses invalid versions and types', () => {
   assert.throws(() => bumpVersion('0.2', 'patch'), /Version invalide/);
   assert.throws(() => bumpVersion('0.2.0-beta', 'patch'), /Version invalide/);
   assert.throws(() => bumpVersion('0.2.0', 'micro'), /Type de version inconnu/);
 });
 
-const CHANGELOG = `# Journal
+const CHANGELOG = `# Changelog
 
-## [Non publié]
+## [Unreleased]
 
-### Corrigé
-- Un correctif en attente.
+### Fixed
+- A pending fix.
 
 ## [0.2.0] - 2026-11-23
 
-### Modifié
-- Mémoire réduite.
+### Changed
+- Lower memory.
 
-- Rust nécessaire.
+- Rust required.
 
 ## [0.1.9] - 2026-11-22
 
-### Ajouté
-- Volume du lecteur.
+### Added
+- Player volume.
 `;
 
-test('extractReleaseNotes : renvoie le corps de la section, sans le titre ni la section suivante', () => {
+test('extractReleaseNotes: returns the body of the section, without the title or the next section', () => {
   const notes = extractReleaseNotes(CHANGELOG, '0.2.0');
-  assert.equal(notes, '### Modifié\n- Mémoire réduite.\n\n- Rust nécessaire.');
+  assert.equal(notes, '### Changed\n- Lower memory.\n\n- Rust required.');
   assert.ok(!notes.includes('## ['));
   assert.ok(!notes.includes('Volume du lecteur'));
 });
 
-test('extractReleaseNotes : la dernière section va jusqu’à la fin du fichier', () => {
-  assert.equal(extractReleaseNotes(CHANGELOG, '0.1.9'), '### Ajouté\n- Volume du lecteur.');
+test('extractReleaseNotes: the last section goes to the end of the file', () => {
+  assert.equal(extractReleaseNotes(CHANGELOG, '0.1.9'), '### Added\n- Player volume.');
 });
 
-test('extractReleaseNotes : gère les fins de ligne CRLF', () => {
+test('extractReleaseNotes: handles CRLF line endings', () => {
   const crlf = CHANGELOG.replace(/\n/g, '\r\n');
-  assert.equal(extractReleaseNotes(crlf, '0.2.0'), '### Modifié\n- Mémoire réduite.\n\n- Rust nécessaire.');
+  assert.equal(extractReleaseNotes(crlf, '0.2.0'), '### Changed\n- Lower memory.\n\n- Rust required.');
 });
 
-test('extractReleaseNotes : refuse une section absente ou vide', () => {
+test('extractReleaseNotes: refuses a missing or empty section', () => {
   assert.throws(() => extractReleaseNotes(CHANGELOG, '0.3.0'), /absente/);
-  // « 0.2.0 » ne doit pas correspondre à « 0.2.0-beta » ni à « 0.2.01 ».
+  // "0.2.0" must not match "0.2.0-beta" or "0.2.01".
   assert.throws(() => extractReleaseNotes('## [0.2.01] - x\n- a\n', '0.2.0'), /absente/);
   assert.throws(() => extractReleaseNotes('## [0.2.0] - x\n\n## [0.1.0] - y\n- a\n', '0.2.0'), /vide/);
 });
 
-test('checksumLines : format sha256sum, une ligne par fichier', () => {
+test('checksumLines: sha256sum format, one line per file', () => {
   assert.equal(
     checksumLines([
       { sha256: 'aa', name: 'Sillon-Setup-0.2.0.exe' },
@@ -74,12 +74,12 @@ test('checksumLines : format sha256sum, une ligne par fichier', () => {
   );
 });
 
-test('sha256File : empreinte SHA-256 d’un fichier', () => {
+test('sha256File: SHA-256 checksum of a file', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sillon-sha-'));
   try {
     const file = path.join(dir, 'abc.txt');
     fs.writeFileSync(file, 'abc');
-    // SHA-256 de « abc », valeur de référence de la norme FIPS 180-2.
+    // SHA-256 of "abc", reference value of the FIPS 180-2 standard.
     assert.equal(sha256File(file), 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });

@@ -1,27 +1,27 @@
-// Normalisation des titres et des artistes (partagée par pochettes et paroles).
+// Normalization of titles and artists (shared by covers and lyrics).
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { strict, cleanTitle, norm, firstArtist, artistKey } = require('../src/main/media/text-norm');
 
-test('cleanTitle : retire les versions et les suffixes', () => {
+test('cleanTitle: removes the versions and the suffixes', () => {
   assert.equal(cleanTitle('Bohemian Rhapsody - Remastered 2011'), 'Bohemian Rhapsody');
   assert.equal(cleanTitle('Song (Live) [Deluxe]'), 'Song');
   assert.equal(cleanTitle('  Titre (feat. X) (Remix)  '), 'Titre');
 });
 
-test("cleanTitle : « (Don't Fear) The Reaper » ne devient pas vide", () => {
+test('cleanTitle: "(Don\'t Fear) The Reaper" does not become empty', () => {
   assert.equal(cleanTitle("(Don't Fear) The Reaper"), "(Don't Fear) The Reaper");
   assert.equal(norm("(Don't Fear) The Reaper"), 'don t fear the reaper');
   assert.equal(cleanTitle("(Don't Fear) The Reaper - Remastered"), "(Don't Fear) The Reaper");
 });
 
-test('cleanTitle : un titre entièrement entre parenthèses est conservé', () => {
+test('cleanTitle: a title entirely in parentheses is kept', () => {
   assert.equal(cleanTitle('(Intro)'), '(Intro)');
   assert.equal(norm('(Intro)'), 'intro');
   assert.equal(cleanTitle('[Untitled]'), '[Untitled]');
 });
 
-test('cleanTitle / norm : null, undefined, vide, types invalides', () => {
+test('cleanTitle / norm: null, undefined, empty, invalid types', () => {
   for (const v of [null, undefined, '', '   ', 0, {}]) {
     assert.equal(typeof cleanTitle(v), 'string');
   }
@@ -30,20 +30,20 @@ test('cleanTitle / norm : null, undefined, vide, types invalides', () => {
   assert.equal(norm('   '), '');
 });
 
-test('norm : accents, casse, ponctuation, emojis et caractères SQL', () => {
+test('norm: accents, case, punctuation, emojis and SQL characters', () => {
   assert.equal(norm('Dernière Danse (Live)'), 'derniere danse');
   assert.equal(norm("Robert'); DROP TABLE x;--"), 'robert drop table x');
   assert.equal(norm('🎵 Musique 🎵'), 'musique');
   assert.equal(norm('Beyoncé - Halo'), 'beyonce');
 });
 
-test('strict : garde les versions, normalise seulement', () => {
+test('strict: keeps the versions, only normalizes', () => {
   assert.equal(strict('Break Stuff (Remastered)'), 'break stuff remastered');
   assert.equal(strict('Éléphant!'), 'elephant');
   assert.equal(strict(null), '');
 });
 
-test('firstArtist : premier de la liste', () => {
+test('firstArtist: first of the list', () => {
   assert.equal(firstArtist('A, B'), 'A');
   assert.equal(firstArtist('A & B'), 'A');
   assert.equal(firstArtist('A feat. B'), 'A');
@@ -52,7 +52,7 @@ test('firstArtist : premier de la liste', () => {
   assert.equal(artistKey('Beyoncé, Jay-Z'), 'beyonce');
 });
 
-// ---------- Téléchargement d'images : plafond en flux et redirections ----------
+// ---------- Image download: capped stream and redirects ----------
 
 const { fetchImageDataUrl, readCapped, IMAGE_MAX } = require('../src/main/media/text-norm');
 const HOSTS = /^([a-z0-9-]+\.)*dzcdn\.net$/i;
@@ -71,7 +71,7 @@ function reply(status, headers, chunks = []) {
   return { status, ok: status >= 200 && status < 300, headers: new Headers(headers), body: streamOf(chunks) };
 }
 
-test('readCapped : arrête la lecture dès que le plafond est dépassé, sans content-length', async () => {
+test('readCapped: stops reading as soon as the cap is exceeded, without content-length', async () => {
   let pulled = 0;
   const body = new ReadableStream({
     pull(c) {
@@ -80,10 +80,10 @@ test('readCapped : arrête la lecture dès que le plafond est dépassé, sans co
     },
   });
   await assert.rejects(readCapped({ headers: new Headers(), body }, 4096), /too large/);
-  assert.ok(pulled < 10, `lecture arrêtée tôt (${pulled} morceaux)`);
+  assert.ok(pulled < 10, `reading stopped early (${pulled} chunks)`);
 });
 
-test('fetchImageDataUrl : redirection vers un hôte non autorisé refusée AVANT la requête', async (t) => {
+test('fetchImageDataUrl: redirect to a host not allowed refused BEFORE the request', async (t) => {
   const urls = [];
   t.mock.method(global, 'fetch', async (url) => {
     urls.push(url);
@@ -93,7 +93,7 @@ test('fetchImageDataUrl : redirection vers un hôte non autorisé refusée AVANT
   assert.deepEqual(urls, ['https://cdn-images.dzcdn.net/a.jpg']);
 });
 
-test('fetchImageDataUrl : redirection autorisée suivie, image renvoyée en data URL', async (t) => {
+test('fetchImageDataUrl: allowed redirect followed, image returned as a data URL', async (t) => {
   t.mock.method(global, 'fetch', async (url) =>
     url.includes('a.jpg')
       ? reply(301, { location: '/b.jpg' })
@@ -103,7 +103,7 @@ test('fetchImageDataUrl : redirection autorisée suivie, image renvoyée en data
   assert.equal(out, 'data:image/jpeg;base64,AQID');
 });
 
-test('fetchImageDataUrl : image sans content-length plus grosse que le plafond refusée', async (t) => {
+test('fetchImageDataUrl: image without content-length bigger than the cap refused', async (t) => {
   const big = new Uint8Array(IMAGE_MAX + 1);
   t.mock.method(global, 'fetch', async () => reply(200, { 'content-type': 'image/png' }, [big]));
   await assert.rejects(fetchImageDataUrl('https://cdn-images.dzcdn.net/a.png', HOSTS), /too big/);

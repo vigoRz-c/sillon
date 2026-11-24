@@ -1,10 +1,10 @@
-// Contrat entre le processus principal, le pont (preload), les pages et la démo.
-// Lit les fichiers comme du texte (aucun require d'Electron) et vérifie que :
-//   1. chaque canal envoyé par le preload (send / invoke) a un ipcMain.on / handle ;
-//   2. chaque canal « on… » du preload est émis quelque part dans src/main ;
-//   3. chaque bridge.X utilisé par src/renderer existe dans le preload ;
-//   4. demo/fake-bridge.js expose exactement les méthodes du preload ;
-//   5. chaque page a le droit (PAGE_CHANNELS) d'envoyer ce qu'elle utilise.
+// Contract between the main process, the bridge (preload), the pages and the demo.
+// Reads the files as text (no require of Electron) and checks that:
+//   1. every channel sent by the preload (send / invoke) has an ipcMain.on / handle;
+//   2. every "on…" channel of the preload is emitted somewhere in src/main;
+//   3. every bridge.X used by src/renderer exists in the preload;
+//   4. demo/fake-bridge.js exposes exactly the methods of the preload;
+//   5. every page is allowed (PAGE_CHANNELS) to send what it uses.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -27,69 +27,69 @@ function jsFiles(rel) {
 const sourcesOf = (rel) =>
   jsFiles(rel).map((p) => ({ file: path.relative(ROOT, p), text: fs.readFileSync(p, 'utf8') }));
 
-// Bloc « { … } » qui suit `start` (accolades équilibrées, sans tenir compte des chaînes).
+// Block "{ … }" that follows `start` (balanced braces, ignoring strings).
 function blockAfter(text, start) {
   const i = text.indexOf(start);
-  assert.notEqual(i, -1, `« ${start} » introuvable`);
+  assert.notEqual(i, -1, `"${start}" not found`);
   const open = text.indexOf('{', i);
   let depth = 0;
   for (let j = open; j < text.length; j++) {
     if (text[j] === '{') depth++;
     else if (text[j] === '}' && --depth === 0) return text.slice(open, j + 1);
   }
-  throw new Error(`accolade fermante introuvable après « ${start} »`);
+  throw new Error(`closing brace not found after "${start}"`);
 }
 
 const preloadText = read('src/main/app/preload.js');
 const preloadBlock = blockAfter(preloadText, "exposeInMainWorld('bridge'");
-// Clés de premier niveau (indentation de deux espaces dans preload.js).
+// Top-level keys (two-space indentation in preload.js).
 const preloadKeys = [...preloadBlock.matchAll(/^ {2}(\w+):/gm)].map((m) => m[1]);
-// Canaux utilisés par chaque méthode : ipcRenderer.send/invoke/on('canal', …).
-// Les abonnements passent par sub('canal') (équivaut à ipcRenderer.on).
+// Channels used by each method: ipcRenderer.send/invoke/on('channel', …).
+// Subscriptions go through sub('channel') (same as ipcRenderer.on).
 const preloadChannels = [...preloadBlock.matchAll(/(?:ipcRenderer\.(send|invoke|on)|\b(sub))\('([^']+)'/g)].map(
   (m) => ({
     kind: m[1] || 'on',
     channel: m[3],
   }),
 );
-// Méthode du pont -> canal envoyé au processus principal (send / invoke seulement).
+// Bridge method -> channel sent to the main process (send / invoke only).
 const methodChannel = {};
 for (const m of preloadBlock.matchAll(/^ {2}(\w+):.*?ipcRenderer\.(?:send|invoke)\('([^']+)'/gm))
   methodChannel[m[1]] = m[2];
 
 const main = sourcesOf('src/main');
-// Le processus principal écrit « ipc.handle » ou « ipcMain.handle » (alias).
+// The main process writes "ipc.handle" or "ipcMain.handle" (alias).
 const mainHandled = new Set(
   main.flatMap((s) =>
     [...s.text.matchAll(/\bipc(?:Main)?\.(?:on|handle|once|handleOnce)\(\s*'([^']+)'/g)].map((m) => m[1]),
   ),
 );
-// Émissions reconnues : webContents.send('canal', …) et S.send(fenêtres, 'canal', …).
+// Recognized emissions: webContents.send('channel', …) and S.send(windows, 'channel', …).
 const SEND = /\bsend\(\s*(?:(?:\[[^\]]*\]|[\w.]+(?:\(\))?)\s*,\s*)?'([^']+)'/g;
 const mainSent = new Set(main.flatMap((s) => [...s.text.matchAll(SEND)].map((m) => m[1])));
 
-test('le preload expose des méthodes et des canaux', () => {
-  assert.ok(preloadKeys.length >= 30, `trop peu de méthodes détectées : ${preloadKeys.length}`);
+test('the preload exposes methods and channels', () => {
+  assert.ok(preloadKeys.length >= 30, `too few methods detected: ${preloadKeys.length}`);
   assert.ok(preloadChannels.length >= preloadKeys.length - 2);
 });
 
-test('chaque canal send / invoke du preload est écouté par ipcMain', () => {
+test('every send / invoke channel of the preload is listened to by ipcMain', () => {
   const missing = preloadChannels
     .filter((c) => c.kind !== 'on')
     .filter((c) => !mainHandled.has(c.channel))
     .map((c) => c.channel);
-  assert.deepEqual(missing, [], `canaux sans ipcMain.on/handle dans src/main : ${missing.join(', ')}`);
+  assert.deepEqual(missing, [], `channels without ipcMain.on/handle in src/main: ${missing.join(', ')}`);
 });
 
-test('chaque canal on… du preload est émis par src/main', () => {
+test('every on… channel of the preload is emitted by src/main', () => {
   const missing = preloadChannels
     .filter((c) => c.kind === 'on')
     .filter((c) => !mainSent.has(c.channel))
     .map((c) => c.channel);
-  assert.deepEqual(missing, [], `canaux jamais émis par src/main : ${missing.join(', ')}`);
+  assert.deepEqual(missing, [], `channels never emitted by src/main: ${missing.join(', ')}`);
 });
 
-test('chaque bridge.X utilisé par src/renderer existe dans le preload', () => {
+test('every bridge.X used by src/renderer exists in the preload', () => {
   const used = new Set();
   for (const s of sourcesOf('src/renderer')) {
     for (const m of s.text.matchAll(/\bbridge\.(\w+)/g)) used.add(m[1]);
@@ -98,7 +98,7 @@ test('chaque bridge.X utilisé par src/renderer existe dans le preload', () => {
   assert.deepEqual(missing, [], `bridge.X inconnus du preload : ${missing.join(', ')}`);
 });
 
-test('demo/fake-bridge.js expose exactement les méthodes du preload', () => {
+test('demo/fake-bridge.js exposes exactly the methods of the preload', () => {
   const demoBlock = blockAfter(read('demo/fake-bridge.js'), 'window.bridge = {');
   const demoKeys = [...demoBlock.matchAll(/^ {4}(\w+):/gm)].map((m) => m[1]);
   const absentFromDemo = preloadKeys.filter((k) => !demoKeys.includes(k));
@@ -107,14 +107,14 @@ test('demo/fake-bridge.js expose exactement les méthodes du preload', () => {
   assert.deepEqual(absentFromPreload, [], `en trop dans demo/fake-bridge.js : ${absentFromPreload.join(', ')}`);
 });
 
-test('chaque page peut envoyer les canaux des méthodes du pont qu’elle utilise, et rien d’inutile', () => {
+test('every page may send the channels of the bridge methods it uses, and nothing useless', () => {
   const { PAGE_CHANNELS } = require('../src/main/app/ipc-guard');
   const pagesDir = 'src/renderer/pages';
   const pages = fs.readdirSync(path.join(ROOT, pagesDir)).filter((f) => f.endsWith('.html'));
   assert.deepEqual(
     pages.slice().sort(),
     Object.keys(PAGE_CHANNELS).sort(),
-    'une page HTML sans liste de canaux (ou l’inverse)',
+    'an HTML page without a channel list (or the reverse)',
   );
   for (const page of pages) {
     const html = read(`${pagesDir}/${page}`);
@@ -126,8 +126,8 @@ test('chaque page peut envoyer les canaux des méthodes du pont qu’elle utilis
     const allowed = PAGE_CHANNELS[page];
     const missing = [...needed].filter((c) => !allowed.includes(c));
     const unused = allowed.filter((c) => !needed.has(c));
-    assert.deepEqual(missing, [], `${page} utilise des canaux non autorisés : ${missing.join(', ')}`);
-    assert.deepEqual(unused, [], `${page} a des canaux qu’elle n’utilise pas : ${unused.join(', ')}`);
+    assert.deepEqual(missing, [], `${page} uses channels it is not allowed: ${missing.join(', ')}`);
+    assert.deepEqual(unused, [], `${page} has channels it does not use: ${unused.join(', ')}`);
     for (const c of allowed) assert.ok(mainHandled.has(c), `${page} : canal ${c} sans ipcMain.on/handle`);
   }
 });

@@ -1,4 +1,4 @@
-// Mises à jour : un téléchargement qui ne progresse plus ne bloque pas l'état.
+// Updates: a download that no longer progresses does not block the state.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Module = require('module');
@@ -24,12 +24,12 @@ Module._load = function (request, ...rest) {
 };
 const S = require('../src/main/app/state');
 const updater = require('../src/main/app/updater');
-// electron-updater est chargé à l'init : la simulation reste active jusqu'à la fin.
+// electron-updater is loaded at init: the simulation stays active until the end.
 test.after(() => {
   Module._load = realLoad;
 });
 
-test('téléchargement sans progression pendant 10 min : retour à « idle », noté', (t) => {
+test('download without progress for 10 min: back to "idle", noted', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout', 'setInterval'] });
   delete process.env.PORTABLE_EXECUTABLE_DIR;
   S.settings = { get: () => true };
@@ -37,7 +37,7 @@ test('téléchargement sans progression pendant 10 min : retour à « idle », n
   autoUpdater.emit('update-available', { version: '9.9.9' });
   assert.equal(updater.status().state, 'downloading');
   t.mock.timers.tick(9 * 60 * 1000);
-  autoUpdater.emit('download-progress', { percent: 40 }); // la minuterie repart
+  autoUpdater.emit('download-progress', { percent: 40 }); // the timer starts again
   t.mock.timers.tick(9 * 60 * 1000);
   assert.equal(updater.status().state, 'downloading');
   t.mock.timers.tick(updater.DOWNLOAD_STALL);
@@ -45,7 +45,7 @@ test('téléchargement sans progression pendant 10 min : retour à « idle », n
   assert.ok(notes.some((n) => n.includes('without progress')));
 });
 
-test('téléchargement terminé : pas d’abandon ensuite', (t) => {
+test('download finished: no giving up afterwards', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout', 'setInterval'] });
   autoUpdater.emit('update-available', { version: '9.9.9' });
   autoUpdater.emit('update-downloaded', { version: '9.9.9' });
@@ -53,17 +53,17 @@ test('téléchargement terminé : pas d’abandon ensuite', (t) => {
   assert.equal(updater.status().state, 'ready');
 });
 
-test('erreurs : messages lisibles (réseau, aucune version publiée, autre)', () => {
+test('errors: readable messages (network, no published version, other)', () => {
   autoUpdater.emit('error', new Error('net::ERR_INTERNET_DISCONNECTED'));
   assert.equal(updater.status().state, 'error');
   assert.match(updater.status().error, /No connection/);
   autoUpdater.emit('error', new Error('HttpError: 404 Not Found'));
   assert.match(updater.status().error, /No published version/);
-  autoUpdater.emit('error', new Error(['signature invalide', 'détails techniques'].join('\n')));
-  assert.equal(updater.status().error, 'Update failed: signature invalide');
+  autoUpdater.emit('error', new Error(['invalid signature', 'technical details'].join('\n')));
+  assert.equal(updater.status().error, 'Update failed: invalid signature');
 });
 
-test('check : échec de la vérification -> état « error », pas d’exception', async (t) => {
+test('check: verification failure -> "error" state, no exception', async (t) => {
   t.mock.method(autoUpdater, 'checkForUpdates', async () => {
     throw new Error('getaddrinfo ENOTFOUND github.com');
   });
@@ -74,7 +74,7 @@ test('check : échec de la vérification -> état « error », pas d’exception
   assert.match(updater.status().error, /No connection/);
 });
 
-test('check : pas de nouvelle vérification pendant un téléchargement ou une fois prête', (t) => {
+test('check: no new check during a download or once ready', (t) => {
   const check = t.mock.method(autoUpdater, 'checkForUpdates', async () => {});
   autoUpdater.emit('update-available', { version: '9.9.9' });
   updater.check();
@@ -83,7 +83,7 @@ test('check : pas de nouvelle vérification pendant un téléchargement ou une f
   assert.equal(check.mock.callCount(), 0);
 });
 
-test('installNow : seulement une fois la mise à jour prête', (t) => {
+test('installNow: only once the update is ready', (t) => {
   const install = t.mock.fn();
   autoUpdater.quitAndInstall = install;
   autoUpdater.emit('update-available', { version: '9.9.9' });

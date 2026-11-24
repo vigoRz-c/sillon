@@ -1,5 +1,5 @@
-// ipc.js : seules les pages de l'app, et seulement sur leurs canaux, sont
-// écoutées ; une erreur dans un handler ne remonte pas. Electron est simulé.
+// ipc.js: only the app's pages, and only on their channels, are
+// listened to; an error in a handler does not go up. Electron is simulated.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Module = require('module');
@@ -30,13 +30,13 @@ Module._load = realLoad;
 
 const page = (f, q = '') => ({ senderFrame: { url: pathToFileURL(path.join(S.RENDERER, f)).href + q } });
 
-test('trusted : page de l’app sur un canal autorisé', (t) => {
+test('trusted: app page on an allowed channel', (t) => {
   t.mock.method(console, 'error', () => {});
   assert.equal(ipc.trusted(page('settings.html'), 'spotify:logout'), true);
   assert.equal(ipc.trusted(page('fullscreen.html', '?veille=1'), 'veille:exit'), true);
 });
 
-test('trusted : page externe, page voisine ou canal non autorisé refusés (et notés)', (t) => {
+test('trusted: external page, neighboring page or channel not allowed refused (and noted)', (t) => {
   t.mock.method(console, 'error', () => {});
   notes.length = 0;
   assert.equal(ipc.trusted({ senderFrame: { url: 'https://exemple.com/' } }, 'settings:get'), false);
@@ -50,7 +50,7 @@ test('trusted : page externe, page voisine ou canal non autorisé refusés (et n
   assert.ok(notes.some((n) => n.includes('spotify:logout') && n.includes('controls.html')));
 });
 
-test('on : handler appelé seulement pour un expéditeur autorisé, erreurs isolées', (t) => {
+test('on: handler called only for an allowed sender, errors isolated', (t) => {
   const err = t.mock.method(console, 'error', () => {});
   const calls = [];
   ipc.on('media:volume', (_e, v) => {
@@ -58,13 +58,13 @@ test('on : handler appelé seulement pour un expéditeur autorisé, erreurs isol
     if (v === 'boom') throw new Error('panne');
   });
   listeners['media:volume'](page('controls.html'), 40);
-  listeners['media:volume'](page('settings.html'), 50); // canal non autorisé pour les paramètres
+  listeners['media:volume'](page('settings.html'), 50); // channel not allowed for the settings
   assert.doesNotThrow(() => listeners['media:volume'](page('controls.html'), 'boom'));
   assert.deepEqual(calls, [40, 'boom']);
   assert.ok(err.mock.calls.some((c) => String(c.arguments[0]).includes('media:volume')));
 });
 
-test('handle : null si refusé ou en erreur, sinon la valeur', async (t) => {
+test('handle: null if refused or on error, otherwise the value', async (t) => {
   t.mock.method(console, 'error', () => {});
   ipc.handle('diagnostic:copy', async (_e, x) => {
     if (x === 'boom') throw new Error('panne');

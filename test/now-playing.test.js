@@ -1,5 +1,5 @@
-// Paroles du morceau en cours : durée mise à jour après le titre, nouveaux
-// essais après une erreur réseau. Source média, paroles et pochettes simulées.
+// Lyrics of the current track: duration updated after the title, new
+// attempts after a network error. Simulated media source, lyrics and covers.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Module = require('module');
@@ -68,21 +68,21 @@ function setup(t) {
   return { emit, lyrics };
 }
 
-test('paroles : la durée du bon morceau arrive après le titre -> nouvelle recherche', async (t) => {
+test('lyrics: the right track duration arrives after the title -> new search', async (t) => {
   const { emit } = setup(t);
   emit(track({ title: 'Précédent', duration: 200 }));
   await tick();
   lookups.length = 0;
-  emit(track({ title: 'Nouveau', duration: 200 })); // durée du morceau précédent : suspecte
-  emit(track({ title: 'Nouveau', duration: 201 })); // écart <= 2 s : pas de relance
+  emit(track({ title: 'Nouveau', duration: 200 })); // duration of the previous track: suspicious
+  emit(track({ title: 'Nouveau', duration: 201 })); // gap <= 2 s: no new search
   assert.deepEqual(lookups, [{ duration: 200, volatile: true }]);
-  emit(track({ title: 'Nouveau', duration: 245 })); // la vraie durée
+  emit(track({ title: 'Nouveau', duration: 245 })); // the real duration
   assert.deepEqual(lookups[1], { duration: 245, volatile: false });
   emit(track({ title: 'Nouveau', duration: 245 }));
   assert.equal(lookups.length, 2);
 });
 
-test('paroles : erreur réseau -> deux nouveaux essais (10 s puis 20 s) puis abandon', async (t) => {
+test('lyrics: network error -> two new attempts (10 s then 20 s) then give up', async (t) => {
   const { emit, lyrics } = setup(t);
   lookupImpl = async () => ({ error: true });
   emit(track({ duration: 200 }));
@@ -100,7 +100,7 @@ test('paroles : erreur réseau -> deux nouveaux essais (10 s puis 20 s) puis aba
   assert.ok(lyrics().at(-1).error);
 });
 
-test('paroles : un essai réussi arrête les nouvelles tentatives', async (t) => {
+test('lyrics: a successful attempt stops the new attempts', async (t) => {
   const { emit, lyrics } = setup(t);
   let n = 0;
   lookupImpl = async () => (++n === 1 ? { error: true } : { lines: [{ t: 1, end: 2, text: 'Salut', words: null }] });
@@ -114,7 +114,7 @@ test('paroles : un essai réussi arrête les nouvelles tentatives', async (t) =>
   assert.equal(lyrics().at(-1).lines[0].text, 'Salut');
 });
 
-test('paroles : le morceau change avant le nouvel essai -> pas de nouvel essai pour l’ancien', async (t) => {
+test('lyrics: the track changes before the new attempt -> no new attempt for the old one', async (t) => {
   const { emit } = setup(t);
   lookupImpl = async () => ({ error: true });
   emit(track({ title: 'A', duration: 200 }));

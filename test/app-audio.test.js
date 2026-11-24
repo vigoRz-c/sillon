@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { exeForApp } = require('../src/main/audio/app-ids');
 
-test('exeForApp : applications connues', () => {
+test('exeForApp: known applications', () => {
   assert.strictEqual(exeForApp('Spotify.exe'), 'Spotify.exe');
   assert.strictEqual(exeForApp('SpotifyAB.SpotifyMusic_zpdnekdrzrea0!Spotify'), 'Spotify.exe');
   assert.strictEqual(exeForApp('Chrome'), 'chrome.exe');
@@ -11,11 +11,11 @@ test('exeForApp : applications connues', () => {
   assert.strictEqual(exeForApp('VLC media player'), 'vlc.exe');
 });
 
-test('exeForApp : un .exe inconnu est repris tel quel', () => {
-  assert.strictEqual(exeForApp('C:\\Programmes\\Lecteur\\mon lecteur.exe'), 'mon lecteur.exe');
+test('exeForApp: an unknown .exe is taken as is', () => {
+  assert.strictEqual(exeForApp('C:\\Programs\\Player\\my player.exe'), 'my player.exe');
   assert.strictEqual(exeForApp('autre.exe'), 'autre.exe');
 });
 
-test('exeForApp : entrées vides ou invalides', () => {
+test('exeForApp: empty or invalid entries', () => {
   for (const v of [null, undefined, '', 42, {}, 'Inconnu']) assert.strictEqual(exeForApp(v), null);
 });

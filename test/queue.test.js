@@ -1,11 +1,11 @@
-// File d'attente et commandes de lecture : sérialisation d'aléatoire /
-// répétition, relance des requêtes, résultats périmés, pause sur 429.
+// Queue and playback commands: serialization of shuffle /
+// repeat, restarting requests, stale results, pause on 429.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Module = require('module');
 const path = require('path');
 
-// Electron (importé par spotify-api) et le diagnostic sont simulés.
+// Electron (imported by spotify-api) and the diagnostic are simulated.
 const notes = [];
 const diagPath = path.join(__dirname, '..', 'src', 'main', 'app', 'diagnostic.js');
 require.cache[diagPath] = {
@@ -24,13 +24,13 @@ const queue = require('../src/main/media/queue');
 Module._load = realLoad;
 
 const tick = () => new Promise((r) => setImmediate(r));
-// Appel asynchrone qui rend la main quelques tours (sans horloge réelle) :
-// assez pour que deux commandes se chevauchent si rien ne les sérialise.
+// Asynchronous call that yields for a few turns (without a real clock):
+// enough for two commands to overlap if nothing serializes them.
 const yieldTurns = async (n = 3) => {
   for (let i = 0; i < n; i++) await tick();
 };
 
-// Faux SpotifyApi : tout est configurable par test.
+// Fake SpotifyApi: everything is configurable per test.
 function fakeSpotify(over = {}) {
   const sp = {
     calls: { player: 0, queue: 0, setShuffle: [], setRepeat: [], clearError: 0 },
@@ -87,27 +87,27 @@ function setup(t, spotify = fakeSpotify()) {
   return { spotify, sent, rebroadcasts };
 }
 
-test('nextRepeat : cycle None -> List -> Track -> None', () => {
+test('nextRepeat: cycle None -> List -> Track -> None', () => {
   assert.equal(queue.nextRepeat('None'), 'List');
   assert.equal(queue.nextRepeat('List'), 'Track');
   assert.equal(queue.nextRepeat('Track'), 'None');
   assert.equal(queue.nextRepeat(undefined), 'List');
 });
 
-test('mediaCommand : deux clics rapides sur aléatoire = deux bascules', async (t) => {
+test('mediaCommand: two quick clicks on shuffle = two toggles', async (t) => {
   const { spotify } = setup(t);
   await Promise.all([queue.mediaCommand('shuffle'), queue.mediaCommand('shuffle')]);
   assert.deepEqual(spotify.calls.setShuffle, [true, false]);
   assert.equal(S.playerState.shuffle, false);
 });
 
-test('mediaCommand : répétition enchaînée sur l’état à jour', async (t) => {
+test('mediaCommand: repeat chained on the up-to-date state', async (t) => {
   const { spotify } = setup(t);
   await Promise.all([queue.mediaCommand('repeat'), queue.mediaCommand('repeat'), queue.mediaCommand('repeat')]);
   assert.deepEqual(spotify.calls.setRepeat, ['List', 'Track', 'None']);
 });
 
-test('mediaCommand : une commande en échec ne bloque pas les suivantes', async (t) => {
+test('mediaCommand: a failing command does not block the next ones', async (t) => {
   let fail = true;
   const { spotify } = setup(
     t,
@@ -125,20 +125,20 @@ test('mediaCommand : une commande en échec ne bloque pas les suivantes', async 
   assert.ok(notes.some((n) => n.includes('boum')));
 });
 
-test('mediaCommand : lecture / suivant passent par Windows, sans Spotify', async (t) => {
+test('mediaCommand: play / next go through Windows, without Spotify', async (t) => {
   const { spotify } = setup(t);
   await queue.mediaCommand('next');
   assert.deepEqual(S.media.commands, ['next']);
   assert.equal(spotify.calls.player, 0);
 });
 
-test('mediaCommand : aléatoire sans compte connecté -> ignoré et noté', async (t) => {
+test('mediaCommand: shuffle without a connected account -> ignored and noted', async (t) => {
   setup(t, fakeSpotify({ canControl: () => false }));
   await queue.mediaCommand('shuffle');
   assert.ok(notes.some((n) => n.includes('not connected')));
 });
 
-test('mediaCommand : interdit par Spotify -> pas d’appel', async (t) => {
+test('mediaCommand: forbidden by Spotify -> no call', async (t) => {
   const { spotify } = setup(
     t,
     fakeSpotify({ player: async () => ({ shuffle: false, repeat: 'None', shuffleAllowed: false }) }),
@@ -147,7 +147,7 @@ test('mediaCommand : interdit par Spotify -> pas d’appel', async (t) => {
   assert.equal(spotify.calls.setShuffle.length, 0);
 });
 
-test('refreshQueue : une demande pendant la requête relance à la fin', async (t) => {
+test('refreshQueue: a request during the query restarts at the end', async (t) => {
   let release;
   const gate = new Promise((r) => (release = r));
   let first = true;
@@ -166,14 +166,14 @@ test('refreshQueue : une demande pendant la requête relance à la fin', async (
   );
   const a = queue.refreshQueue();
   await tick();
-  await queue.refreshQueue(); // arrive pendant la requête : marquée, pas perdue
+  await queue.refreshQueue(); // arrives during the query: marked, not lost
   assert.equal(spotify.calls.queue, 1);
   release();
   await a;
   assert.equal(spotify.calls.queue, 2);
 });
 
-test('refreshQueue : résultat périmé (morceau changé) non publié, puis relance', async (t) => {
+test('refreshQueue: stale result (track changed) not published, then restart', async (t) => {
   let release;
   const gate = new Promise((r) => (release = r));
   let n = 0;
@@ -192,7 +192,7 @@ test('refreshQueue : résultat périmé (morceau changé) non publié, puis rela
   );
   const p = queue.refreshQueue();
   await tick();
-  S.lastMedia = { ...S.lastMedia, title: 'B' }; // le morceau change pendant la requête
+  S.lastMedia = { ...S.lastMedia, title: 'B' }; // the track changes during the query
   release();
   await p;
   const titles = sent.filter(([ch]) => ch === 'queue').map(([, q]) => q.items[0].title);
@@ -200,7 +200,7 @@ test('refreshQueue : résultat périmé (morceau changé) non publié, puis rela
   assert.equal(n, 2);
 });
 
-test('refreshQueue : session fermée pendant la requête -> rien publié', async (t) => {
+test('refreshQueue: session closed during the query -> nothing published', async (t) => {
   let release;
   const gate = new Promise((r) => (release = r));
   const { spotify, sent } = setup(
@@ -220,21 +220,21 @@ test('refreshQueue : session fermée pendant la requête -> rien publié', async
   assert.ok(!sent.some(([ch, q]) => ch === 'queue' && q.items.length));
 });
 
-test('refreshQueue : file identique à la précédente -> pas renvoyée', async (t) => {
+test('refreshQueue: same queue as before -> not sent again', async (t) => {
   const { sent } = setup(t);
   await queue.refreshQueue();
   await queue.refreshQueue();
   assert.equal(sent.filter(([ch]) => ch === 'queue').length, 1);
 });
 
-test('refreshPlayer : 429 avec retryAfter -> plus de requête pendant la pause', async (t) => {
+test('refreshPlayer: 429 with retryAfter -> no more requests during the pause', async (t) => {
   t.mock.timers.enable({ apis: ['Date'], now: 5_000_000 });
   const { spotify } = setup(
     t,
     fakeSpotify({
       player: async () => {
         spotify.calls.player++;
-        throw Object.assign(new Error('trop de requêtes'), { retryAfter: 30 });
+        throw Object.assign(new Error('too many requests'), { retryAfter: 30 });
       },
     }),
   );
@@ -242,27 +242,27 @@ test('refreshPlayer : 429 avec retryAfter -> plus de requête pendant la pause',
   assert.equal(spotify.calls.player, 1);
   await queue.refreshPlayer();
   assert.equal(spotify.calls.player, 1);
-  await queue.refreshQueue(); // la file respecte la même pause
+  await queue.refreshQueue(); // the queue respects the same pause
   assert.equal(spotify.calls.queue, 0);
   t.mock.timers.tick(31_000);
   await queue.refreshPlayer();
   assert.equal(spotify.calls.player, 2);
-  assert.ok(notes.some((n) => n.includes('trop de requêtes')));
+  assert.ok(notes.some((n) => n.includes('too many requests')));
 });
 
-test('refreshPlayer : backoff exponentiel sur erreurs (2 s, 4 s, ...)', async (t) => {
+test('refreshPlayer: exponential backoff on errors (2 s, 4 s, ...)', async (t) => {
   t.mock.timers.enable({ apis: ['Date'], now: 5_000_000 });
   const { spotify } = setup(
     t,
     fakeSpotify({
       player: async () => {
         spotify.calls.player++;
-        throw new Error('réseau');
+        throw new Error('network');
       },
     }),
   );
   await queue.refreshPlayer();
-  await queue.refreshPlayer(); // trop tôt
+  await queue.refreshPlayer(); // too early
   assert.equal(spotify.calls.player, 1);
   t.mock.timers.tick(2000);
   await queue.refreshPlayer();
@@ -276,13 +276,13 @@ test('refreshPlayer : backoff exponentiel sur erreurs (2 s, 4 s, ...)', async (t
   assert.equal(S.playerState, null);
 });
 
-test('refreshPlayer : appels simultanés = une seule requête', async (t) => {
+test('refreshPlayer: simultaneous calls = a single request', async (t) => {
   const { spotify } = setup(t);
   await Promise.all([queue.refreshPlayer(), queue.refreshPlayer(), queue.refreshPlayer()]);
   assert.equal(spotify.calls.player, 1);
 });
 
-test('refreshQueue : jeton indisponible (queue = null) -> erreur non effacée, file gardée', async (t) => {
+test('refreshQueue: token unavailable (queue = null) -> error not cleared, queue kept', async (t) => {
   const { spotify, sent } = setup(t, fakeSpotify({ queue: async () => null }));
   S.lastQueue = { items: [{ title: 'Ancien', artist: 'X', image: null }], connected: true };
   await queue.refreshQueue();
@@ -291,14 +291,14 @@ test('refreshQueue : jeton indisponible (queue = null) -> erreur non effacée, f
   assert.equal(S.lastQueue.items.length, 1);
 });
 
-test('refreshQueue : vraie réussite -> erreur effacée', async (t) => {
+test('refreshQueue: real success -> error cleared', async (t) => {
   const { spotify } = setup(t);
   spotify.errors.push('ancienne erreur');
   await queue.refreshQueue();
   assert.equal(spotify.calls.clearError, 1);
 });
 
-test('mediaCommand : playpause devient play (en pause) ou pause (en lecture)', async (t) => {
+test('mediaCommand: playpause becomes play (paused) or pause (playing)', async (t) => {
   setup(t);
   S.lastMedia = { ...S.lastMedia, status: 'Paused' };
   await queue.mediaCommand('playpause');
@@ -309,7 +309,7 @@ test('mediaCommand : playpause devient play (en pause) ou pause (en lecture)', a
   assert.deepEqual(S.media.commands, ['play', 'pause', 'play']);
 });
 
-test('mediaCommand : play ignoré par Spotify -> API Spotify sur l’ordinateur', async (t) => {
+test('mediaCommand: play ignored by Spotify -> Spotify API on the computer', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const played = [];
   setup(
@@ -321,13 +321,13 @@ test('mediaCommand : play ignoré par Spotify -> API Spotify sur l’ordinateur'
   );
   S.lastMedia = { ...S.lastMedia, status: 'Paused' };
   await queue.mediaCommand('playpause');
-  t.mock.timers.tick(1500); // toujours en pause : on relance via l'API
-  for (let i = 0; i < 5; i++) await tick(); // laisse finir la chaîne
+  t.mock.timers.tick(1500); // still paused: restart through the API
+  for (let i = 0; i < 5; i++) await tick(); // lets the chain finish
   assert.deepEqual(played, ['pc']);
   assert.ok(notes.some((n) => n.includes('Spotify API')));
 });
 
-test('mediaCommand : play réussi (lecture reprise) ou autre lecteur -> pas d’appel à l’API', async (t) => {
+test('mediaCommand: successful play (playback resumed) or other player -> no API call', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const played = [];
   setup(t, fakeSpotify({ playbackDevice: async () => null, play: async (id) => played.push(id) }));
@@ -337,7 +337,7 @@ test('mediaCommand : play réussi (lecture reprise) ou autre lecteur -> pas d’
   t.mock.timers.tick(1500);
   S.lastMedia = { ...S.lastMedia, app: 'Chrome', status: 'Paused' };
   await queue.mediaCommand('play');
-  t.mock.timers.tick(1500); // navigateur : pas de Spotify
+  t.mock.timers.tick(1500); // browser: no Spotify
   for (let i = 0; i < 5; i++) await tick();
   assert.deepEqual(played, []);
 });

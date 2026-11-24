@@ -1,5 +1,5 @@
-// WindowsMediaSource avec un faux processus : protocole de l'assistant,
-// filtrage des commandes, EPIPE, redémarrage avec délai croissant.
+// WindowsMediaSource with a fake process: helper protocol,
+// command filtering, EPIPE, restart with a growing delay.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('events');
@@ -27,7 +27,7 @@ function fakeProc() {
   };
   proc.say = async (obj) => {
     proc.stdout.write((typeof obj === 'string' ? obj : JSON.stringify(obj)) + '\n');
-    await new Promise((r) => setImmediate(r)); // laisse readline livrer la ligne
+    await new Promise((r) => setImmediate(r)); // lets readline deliver the line
   };
   return proc;
 }
@@ -54,7 +54,7 @@ function setup(opts = {}) {
 
 const PLAYING = { type: 'media', active: true, status: 'Playing', title: 'A', artist: 'X', newTrack: true };
 
-test('ligne non JSON ignorée, journalisée seulement les premières fois', async () => {
+test('non-JSON line ignored, logged only the first times', async () => {
   const { src, procs, notes, medias } = setup();
   for (let i = 0; i < 10; i++) await procs[0].say(`bruit ${i}`);
   await procs[0].say(PLAYING);
@@ -63,7 +63,7 @@ test('ligne non JSON ignorée, journalisée seulement les premières fois', asyn
   src.stop();
 });
 
-test('ready : envoie prefer (et le lecteur ciblé), protocole à jour sans avertissement', async () => {
+test('ready: sends prefer (and the targeted player), up-to-date protocol without a warning', async () => {
   const { src, procs, notes } = setup({ prefer: 'spotify' });
   src.volumeExe = 'spotify.exe';
   await procs[0].say({ type: 'ready', protocol: HELPER_PROTOCOL });
@@ -72,7 +72,7 @@ test('ready : envoie prefer (et le lecteur ciblé), protocole à jour sans avert
   src.stop();
 });
 
-test('ready sans protocole ou avec un autre : « assistant périmé » (sans bloquer)', async () => {
+test('ready without a protocol or with another one: "outdated helper" (without blocking)', async () => {
   const a = setup();
   await a.procs[0].say({ type: 'ready' });
   assert.ok(a.notes.some((n) => n.includes('outdated helper: run npm run build:helper again')));
@@ -84,7 +84,7 @@ test('ready sans protocole ou avec un autre : « assistant périmé » (sans blo
   b.src.stop();
 });
 
-test('command : liste blanche, booléen renvoyé', () => {
+test('command: allow list, boolean returned', () => {
   const { src, procs, notes } = setup();
   const ok = ['playpause', 'play', 'pause', 'next', 'previous', 'shuffle', 'repeat', 'volume:40', 'prefer:spotify'];
   for (const c of ok) assert.equal(src.command(c), true, c);
@@ -98,16 +98,16 @@ test('command : liste blanche, booléen renvoyé', () => {
   src.stop();
 });
 
-test('command : les sauts de ligne sont retirés des valeurs (pas d’injection)', () => {
+test('command: line breaks are removed from the values (no injection)', () => {
   const { src, procs } = setup();
   assert.equal(src.command('prefer:abc\nnext\r\nquit'), true);
   assert.deepEqual(procs[0].stdin.written, ['prefer:abcnextquit\n']);
-  assert.equal(src.command('\nnext'), true); // devient « next » : reste une commande connue
+  assert.equal(src.command('\nnext'), true); // becomes "next": still a known command
   assert.equal(procs[0].stdin.written[1], 'next\n');
   src.stop();
 });
 
-test('command : sans assistant, la commande perdue est journalisée', () => {
+test('command: without a helper, the lost command is logged', () => {
   const { src, procs, notes } = setup();
   procs[0].stdin.writable = false;
   assert.equal(src.command('next'), false);
@@ -115,7 +115,7 @@ test('command : sans assistant, la commande perdue est journalisée', () => {
   src.stop();
 });
 
-test('EPIPE sur stdin : aucune exception non gérée', () => {
+test('EPIPE on stdin: no unhandled exception', () => {
   const { src, procs, notes } = setup();
   const epipe = Object.assign(new Error('write EPIPE'), { code: 'EPIPE' });
   assert.doesNotThrow(() => procs[0].stdin.emit('error', epipe));
@@ -123,7 +123,7 @@ test('EPIPE sur stdin : aucune exception non gérée', () => {
   src.stop();
 });
 
-test('mort de l’assistant : erreur, code et signal notés, état inactif émis', async (t) => {
+test('death of the helper: error, code and signal noted, inactive state emitted', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1_000_000 });
   const { src, procs, notes, errors, medias } = setup();
   await procs[0].say(PLAYING);
@@ -136,7 +136,7 @@ test('mort de l’assistant : erreur, code et signal notés, état inactif émis
   src.stop();
 });
 
-test('redémarrage : délai 1 s, 2 s, 4 s tant que l’assistant plante vite', (t) => {
+test('restart: delay 1 s, 2 s, 4 s as long as the helper crashes quickly', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1_000_000 });
   const { src, procs } = setup();
   procs[0].emit('exit', 1, null);
@@ -157,25 +157,25 @@ test('redémarrage : délai 1 s, 2 s, 4 s tant que l’assistant plante vite', (
   src.stop();
 });
 
-test('ready n’efface plus le compteur : seul un fonctionnement stable (10 s) le fait', async (t) => {
+test('ready no longer clears the counter: only stable operation (10 s) does', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1_000_000 });
   const { src, procs } = setup();
   procs[0].emit('exit', 1, null);
   t.mock.timers.tick(1000);
   await procs[1].say({ type: 'ready', protocol: 1 });
-  procs[1].emit('exit', 1, null); // plante juste après ready : le délai doit doubler
+  procs[1].emit('exit', 1, null); // crashes right after ready: the delay must double
   t.mock.timers.tick(1999);
   assert.equal(procs.length, 2);
   t.mock.timers.tick(1);
   assert.equal(procs.length, 3);
   t.mock.timers.tick(10_000); // stable
   procs[2].emit('exit', 0, null);
-  t.mock.timers.tick(1000); // retour à 1 s
+  t.mock.timers.tick(1000); // back to 1 s
   assert.equal(procs.length, 4);
   src.stop();
 });
 
-test('échec de lancement (événement error) : même redémarrage, une seule fois', (t) => {
+test('failed launch (error event): same restart, only once', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1_000_000 });
   const { src, procs, errors } = setup();
   procs[0].emit('error', new Error('ENOENT'));
@@ -186,7 +186,7 @@ test('échec de lancement (événement error) : même redémarrage, une seule fo
   src.stop();
 });
 
-test('stop : plus de redémarrage', (t) => {
+test('stop: no more restart', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1_000_000 });
   const { src, procs } = setup();
   procs[0].emit('exit', 1, null);
@@ -195,13 +195,13 @@ test('stop : plus de redémarrage', (t) => {
   assert.equal(procs.length, 1);
 });
 
-test('commande de lecture perdue pendant la relance : rejouée au « ready » si elle a moins de 5 s', async (t) => {
+test('playback command lost during the restart: replayed on "ready" if it is less than 5 s old', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1_000_000 });
   const { src, procs } = setup();
   await procs[0].say({ type: 'ready', protocol: HELPER_PROTOCOL });
-  procs[0].emit('exit', 1, null); // l'assistant tombe
-  assert.equal(src.command('play'), false); // pendant la relance : perdue
-  t.mock.timers.tick(1000); // relancé
+  procs[0].emit('exit', 1, null); // the helper goes down
+  assert.equal(src.command('play'), false); // during the restart: lost
+  t.mock.timers.tick(1000); // restarted
   assert.equal(procs.length, 2);
   t.mock.timers.tick(2000);
   await procs[1].say({ type: 'ready', protocol: HELPER_PROTOCOL });
@@ -209,12 +209,12 @@ test('commande de lecture perdue pendant la relance : rejouée au « ready » si
   src.stop();
 });
 
-test('commande perdue depuis plus de 5 s ou hors lecture : pas rejouée', async (t) => {
+test('command lost more than 5 s ago or not a playback one: not replayed', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1_000_000 });
   const { src, procs } = setup();
   procs[0].emit('exit', 1, null);
   src.command('next');
-  src.command('volume:30'); // pas une commande de lecture
+  src.command('volume:30'); // not a playback command
   t.mock.timers.tick(6000);
   await procs[1].say({ type: 'ready', protocol: HELPER_PROTOCOL });
   assert.ok(!procs[1].stdin.written.includes('next\n'));

@@ -8,16 +8,16 @@ const { SettingsStore } = require('../src/main/app/settings-store');
 
 const tmpDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'sillon-settings-'));
 
-test('sanitize : patch null, tableau ou texte ignorés', () => {
+test('sanitize: null patch, array or text ignored', () => {
   for (const p of [null, undefined, 5, 'x', [], [1]]) assert.deepStrictEqual(sanitize(p), {});
 });
 
-test('sanitize : clés inconnues et types faux écartés', () => {
+test('sanitize: unknown keys and wrong types left out', () => {
   const out = sanitize({ evil: 1, __proto__: { a: 1 }, showLyrics: 'oui', opacity: 'x', fps: 45, sensitivity: NaN });
   assert.deepStrictEqual(out, {});
 });
 
-test('sanitize : style et thème viennent du catalogue', () => {
+test('sanitize: style and theme come from the catalog', () => {
   assert.strictEqual(sanitize({ style: 'blocks' }).style, 'blocks');
   assert.strictEqual(sanitize({ theme: 'violet' }).theme, 'violet');
   assert.ok(!('style' in sanitize({ style: 'none' })));
@@ -26,7 +26,7 @@ test('sanitize : style et thème viennent du catalogue', () => {
   assert.ok(!('layout' in sanitize({ layout: 'x' })));
 });
 
-test('sanitize : raccourcis clavier globaux (oui / non seulement)', () => {
+test('sanitize: global keyboard shortcuts (yes / no only)', () => {
   assert.strictEqual(DEFAULTS.globalShortcuts, true);
   assert.strictEqual(sanitize({ globalShortcuts: false }).globalShortcuts, false);
   assert.strictEqual(sanitize({ globalShortcuts: true }).globalShortcuts, true);
@@ -39,14 +39,14 @@ test('sanitize: language is auto, en or fr only', () => {
   for (const v of ['de', 'EN', 'fr-FR', '', 1, null, {}]) assert.ok(!('language' in sanitize({ language: v })));
 });
 
-test('sanitize : bornes numériques', () => {
+test('sanitize: numeric bounds', () => {
   assert.strictEqual(sanitize({ opacity: 5 }).opacity, 1);
   assert.strictEqual(sanitize({ opacity: -1 }).opacity, 0.2);
   assert.strictEqual(sanitize({ sensitivity: Infinity }).sensitivity, undefined);
   assert.strictEqual(sanitize({ fps: 60 }).fps, 60);
 });
 
-test('sanitize : bounds, décalages des paroles, disposition', () => {
+test('sanitize: bounds, lyrics offsets, layout', () => {
   assert.strictEqual(sanitize({ bounds: null }).bounds, null);
   assert.deepStrictEqual(sanitize({ bounds: { rx: 1, ry: 2, width: 300, height: 100, junk: 1 } }).bounds, {
     rx: 1,
@@ -65,13 +65,13 @@ test('sanitize : bounds, décalages des paroles, disposition', () => {
   assert.ok(!('sceneLayout' in sanitize({ sceneLayout: 5 })));
 });
 
-test('DEFAULTS : réduction des animations, 7 styles et 8 thèmes valides', () => {
+test('DEFAULTS: reduced animations, 7 valid styles and 8 valid themes', () => {
   assert.strictEqual(DEFAULTS.reduceMotion, false);
   assert.strictEqual(sanitize({ reduceMotion: true }).reduceMotion, true);
   assert.deepStrictEqual(sanitize(DEFAULTS), DEFAULTS);
 });
 
-test('store : premier lancement (ENOENT) sans bruit', () => {
+test('store: first launch (ENOENT) without noise', () => {
   const dir = tmpDir();
   let corrupt = 0;
   const s = new SettingsStore(path.join(dir, 'settings.json'), { onCorrupt: () => corrupt++ });
@@ -80,7 +80,7 @@ test('store : premier lancement (ENOENT) sans bruit', () => {
   s.flush();
 });
 
-test('store : migration fps30 (60 -> 30 une seule fois)', () => {
+test('store: fps30 migration (60 -> 30 only once)', () => {
   const dir = tmpDir();
   const file = path.join(dir, 'settings.json');
   fs.writeFileSync(file, JSON.stringify({ fps: 60 }));
@@ -90,28 +90,28 @@ test('store : migration fps30 (60 -> 30 une seule fois)', () => {
   a.set({ fps: 60 });
   a.flush();
   const b = new SettingsStore(file);
-  assert.strictEqual(b.get('fps'), 60); // choisi par l'utilisateur : conservé
+  assert.strictEqual(b.get('fps'), 60); // chosen by the user: kept
 });
 
-test('store : JSON corrompu renommé en .bak, valeurs par défaut, sauvegarde intacte', () => {
+test('store: corrupted JSON renamed to .bak, default values, backup intact', () => {
   const dir = tmpDir();
   const file = path.join(dir, 'settings.json');
-  fs.writeFileSync(file, '{ pas du json');
+  fs.writeFileSync(file, '{ not json');
   const msgs = [];
   const s = new SettingsStore(file, { onCorrupt: (m) => msgs.push(m) });
   assert.strictEqual(msgs.length, 1);
-  assert.strictEqual(fs.readFileSync(`${file}.bak`, 'utf8'), '{ pas du json');
+  assert.strictEqual(fs.readFileSync(`${file}.bak`, 'utf8'), '{ not json');
   assert.strictEqual(s.get('theme'), DEFAULTS.theme);
   s.flush();
-  assert.strictEqual(fs.readFileSync(`${file}.bak`, 'utf8'), '{ pas du json');
-  // Une 2e corruption ne détruit pas la 1re sauvegarde.
+  assert.strictEqual(fs.readFileSync(`${file}.bak`, 'utf8'), '{ not json');
+  // A 2nd corruption does not destroy the 1st backup.
   fs.writeFileSync(file, '[1,2');
   new SettingsStore(file, { onCorrupt: () => {} });
-  assert.strictEqual(fs.readFileSync(`${file}.bak`, 'utf8'), '{ pas du json');
+  assert.strictEqual(fs.readFileSync(`${file}.bak`, 'utf8'), '{ not json');
   assert.ok(fs.readdirSync(dir).filter((n) => n.endsWith('.bak')).length >= 2);
 });
 
-test('store : valeurs invalides du fichier écartées', () => {
+test('store: invalid values of the file left out', () => {
   const dir = tmpDir();
   const file = path.join(dir, 'settings.json');
   fs.writeFileSync(file, JSON.stringify({ style: 'blocks', theme: 'nope', opacity: 'a', inconnu: 1, fps30: true }));
@@ -121,16 +121,16 @@ test('store : valeurs invalides du fichier écartées', () => {
   assert.ok(!('inconnu' in s.get()));
 });
 
-test('store : écriture différée, atomique, et flush immédiat', async () => {
+test('store: delayed, atomic writing, and immediate flush', async () => {
   const dir = tmpDir();
   const file = path.join(dir, 'settings.json');
   const s = new SettingsStore(file, { delay: 30 });
-  s.flush(); // migration fps30 en attente
+  s.flush(); // fps30 migration pending
   fs.rmSync(file);
   const r = s.change({ style: 'ring' });
   assert.deepStrictEqual(r.changed, { style: 'ring' });
-  assert.strictEqual(s.change({ style: 'ring' }).changed.style, undefined); // inchangé
-  assert.ok(!fs.existsSync(file)); // pas encore écrit
+  assert.strictEqual(s.change({ style: 'ring' }).changed.style, undefined); // unchanged
+  assert.ok(!fs.existsSync(file)); // not written yet
   await new Promise((res) => setTimeout(res, 100));
   assert.strictEqual(JSON.parse(fs.readFileSync(file, 'utf8')).style, 'ring');
   assert.ok(!fs.existsSync(`${file}.tmp`));
@@ -139,7 +139,7 @@ test('store : écriture différée, atomique, et flush immédiat', async () => {
   assert.strictEqual(JSON.parse(fs.readFileSync(file, 'utf8')).style, 'wave');
 });
 
-test('store : patch invalide ne change rien', () => {
+test('store: invalid patch changes nothing', () => {
   const s = new SettingsStore(path.join(tmpDir(), 'settings.json'));
   s.flush();
   const before = s.get();
@@ -147,35 +147,35 @@ test('store : patch invalide ne change rien', () => {
   assert.deepStrictEqual(s.get(), before);
 });
 
-test('sanitize : clés héritées de Object.prototype ignorées sans exception', () => {
+test('sanitize: keys inherited from Object.prototype ignored without exception', () => {
   const { sanitize } = require('../src/main/app/settings-schema');
   const patch = JSON.parse('{"constructor":1,"toString":"x","__proto__":{"polluted":true},"hasOwnProperty":2}');
   assert.deepEqual(sanitize(patch), {});
   assert.equal({}.polluted, undefined);
 });
 
-test('store : fichier illisible (autre que ENOENT) -> ni migration ni écriture par défaut', (t) => {
+test('store: unreadable file (other than ENOENT) -> neither migration nor default writing', (t) => {
   const dir = tmpDir();
   const file = path.join(dir, 'settings.json');
   fs.writeFileSync(file, JSON.stringify({ fps: 60, theme: 'violet' }));
   const real = fs.readFileSync;
   let locked = true;
   t.mock.method(fs, 'readFileSync', (f, ...rest) => {
-    if (f === file && locked) throw Object.assign(new Error('occupé'), { code: 'EBUSY' });
+    if (f === file && locked) throw Object.assign(new Error('busy'), { code: 'EBUSY' });
     return real.call(fs, f, ...rest);
   });
   const msgs = [];
   const s = new SettingsStore(file, { onCorrupt: (m) => msgs.push(m), delay: 5 });
   assert.strictEqual(msgs.length, 1);
-  assert.strictEqual(s.get('fps30'), DEFAULTS.fps30); // pas de migration
+  assert.strictEqual(s.get('fps30'), DEFAULTS.fps30); // no migration
   s.flush();
   assert.strictEqual(JSON.parse(real.call(fs, file, 'utf8')).theme, 'violet'); // fichier intact
-  // Changement de l'utilisateur pendant que le fichier est verrouillé : rien d'écrit.
+  // User change while the file is locked: nothing written.
   s.set({ style: 'blocks' });
   s.flush();
   assert.strictEqual(JSON.parse(real.call(fs, file, 'utf8')).theme, 'violet');
   assert.strictEqual(JSON.parse(real.call(fs, file, 'utf8')).style, undefined);
-  // Le fichier redevient lisible : réglages d'origine conservés + changement appliqué + migration.
+  // The file is readable again: original settings kept + change applied + migration.
   locked = false;
   s.flush();
   const out = JSON.parse(real.call(fs, file, 'utf8'));
@@ -185,18 +185,18 @@ test('store : fichier illisible (autre que ENOENT) -> ni migration ni écriture 
   assert.strictEqual(out.fps30, true);
 });
 
-test('sanitize : couleur personnalisée (roue des couleurs)', () => {
+test('sanitize: custom color (color wheel)', () => {
   assert.strictEqual(DEFAULTS.customColor, '#8b5cf6');
-  assert.strictEqual(sanitize({ customColor: '#12AbEf' }).customColor, '#12abef'); // rangée en minuscules
-  assert.strictEqual(sanitize({ customColor: '#f0a' }).customColor, '#ff00aa'); // forme courte dépliée
+  assert.strictEqual(sanitize({ customColor: '#12AbEf' }).customColor, '#12abef'); // stored in lowercase
+  assert.strictEqual(sanitize({ customColor: '#f0a' }).customColor, '#ff00aa'); // short form expanded
   for (const bad of ['12abef', '#12abe', '#12abefg', '#gggggg', 'red', 'hsl(10 50% 50%)', '', 42, null, ['#ffffff']])
-    assert.ok(!('customColor' in sanitize({ customColor: bad })), `refusée : ${JSON.stringify(bad)}`);
-  // « custom » est un jeu de couleurs du visualiseur et du disque.
+    assert.ok(!('customColor' in sanitize({ customColor: bad })), `refused: ${JSON.stringify(bad)}`);
+  // "custom" is a color set of the visualizer and of the disc.
   assert.strictEqual(sanitize({ theme: 'custom' }).theme, 'custom');
   assert.strictEqual(sanitize({ discColors: 'custom' }).discColors, 'custom');
 });
 
-test('store : couleur personnalisée invalide dans le fichier -> valeur par défaut', () => {
+test('store: invalid custom color in the file -> default value', () => {
   const dir = tmpDir();
   const file = path.join(dir, 'settings.json');
   fs.writeFileSync(file, JSON.stringify({ theme: 'custom', customColor: 'javascript:alert(1)' }));
@@ -206,11 +206,11 @@ test('store : couleur personnalisée invalide dans le fichier -> valeur par déf
   assert.deepStrictEqual(s.change({ customColor: '#00FF88' }).changed, { customColor: '#00ff88' });
 });
 
-test('sanitize : nouveaux visualiseurs acceptés', () => {
+test('sanitize: new visualizers accepted', () => {
   for (const style of ['spectrum', 'dots', 'sparks', 'rosace']) assert.strictEqual(sanitize({ style }).style, style);
 });
 
-test('sanitize : formes de l’anneau du disque', () => {
+test("sanitize: shapes of the disc's ring", () => {
   for (const discRays of ['fine', 'bold', 'wave', 'dots', 'arcs', 'ripples'])
     assert.strictEqual(sanitize({ discRays }).discRays, discRays);
   assert.ok(!('discRays' in sanitize({ discRays: 'spirale' })));

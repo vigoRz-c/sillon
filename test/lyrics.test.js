@@ -1,4 +1,4 @@
-// Analyse des paroles synchronisées (LRC et "lyricsfile" de LRCLIB).
+// Parsing of synced lyrics (LRC and LRCLIB's "lyricsfile").
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -8,7 +8,7 @@ const { mock } = require('node:test');
 const { parseLrc, parseLyricsFile, findLyrics, lookupLyrics } = require('../src/main/media/lyrics');
 const disk = require('../src/main/media/disk-cache');
 
-test('LRC : lignes triées, fin = début de la ligne suivante', () => {
+test('LRC: sorted lines, end = start of the next line', () => {
   const lines = parseLrc('[00:04.50] Deuxième\n[00:02.10] Première\nligne sans horodatage\n[01:02.00] Troisième');
   assert.deepEqual(
     lines.map((l) => l.text),
@@ -17,11 +17,11 @@ test('LRC : lignes triées, fin = début de la ligne suivante', () => {
   assert.equal(lines[0].t, 2.1);
   assert.equal(lines[0].end, 4.5);
   assert.equal(lines[2].t, 62);
-  assert.equal(lines[2].end, 67); // dernière ligne : +5 s
+  assert.equal(lines[2].end, 67); // last line: +5 s
   assert.equal(lines[0].words, null);
 });
 
-test('LRC : plusieurs horodatages pour une même ligne (refrain)', () => {
+test('LRC: several timestamps for the same line (chorus)', () => {
   const lines = parseLrc('[00:05.00][00:20.00] Refrain\n[00:10.00] Couplet');
   assert.deepEqual(
     lines.map((l) => [l.t, l.text]),
@@ -57,7 +57,7 @@ lines:
     start_ms: 17030
 `;
 
-test('lyricsfile : minutage mot par mot, apostrophes YAML', () => {
+test('lyricsfile: word-by-word timing, YAML apostrophes', () => {
   const lines = parseLyricsFile(LYRICSFILE);
   assert.equal(lines.length, 2);
   assert.equal(lines[0].t, 2.1);
@@ -73,26 +73,26 @@ test('lyricsfile : minutage mot par mot, apostrophes YAML', () => {
   assert.equal(lines[1].words[0].text, "Wasn't");
 });
 
-test('lyricsfile : contenu illisible -> null (on retombe sur le LRC)', () => {
-  assert.equal(parseLyricsFile('pas du yaml'), null);
+test('lyricsfile: unreadable content -> null (back to the LRC)', () => {
+  assert.equal(parseLyricsFile('not yaml'), null);
   assert.equal(parseLyricsFile(''), null);
 });
 
-test("LRC : long instrumental après une ligne -> la ligne s'efface (fin plafonnée)", () => {
+test('LRC: long instrumental after a line -> the line goes away (capped end)', () => {
   const lines = parseLrc('[00:10.00] Une ligne courte\n[01:30.00] Après le solo');
   assert.ok(lines[0].end <= 18, `fin ${lines[0].end}`);
   assert.ok(lines[0].end > 10);
   assert.equal(lines[1].end, 95);
 });
 
-test("LRC : ligne vide jusqu'à la suivante, entrée nulle ou invalide", () => {
+test('LRC: empty line until the next one, null or invalid input', () => {
   const lines = parseLrc('[00:10.00]\n[00:40.00] Suite');
   assert.equal(lines[0].end, 40);
   assert.deepEqual(parseLrc(null), []);
   assert.deepEqual(parseLrc(undefined), []);
 });
 
-test('lyricsfile : une ligne sans start_ms invalide le fichier', () => {
+test('lyricsfile: a line without start_ms invalidates the file', () => {
   const text = `lines:
 - text: Avec horaire
   start_ms: 1000
@@ -102,7 +102,7 @@ test('lyricsfile : une ligne sans start_ms invalide le fichier', () => {
   assert.equal(parseLyricsFile(text), null);
 });
 
-test('lyricsfile : lignes triées, mot sans horaire repris de la ligne', () => {
+test('lyricsfile: sorted lines, word without a time taken from the line', () => {
   const text = `lines:
 - text: Seconde
   start_ms: 9000
@@ -128,7 +128,7 @@ test('lyricsfile : lignes triées, mot sans horaire repris de la ligne', () => {
   assert.equal(lines[0].words, null);
 });
 
-// ---------- findLyrics / lookupLyrics avec LRCLIB simulé ----------
+// ---------- findLyrics / lookupLyrics with a simulated LRCLIB ----------
 const textRes = (body, status = 200) => ({
   ok: status < 400,
   status,
@@ -160,7 +160,7 @@ function withLrclib(route, fn) {
 
 const MEDIA = { title: 'Titre', artist: 'Artiste', album: 'Album', duration: 200 };
 
-test('findLyrics : réponse exacte de /get', async () => {
+test('findLyrics: exact reply from /get', async () => {
   await withLrclib(
     () => textRes(rec()),
     async () => {
@@ -170,7 +170,7 @@ test('findLyrics : réponse exacte de /get', async () => {
   );
 });
 
-test('findLyrics : repli sur /search quand /get répond 404', async () => {
+test('findLyrics: fallback to /search when /get answers 404', async () => {
   await withLrclib(
     (u) => (u.pathname.endsWith('/get') ? textRes(null, 404) : textRes([rec()])),
     async (calls) => {
@@ -181,7 +181,7 @@ test('findLyrics : repli sur /search quand /get répond 404', async () => {
   );
 });
 
-test('findLyrics : durée à 8 s près acceptée, au-delà refusée', async () => {
+test('findLyrics: duration within 8 s accepted, beyond refused', async () => {
   const run = (duration) =>
     withLrclib(
       (u) => (u.pathname.endsWith('/get') ? textRes(null, 404) : textRes([rec({ duration })])),
@@ -191,14 +191,14 @@ test('findLyrics : durée à 8 s près acceptée, au-delà refusée', async () =
   assert.equal(await run(209), null);
 });
 
-test('findLyrics : mauvais artiste rejeté', async () => {
+test('findLyrics: wrong artist rejected', async () => {
   await withLrclib(
-    (u) => (u.pathname.endsWith('/get') ? textRes(null, 404) : textRes([rec({ artistName: "Quelqu'un d'autre" })])),
+    (u) => (u.pathname.endsWith('/get') ? textRes(null, 404) : textRes([rec({ artistName: 'Someone else' })])),
     async () => assert.equal(await findLyrics(MEDIA), null),
   );
 });
 
-test('findLyrics : titre ou artiste vide -> null sans requête', async () => {
+test('findLyrics: empty title or artist -> null without a request', async () => {
   await withLrclib(
     () => textRes(rec()),
     async (calls) => {
@@ -209,20 +209,20 @@ test('findLyrics : titre ou artiste vide -> null sans requête', async () => {
   );
 });
 
-test('findLyrics : réponse trop volumineuse refusée', async () => {
+test('findLyrics: reply too large refused', async () => {
   await withLrclib(
     () => ({ ok: true, status: 200, headers: { get: () => '9999999' }, text: async () => '{}' }),
     async () => assert.rejects(findLyrics(MEDIA), /too large/),
   );
 });
 
-test('lookupLyrics : erreur réseau -> { error: true }, non mis en cache', async () => {
-  const media = { ...MEDIA, title: 'Erreur réseau' };
+test('lookupLyrics: network error -> { error: true }, not cached', async () => {
+  const media = { ...MEDIA, title: 'Network error' };
   let fail = true;
   await withLrclib(
     () => {
-      if (fail) throw new Error('réseau coupé');
-      return textRes(rec({ trackName: 'Erreur réseau' }));
+      if (fail) throw new Error('network down');
+      return textRes(rec({ trackName: 'Network error' }));
     },
     async () => {
       assert.deepEqual(await lookupLyrics(media), { error: true });
@@ -233,7 +233,7 @@ test('lookupLyrics : erreur réseau -> { error: true }, non mis en cache', async
   );
 });
 
-test('lookupLyrics : « pas de paroles » (404 partout) est mis en cache', async () => {
+test('lookupLyrics: "no lyrics" (404 everywhere) is cached', async () => {
   const media = { ...MEDIA, title: 'Introuvable' };
   await withLrclib(
     () => textRes(null, 404),
@@ -246,14 +246,14 @@ test('lookupLyrics : « pas de paroles » (404 partout) est mis en cache', async
   );
 });
 
-test('lookupLyrics : durée peut-être périmée (volatile) -> résultat vide non mis en cache', async () => {
-  const media = { ...MEDIA, title: 'Durée périmée' };
+test('lookupLyrics: possibly stale duration (volatile) -> empty result not cached', async () => {
+  const media = { ...MEDIA, title: 'Stale duration' };
   let found = false;
   await withLrclib(
-    () => (found ? textRes(rec({ trackName: 'Durée périmée' })) : textRes(null, 404)),
+    () => (found ? textRes(rec({ trackName: 'Stale duration' })) : textRes(null, 404)),
     async () => {
       assert.equal(await lookupLyrics(media, { volatile: true }), null);
-      found = true; // la bonne durée arrive : la recherche doit repartir au réseau
+      found = true; // the right duration arrives: the search must go back to the network
       const r = await lookupLyrics(media);
       assert.equal(r.lines[0].text, 'Bonjour');
     },

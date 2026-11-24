@@ -1,5 +1,5 @@
-// Position de lecture (synchronisation des paroles) : ancrage robuste aux
-// mesures périmées de Spotify.
+// Playback position (lyrics sync): anchoring robust to Spotify's
+// stale measures.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { anchor } = require('../src/main/media/media');
@@ -18,27 +18,27 @@ function run(steps) {
 
 const near = (a, b, tol = 0.4) => assert.ok(Math.abs(a - b) < tol, `${a} ≉ ${b}`);
 
-test('mesure fraîche : extrapolée depuis son heure', () => {
+test('fresh measure: extrapolated from its time', () => {
   const [p] = run([[{ ...base, newTrack: true, status: 'Playing', position: 94, updated: T - 1960 }, T]]);
   near(p, 95.96, 0.01);
 });
 
-test('reprise après une pause avec une heure périmée : pas de bond en avant', () => {
+test('resume after a pause with a stale time: no jump forward', () => {
   const r = run([
     [{ ...base, newTrack: true, status: 'Playing', position: 90, updated: T }, T],
     [{ ...base, status: 'Paused', position: 100, updated: T + 10000 }, T + 10000],
-    // 60 s plus tard, Spotify annonce « en lecture » avec l'heure de la pause.
+    // 60 s later, Spotify announces "playing" with the time of the pause.
     [{ ...base, status: 'Playing', position: 100, updated: T + 10000 }, T + 70000],
   ]);
   near(r[2], 100);
 });
 
-test('mesure "en lecture" vieille de plus de 6 s : position brute', () => {
+test('"playing" measure older than 6 s: raw position', () => {
   const [p] = run([[{ ...base, newTrack: true, status: 'Playing', position: 50, updated: T - 30000 }, T]]);
   near(p, 50, 0.01);
 });
 
-test('petits écarts (arrondi de Spotify) : ancrage conservé, pas de sautillement', () => {
+test("small gaps (Spotify's rounding): anchor kept, no jitter", () => {
   let state = {};
   const step = (msg, now) => {
     state = { ...msg, ...anchor(state, msg, now) };
@@ -46,11 +46,11 @@ test('petits écarts (arrondi de Spotify) : ancrage conservé, pas de sautilleme
   };
   step({ ...base, newTrack: true, status: 'Playing', position: 10, updated: T }, T);
   const first = state.anchorAt;
-  step({ ...base, status: 'Playing', position: 14.5, updated: T + 4300 }, T + 4300); // écart 0,2 s
+  step({ ...base, status: 'Playing', position: 14.5, updated: T + 4300 }, T + 4300); // gap 0.2 s
   assert.equal(state.anchorAt, first);
 });
 
-test('saut dans le morceau et nouveau morceau : on suit la nouvelle position', () => {
+test('jump within the track and new track: the new position is followed', () => {
   const r = run([
     [{ ...base, newTrack: true, status: 'Playing', position: 10, updated: T }, T],
     [{ ...base, status: 'Playing', position: 150, updated: T + 2000 }, T + 2000],
@@ -60,19 +60,19 @@ test('saut dans le morceau et nouveau morceau : on suit la nouvelle position', (
   near(r[2], 0.3, 0.01);
 });
 
-test('inactif : position brute, ancrage à maintenant', () => {
+test('inactive: raw position, anchored at now', () => {
   const a = anchor({}, { active: false }, T);
   assert.deepEqual(a, { anchorPos: 0, anchorAt: T });
   const b = anchor({}, { ...base, active: false, status: 'Playing', position: 12 }, T);
   assert.deepEqual(b, { anchorPos: 12, anchorAt: T });
 });
 
-test('updated à 0 (inconnu) : position brute, pas d’extrapolation', () => {
+test('updated at 0 (unknown): raw position, no extrapolation', () => {
   const [p] = run([[{ ...base, newTrack: true, status: 'Playing', position: 42, updated: 0 }, T]]);
   near(p, 42, 0.01);
 });
 
-test('même mesure répétée en cours de lecture : l’ancrage ne recule pas', () => {
+test('same measure repeated during playback: the anchor does not go back', () => {
   let state = {};
   const step = (msg, now) => {
     state = { ...msg, ...anchor(state, msg, now) };
@@ -80,13 +80,13 @@ test('même mesure répétée en cours de lecture : l’ancrage ne recule pas', 
   };
   step({ ...base, newTrack: true, status: 'Playing', position: 10, updated: T }, T);
   const first = { pos: state.anchorPos, at: state.anchorAt };
-  // 3 s plus tard, Spotify renvoie la même mesure (position 10, même heure) :
-  // sans garde, l'estimation (10 + 6 s fraîche) ferait avancer ou reculer.
+  // 3 s later, Spotify sends the same measure again (position 10, same time):
+  // without a guard, the estimate (10 + 6 s fresh) would move forward or back.
   step({ ...base, status: 'Playing', position: 10, updated: T }, T + 20000);
   assert.deepEqual({ pos: state.anchorPos, at: state.anchorAt }, first);
 });
 
-test('nouveau morceau avec la même heure : on ne garde pas l’ancrage', () => {
+test('new track with the same time: the anchor is not kept', () => {
   let state = {};
   const step = (msg, now) => {
     state = { ...msg, ...anchor(state, msg, now) };
@@ -97,7 +97,7 @@ test('nouveau morceau avec la même heure : on ne garde pas l’ancrage', () => 
   assert.equal(state.anchorAt, T + 500);
 });
 
-// ---- currentPosition (côté interface) : engine.js chargé dans un contexte vide ----
+// ---- currentPosition (interface side): engine.js loaded in an empty context ----
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
@@ -112,14 +112,14 @@ function loadEngine() {
 }
 const { currentPosition } = loadEngine();
 
-test('currentPosition : lecteur sans durée connue, la position avance quand même', () => {
+test('currentPosition: player without a known duration, the position still moves', () => {
   const m = { active: true, status: 'Paused', position: 42, duration: 0 };
   near(currentPosition(m), 42, 0.001);
   const playing = { active: true, status: 'Playing', anchorPos: 10, anchorAt: Date.now() - 3000, duration: 0 };
   near(currentPosition(playing), 13, 0.2);
 });
 
-test('currentPosition : inactif → 0 ; plafonnée par la durée quand elle est connue', () => {
+test('currentPosition: inactive → 0; capped by the duration when it is known', () => {
   assert.equal(currentPosition({ active: false, position: 9, duration: 100 }), 0);
   assert.equal(currentPosition(null), 0);
   assert.equal(currentPosition({ active: true, status: 'Paused', position: 500, duration: 100 }), 100);

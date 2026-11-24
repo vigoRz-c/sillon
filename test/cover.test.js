@@ -1,4 +1,4 @@
-// Choix de la pochette (Deezer simulé) et cache disque.
+// Choice of the cover (simulated Deezer) and disk cache.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -7,14 +7,14 @@ const path = require('path');
 const { norm, findCoverUrl } = require('../src/main/media/cover-lookup');
 const disk = require('../src/main/media/disk-cache');
 
-test('norm : casse, accents, versions entre parenthèses et suffixes', () => {
+test('norm: case, accents, versions in parentheses and suffixes', () => {
   assert.equal(norm('Bohemian Rhapsody - Remastered 2011'), 'bohemian rhapsody');
   assert.equal(norm('Dernière Danse (Live)'), 'derniere danse');
   assert.equal(norm('A Night At The Opera (2011 Remaster)'), 'a night at the opera');
 });
 
-// Réponses Deezer simulées pour "Break Stuff" de Limp Bizkit : un single, une
-// compilation, l'album studio et un album de remix.
+// Simulated Deezer replies for "Break Stuff" by Limp Bizkit: a single, a
+// compilation, the studio album and a remix album.
 const ALBUMS = {
   1: { id: 1, title: 'Significant Other', record_type: 'album', cover_big: 'studio.jpg' },
   2: { id: 2, title: 'New Old Songs', record_type: 'album', cover_big: 'remix.jpg' },
@@ -40,7 +40,7 @@ function mockDeezer() {
   };
 }
 
-test('pochette : album studio avec le titre exact, pas le single ni le remix', async () => {
+test('cover: studio album with the exact title, not the single or the remix', async () => {
   const real = global.fetch;
   global.fetch = mockDeezer();
   try {
@@ -51,7 +51,7 @@ test('pochette : album studio avec le titre exact, pas le single ni le remix', a
   }
 });
 
-test("pochette : artiste différent -> rien (on garde l'image de Windows)", async () => {
+test('cover: different artist -> nothing (the Windows picture is kept)', async () => {
   const real = global.fetch;
   global.fetch = mockDeezer();
   try {
@@ -61,7 +61,7 @@ test("pochette : artiste différent -> rien (on garde l'image de Windows)", asyn
   }
 });
 
-test('cache disque : valeur relue, "rien trouvé" gardé aussi', async () => {
+test('disk cache: value read again, "nothing found" kept too', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sillon-test-'));
   try {
     disk.init(dir);
@@ -75,7 +75,7 @@ test('cache disque : valeur relue, "rien trouvé" gardé aussi', async () => {
   }
 });
 
-// ---------- lookupCover : erreurs réseau, « rien trouvé », image ----------
+// ---------- lookupCover: network errors, "nothing found", image ----------
 const { mock } = require('node:test');
 const { lookupCover, toDataUrl } = require('../src/main/media/cover-lookup');
 
@@ -87,7 +87,7 @@ const imgRes = (type, bytes, extra = {}) => ({
   arrayBuffer: async () => new Uint8Array(bytes).buffer,
 });
 
-// Deezer simulé : "route" décide de la réponse selon le chemin.
+// Simulated Deezer: "route" decides the reply from the path.
 function withDeezer(route, fn) {
   const calls = [];
   const m = mock.method(global, 'fetch', async (url) => {
@@ -111,7 +111,7 @@ const found = (u) => {
   return jsonRes({ data: [] });
 };
 
-test('lookupCover : tous les getAlbum échouent -> rien en cache (ni mémoire ni disque)', async () => {
+test('lookupCover: every getAlbum fails -> nothing cached (neither memory nor disk)', async () => {
   const media = { title: 'Break Stuff', artist: 'Limp Bizkit', album: 'Break Stuff X1' };
   await withDeezer(
     (u) => (u.pathname.startsWith('/album/') ? jsonRes({}, false, 429) : found(u)),
@@ -119,17 +119,17 @@ test('lookupCover : tous les getAlbum échouent -> rien en cache (ni mémoire ni
       assert.equal(await lookupCover(media), null);
       const n = calls.length;
       assert.equal(await lookupCover(media), null);
-      assert.ok(calls.length > n, 'la deuxième tentative doit refaire des requêtes');
+      assert.ok(calls.length > n, 'the second attempt must make requests again');
     },
   );
 });
 
-test('lookupCover : erreur réseau sur la recherche -> non mis en cache', async () => {
+test('lookupCover: network error on the search -> not cached', async () => {
   const media = { title: 'Break Stuff', artist: 'Limp Bizkit', album: 'Net Error' };
   let fail = true;
   await withDeezer(
     (u) => {
-      if (fail) throw new Error('réseau coupé');
+      if (fail) throw new Error('network down');
       return found(u);
     },
     async () => {
@@ -141,7 +141,7 @@ test('lookupCover : erreur réseau sur la recherche -> non mis en cache', async 
   );
 });
 
-test('lookupCover : « rien trouvé » (requêtes abouties) est mis en cache', async () => {
+test('lookupCover: "nothing found" (successful requests) is cached', async () => {
   const media = { title: 'Inconnu', artist: 'Personne', album: 'Nulle part' };
   await withDeezer(
     () => jsonRes({ data: [] }),
@@ -150,19 +150,19 @@ test('lookupCover : « rien trouvé » (requêtes abouties) est mis en cache', a
       const n = calls.length;
       assert.ok(n > 0);
       assert.equal(await lookupCover(media), null);
-      assert.equal(calls.length, n, 'pas de nouvelle requête : le résultat vide est en cache');
+      assert.equal(calls.length, n, 'no new request: the empty result is cached');
       assert.equal(await disk.get('covers', 'personne|nulle part|inconnu'), null);
     },
   );
 });
 
-test('toDataUrl : refuse HTTP, hôte inconnu, mauvais type, image trop grosse', async () => {
+test('toDataUrl: refuses HTTP, unknown host, wrong type, image too big', async () => {
   const m = mock.method(global, 'fetch', async () => imgRes('image/png', [1]));
   try {
     await assert.rejects(toDataUrl('http://cdn-images.dzcdn.net/a.jpg'), /HTTPS/);
     await assert.rejects(toDataUrl('https://evil.example.com/a.jpg'), /host/);
     await assert.rejects(toDataUrl('https://dzcdn.net.evil.com/a.jpg'), /host/);
-    await assert.rejects(toDataUrl('pas une url'), /invalid/);
+    await assert.rejects(toDataUrl('not a url'), /invalid/);
     assert.equal(m.mock.callCount(), 0);
     const ok = await toDataUrl('https://e-cdns-images.dzcdn.net/a.png');
     assert.equal(ok, 'data:image/png;base64,AQ==');

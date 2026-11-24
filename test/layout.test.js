@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const L = require('../src/renderer/shared/scene-layout');
 
-test('sans disposition enregistrée : reprise des anciens réglages', () => {
+test('without a saved layout: former settings taken over', () => {
   const l = L.fromSettings({
     discX: 0.65,
     discY: 0.38,
@@ -15,16 +15,16 @@ test('sans disposition enregistrée : reprise des anciens réglages', () => {
   assert.strictEqual(l.lyrics.visible, false);
   for (const id of ['cover', 'info', 'buttons', 'queue']) assert.strictEqual(l[id].visible, false, id);
   assert.strictEqual(l.clock.visible, true);
-  assert.strictEqual(l.bars.visible, false); // nouvel élément : masqué au départ
+  assert.strictEqual(l.bars.visible, false); // new element: hidden at first
 });
 
-test('réglages vides : disposition par défaut complète', () => {
+test('empty settings: complete default layout', () => {
   const l = L.fromSettings({});
   assert.deepStrictEqual(Object.keys(l), L.ORDER);
   assert.strictEqual(l.disc.x, L.DEFAULTS.disc.x);
 });
 
-test('disposition enregistrée : utilisée telle quelle, les anciens réglages sont ignorés', () => {
+test('saved layout: used as is, the former settings are ignored', () => {
   const l = L.fromSettings({
     discX: 0.2,
     showLyrics: false,
@@ -32,10 +32,10 @@ test('disposition enregistrée : utilisée telle quelle, les anciens réglages s
   });
   assert.strictEqual(l.disc.x, 0.3);
   assert.strictEqual(l.lyrics.visible, true);
-  assert.strictEqual(l.clock.x, L.DEFAULTS.clock.x); // élément absent : valeur par défaut
+  assert.strictEqual(l.clock.x, L.DEFAULTS.clock.x); // missing element: default value
 });
 
-test("valeurs hors limites ramenées dans l'écran et dans les tailles permises", () => {
+test('values out of bounds brought back into the screen and into the allowed sizes', () => {
   const l = L.fromSettings({
     sceneLayout: { disc: { x: 1.7, y: -2, scale: 9 }, lyrics: { w: 3, scale: 'x' }, bars: { h: 0 } },
   });
@@ -45,7 +45,7 @@ test("valeurs hors limites ramenées dans l'écran et dans les tailles permises"
   assert.strictEqual(l.bars.h, L.ELEMENTS.bars.h[0]);
 });
 
-test('modèles : « Vide » masque tout, « Paroles seules » garde les paroles', () => {
+test('templates: "Empty" hides everything, "Lyrics only" keeps the lyrics', () => {
   assert.ok(Object.values(L.preset('empty')).every((e) => !e.visible));
   const p = L.preset('lyricsOnly');
   assert.strictEqual(p.lyrics.visible, true);

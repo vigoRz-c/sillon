@@ -1,4 +1,4 @@
-// Cache disque : TTL du « rien trouvé », nettoyage, mtime à la lecture.
+// Disk cache: TTL of "nothing found", cleanup, mtime on read.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -10,7 +10,7 @@ const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'sillon-disk-'));
 const count = (dir, ns) => fs.readdirSync(path.join(dir, ns)).length;
 const DAY = 24 * 3600 * 1000;
 
-test('« rien trouvé » expire après 7 jours, une vraie valeur non', async (t) => {
+test('"nothing found" expires after 7 days, a real value does not', async (t) => {
   const dir = tmp();
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   t.mock.timers.enable({ apis: ['Date'], now: 1_700_000_000_000 });
@@ -24,7 +24,7 @@ test('« rien trouvé » expire après 7 jours, une vraie valeur non', async (t)
   assert.equal(await disk.get('covers', 'plein'), 'data:image/png;base64,xx');
 });
 
-test('prune : au-delà de 600 fichiers, les plus anciens sont supprimés', async (t) => {
+test('prune: beyond 600 files, the oldest are deleted', async (t) => {
   const dir = tmp();
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   disk.init(dir);
@@ -34,7 +34,7 @@ test('prune : au-delà de 600 fichiers, les plus anciens sont supprimés', async
   for (let i = 0; i < 650; i++) {
     const f = path.join(ns, `f${i}.json`);
     fs.writeFileSync(f, '{}');
-    fs.utimesSync(f, base + i, base + i); // f0 = le plus ancien
+    fs.utimesSync(f, base + i, base + i); // f0 = the oldest
   }
   await disk.prune('lyrics');
   assert.equal(count(dir, 'lyrics'), disk.MAX_FILES);
@@ -44,7 +44,7 @@ test('prune : au-delà de 600 fichiers, les plus anciens sont supprimés', async
   assert.ok(fs.existsSync(path.join(ns, 'f649.json')));
 });
 
-test('prune : se déclenche aussi toutes les 50 écritures', async (t) => {
+test('prune: also triggers every 50 writes', async (t) => {
   const dir = tmp();
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   disk.init(dir);
@@ -52,14 +52,14 @@ test('prune : se déclenche aussi toutes les 50 écritures', async (t) => {
   assert.ok(count(dir, 'covers') <= disk.MAX_FILES + 50, `${count(dir, 'covers')} fichiers`);
 });
 
-test('prune : dossier absent ou cache non initialisé, sans exception', async (t) => {
+test('prune: missing folder or cache not initialized, without exception', async (t) => {
   const dir = tmp();
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   disk.init(dir);
   await assert.doesNotReject(() => disk.prune('inexistant'));
 });
 
-test('lecture : met à jour la date du fichier (entrée récente gardée)', async (t) => {
+test('read: updates the file date (recent entry kept)', async (t) => {
   const dir = tmp();
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   disk.init(dir);
@@ -71,11 +71,11 @@ test('lecture : met à jour la date du fichier (entrée récente gardée)', asyn
   assert.ok(fs.statSync(file).mtimeMs > (old + 1000) * 1000);
 });
 
-test("erreur d'écriture : journalisée une seule fois", async (t) => {
+test('write error: logged only once', async (t) => {
   const dir = tmp();
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const blocker = path.join(dir, 'fichier');
-  fs.writeFileSync(blocker, 'x'); // « dossier » racine qui est un fichier : mkdir échoue
+  fs.writeFileSync(blocker, 'x'); // root "folder" that is a file: mkdir fails
   const err = t.mock.method(console, 'error', () => {});
   disk.init(blocker);
   await disk.set('covers', 'a', 'v');
@@ -84,15 +84,15 @@ test("erreur d'écriture : journalisée une seule fois", async (t) => {
   assert.equal(err.mock.callCount(), 1);
 });
 
-test('get : entrée corrompue ou absente -> undefined', async (t) => {
+test('get: corrupted or missing entry -> undefined', async (t) => {
   const dir = tmp();
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   disk.init(dir);
   await disk.set('covers', 'a', 'v');
   const d = path.join(dir, 'covers');
   const file = path.join(d, fs.readdirSync(d)[0]);
-  fs.writeFileSync(file, '{pas du json');
+  fs.writeFileSync(file, '{not json');
   assert.equal(await disk.get('covers', 'a'), undefined);
-  assert.ok(!fs.existsSync(file), 'entrée corrompue supprimée');
+  assert.ok(!fs.existsSync(file), 'corrupted entry deleted');
   assert.equal(await disk.get('covers', 'jamais'), undefined);
 });

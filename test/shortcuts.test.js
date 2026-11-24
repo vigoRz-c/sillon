@@ -1,11 +1,11 @@
-// Raccourcis clavier globaux : enregistrement, combinaisons prises, libération
-// (src/main/app/shortcuts.js) et choix des touches (src/renderer/shared/shortcuts.js).
+// Global keyboard shortcuts: registration, taken combinations, release
+// (src/main/app/shortcuts.js) and choice of keys (src/renderer/shared/shortcuts.js).
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createShortcuts } = require('../src/main/app/shortcuts');
 const { SHORTCUTS, BY_ID } = require('../src/renderer/shared/shortcuts');
 
-// Faux globalShortcut : `taken` liste les combinaisons déjà prises ailleurs.
+// Fake globalShortcut: `taken` lists the combinations already taken elsewhere.
 function fakeGlobal(taken = []) {
   const map = new Map();
   return {
@@ -23,14 +23,14 @@ function fakeGlobal(taken = []) {
 }
 const allActions = (calls = []) => Object.fromEntries(SHORTCUTS.map((s) => [s.id, () => calls.push(s.id)]));
 
-test('touches : uniques, Ctrl+Alt, jamais une touche AltGr ou système', () => {
+test('keys: unique, Ctrl+Alt, never an AltGr or system key', () => {
   const accs = SHORTCUTS.map((s) => s.accelerator);
   assert.equal(new Set(accs).size, accs.length, 'combinaison en double');
   assert.equal(new Set(SHORTCUTS.map((s) => s.id)).size, SHORTCUTS.length, 'identifiant en double');
   for (const s of SHORTCUTS) {
     const key = s.accelerator.replace('CommandOrControl+Alt+', '');
     assert.ok(s.accelerator.startsWith('CommandOrControl+Alt+'), s.id);
-    // Lettre, sauf E, Q, M qui tapent € @ µ avec AltGr (ni Espace, souvent pris ailleurs).
+    // Letter, except E, Q, M which type € @ µ with AltGr (nor Space, often taken elsewhere).
     assert.match(key, /^[A-DF-LNOPR-Z]$/, `${s.id} : ${key}`);
     assert.ok(s.label && s.display.startsWith('Ctrl+Alt+'), s.id);
   }
@@ -39,7 +39,7 @@ test('touches : uniques, Ctrl+Alt, jamais une touche AltGr ou système', () => {
   assert.equal(BY_ID.playpause.display, 'Ctrl+Alt+P');
 });
 
-test('apply(true) enregistre tout, le raccourci appelle son action', () => {
+test('apply(true) registers everything, the shortcut calls its action', () => {
   const g = fakeGlobal();
   const calls = [];
   const sc = createShortcuts({ globalShortcut: g, actions: allActions(calls) });
@@ -53,7 +53,7 @@ test('apply(true) enregistre tout, le raccourci appelle son action', () => {
   assert.equal(sc.acceleratorOf('next'), BY_ID.next.accelerator);
 });
 
-test('combinaison déjà prise : signalée une fois, les autres marchent, nouvel essai possible', () => {
+test('combination already taken: reported once, the others work, new attempt possible', () => {
   const g = fakeGlobal([BY_ID.playpause.accelerator]);
   const notes = [];
   const sc = createShortcuts({ globalShortcut: g, actions: allActions(), note: (m) => notes.push(m) });
@@ -61,41 +61,41 @@ test('combinaison déjà prise : signalée une fois, les autres marchent, nouvel
   assert.equal(g.map.size, SHORTCUTS.length - 1);
   assert.equal(sc.status().items.find((i) => i.id === 'playpause').state, 'taken');
   assert.equal(sc.acceleratorOf('playpause'), undefined);
-  sc.status({ retry: true }); // toujours prise : pas de seconde note
+  sc.status({ retry: true }); // still taken: no second note
   assert.equal(notes.length, 1);
   assert.ok(notes[0].startsWith('Ctrl+Alt+P '), notes[0]);
-  g.taken.clear(); // l'autre application l'a libérée
+  g.taken.clear(); // the other application freed it
   assert.equal(sc.status({ retry: true }).items.find((i) => i.id === 'playpause').state, 'ok');
 });
 
-test('register qui lève une exception : traité comme une combinaison prise', () => {
+test('register that throws: handled as a taken combination', () => {
   const g = fakeGlobal();
   g.register = () => {
-    throw new Error('accélérateur invalide');
+    throw new Error('invalid accelerator');
   };
   const sc = createShortcuts({ globalShortcut: g, actions: allActions() });
   assert.doesNotThrow(() => sc.apply(true));
   assert.ok(sc.status().items.every((i) => i.state === 'taken'));
 });
 
-test('apply(false) et unregisterAll libèrent ce qui a été pris', () => {
+test('apply(false) and unregisterAll free what was taken', () => {
   const g = fakeGlobal();
   const sc = createShortcuts({ globalShortcut: g, actions: allActions() });
   sc.apply(true);
   sc.apply(false);
   assert.equal(g.map.size, 0);
-  const st = sc.status({ retry: true }); // désactivés : pas de nouvel essai
+  const st = sc.status({ retry: true }); // off: no new attempt
   assert.equal(st.enabled, false);
   assert.ok(st.items.every((i) => i.state === 'off'));
   assert.equal(g.map.size, 0);
   sc.apply(true);
-  sc.apply(true); // deux fois de suite : pas de double enregistrement
+  sc.apply(true); // twice in a row: no double registration
   assert.equal(g.map.size, SHORTCUTS.length);
   sc.unregisterAll();
   assert.equal(g.map.size, 0);
 });
 
-test('action qui échoue : erreur notée, rien ne remonte', () => {
+test('failing action: error noted, nothing goes up', () => {
   const g = fakeGlobal();
   const notes = [];
   const actions = allActions();
@@ -114,7 +114,7 @@ test('action qui échoue : erreur notée, rien ne remonte', () => {
   assert.match(notes.at(-1), /boum/);
 });
 
-test('raccourci sans action : pas enregistré', () => {
+test('shortcut without an action: not registered', () => {
   const g = fakeGlobal();
   const sc = createShortcuts({ globalShortcut: g, actions: { next: () => {} } });
   sc.apply(true);
