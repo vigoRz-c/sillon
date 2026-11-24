@@ -4,6 +4,10 @@ Toutes les évolutions notables de Sillon. Format inspiré de [Keep a Changelog]
 
 ## [Non publié]
 
+## [0.4.4] - 2026-11-24
+
+Karaoké mieux calé sur les paroles sans minutage mot à mot.
+
 ### Corrigé
 - Karaoké : sur les paroles sans minutage mot à mot, une ligne chantée lentement ne s'allume plus en deux ou trois secondes (ce qui donnait de l'avance puis du retard). Le temps est réparti jusqu'à la ligne suivante, selon les syllabes de chaque mot, et la ligne reste affichée tant qu'elle est chantée. Avec le minutage mot à mot, une note tenue colore son mot jusqu'au bout (3 s au lieu de 1,5 s).
 
@@ -205,7 +209,8 @@ Nouveaux jeux de couleurs, fenêtre des paramètres refaite, audit complet de la
 
 Première version publique : visualiseur sur le fond d'écran Windows, scène (disque, paroles synchronisées, panneau « en lecture », file d'attente), écran de veille, plein écran, connexion Spotify.
 
-[Non publié]: https://github.com/vigoRz-c/sillon/compare/v0.4.3...HEAD
+[Non publié]: https://github.com/vigoRz-c/sillon/compare/v0.4.4...HEAD
+[0.4.4]: https://github.com/vigoRz-c/sillon/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/vigoRz-c/sillon/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/vigoRz-c/sillon/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/vigoRz-c/sillon/compare/v0.4.0...v0.4.1
