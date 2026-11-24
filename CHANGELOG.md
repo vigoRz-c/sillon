@@ -1,219 +1,223 @@
-# Journal des versions
+# Changelog
 
-Toutes les évolutions notables de Sillon. Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), numéros de version [SemVer](https://semver.org/lang/fr/).
+All notable changes to Sillon. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version numbers follow [SemVer](https://semver.org/).
 
-## [Non publié]
+## [Unreleased]
 
-### Ajouté
-- Karaoké : toute la ligne est lisible dès qu'elle commence, les mots à venir en pâle et le prochain mot un peu plus marqué ; la ligne suivante est annoncée en petit dessous (quand elle arrive dans moins de 8 s).
-- Raccourcis clavier Ctrl+Alt pour presque tout, même quand Sillon n'est pas au premier plan : lecture / pause (P), suivant (N), précédent (B), aléatoire (A), répéter (R), plein écran (F), afficher / masquer Sillon (H), scène ou bandeau (T), visualiseur suivant (V), couleurs suivantes (C), veille (L), paroles affichées ou non (U), paroles plus tard / plus tôt (J / K), paramètres (O), éditeur de scène (G), placement du bandeau (D). La liste est dans les paramètres (onglet Comportement), qui signalent une combinaison déjà prise par une autre application ; une case les désactive tous (aussi dans le menu de l'icône, Réglages). Les combinaisons actives sont affichées dans le menu de l'icône. Aucune ne prend une touche qui tape un caractère avec AltGr (€, @, #, {…).
+### Added
+- Karaoke: the whole line is readable as soon as it starts, with the upcoming words pale and the next word a little stronger; the next line is announced in small type below (when it comes in less than 8 s).
+- Ctrl+Alt keyboard shortcuts for almost everything, even when Sillon is not in the foreground: play / pause (P), next (N), previous (B), shuffle (A), repeat (R), full screen (F), show / hide Sillon (H), scene or strip (T), next visualizer (V), next colors (C), screen saver (L), lyrics shown or not (U), lyrics later / earlier (J / K), settings (O), scene editor (G), strip placement (D). The list is in the settings (Behavior tab), which flag a combination already taken by another application; one checkbox turns them all off (also in the tray icon menu). The active combinations are shown in the tray icon menu. None uses a key that types a character with AltGr (€, @, #, {…).
+- Sillon is now in English, with a French translation. The language follows Windows by default (French on a French Windows, English otherwise) and can be chosen in the settings (Advanced tab, "Language"). Every window, the tray icon menu, the update and Spotify messages switch right away.
+
+### Changed
+- The repository is in English: README (French version in `README.fr.md`), comments, tests, scripts, GitHub documents and this changelog.
 
 ## [0.4.4] - 2026-11-24
 
-Karaoké mieux calé sur les paroles sans minutage mot à mot.
+Karaoke better timed on lyrics without word-by-word timing.
 
-### Corrigé
-- Karaoké : sur les paroles sans minutage mot à mot, une ligne chantée lentement ne s'allume plus en deux ou trois secondes (ce qui donnait de l'avance puis du retard). Le temps est réparti jusqu'à la ligne suivante, selon les syllabes de chaque mot, et la ligne reste affichée tant qu'elle est chantée. Avec le minutage mot à mot, une note tenue colore son mot jusqu'au bout (3 s au lieu de 1,5 s).
+### Fixed
+- Karaoke: on lyrics without word-by-word timing, a slowly sung line no longer lights up in two or three seconds (which ran ahead, then behind). The time is spread until the next line, according to the syllables of each word, and the line stays shown as long as it is sung. With word-by-word timing, a held note colors its word to the end (3 s instead of 1.5 s).
 
 ## [0.4.3] - 2026-11-24
 
-L'intensité du disque ne touche plus la lumière derrière lui.
+The disc intensity no longer touches the light behind it.
 
-### Modifié
-- « Intensité du disque » ne règle plus que l'anneau (rayons, onde, points…) : le halo derrière le disque ne s'éclaircit plus et ne grandit plus en même temps.
+### Changed
+- "Disc intensity" now only sets the ring (rays, wave, dots…): the glow behind the disc no longer brightens or grows with it.
 
 ## [0.4.2] - 2026-11-24
 
-Quatre nouvelles formes pour l'anneau du disque de la scène et de la veille.
+Four new shapes for the disc ring of the scene and the screen saver.
 
-### Ajouté
-- Quatre nouvelles formes pour l'anneau du disque (scène et veille), en plus des rayons fins et épais : Onde, Points, Arcs et Ondes concentriques. Au choix dans les paramètres (onglet Scène, « Anneau du disque ») et dans l'éditeur de scène.
+### Added
+- Four new shapes for the disc ring (scene and screen saver), on top of the fine and thick rays: Wave, Dots, Arcs and Ripples. Chosen in the settings (Scene tab, "Disc ring") and in the scene editor.
 
 ## [0.4.1] - 2026-11-24
 
-Correctifs de la 0.4.0 : placement du bandeau de nouveau utilisable, aide des raccourcis du plein écran affichée seulement à la demande.
+Fixes for 0.4.0: strip placement usable again, full-screen shortcut help shown only on request.
 
-### Corrigé
-- « Déplacer / redimensionner le bandeau » : avec le bandeau sur le fond d'écran sous Windows 11, ni « Terminé » ni la poignée ne répondaient (toute la fenêtre servait à la déplacer), il fallait quitter Sillon. Le placement se fait aussi dans une fenêtre à part, comme l'éditeur de la scène, sans décrocher le bandeau du fond d'écran ; Échap ou Entrée terminent aussi.
+### Fixed
+- "Move / resize the strip": with the strip on the wallpaper under Windows 11, neither "Done" nor the handle responded (the whole window served to move it), and Sillon had to be quit. Placement now happens in a separate window, like the scene editor, without detaching the strip from the wallpaper; Esc or Enter also finish.
 
-### Modifié
-- Plein écran : l'aide des raccourcis ne s'affiche plus à chaque mouvement de la souris ; touche **?** (ou **H**) pour l'afficher ou la masquer. Elle reste lue par les lecteurs d'écran.
+### Changed
+- Full screen: the shortcut help no longer shows on every mouse move; press **?** (or **H**) to show or hide it. Screen readers still read it.
 
 ## [0.4.0] - 2026-11-24
 
-Personnalisation (roue des couleurs, quatre nouveaux visualiseurs) et seconde passe de l'audit de la version 0.3.0 : chaque page limitée à ses propres messages, cache disque sans blocage, vérification des types.
+Customization (color wheel, four new visualizers) and a second pass of the 0.3.0 audit: each page limited to its own messages, non-blocking disk cache, type checking.
 
-### Ajouté
-- Roue des couleurs dans les paramètres (onglet Couleurs) : teinte et saturation sur la roue, luminosité au curseur, ou code hexadécimal. La couleur choisie devient le jeu « Couleur personnalisée » du bandeau, du plein écran et de la veille, et peut aussi colorer le disque de la scène (pastille « Personnalisée », ou dans l'éditeur de scène). Utilisable au clavier.
-- Quatre nouveaux visualiseurs : Spectre (courbe lisse remplie), Points (matrice lumineuse), Étincelles (particules qui montent avec le son) et Rosace (pétales de spectre qui tournent). Au choix dans les paramètres, le menu de l'icône et le plein écran (touche V) ; les trois premiers aussi pour l'élément « Barres » de l'éditeur de scène.
+### Added
+- Color wheel in the settings (Colors tab): hue and saturation on the wheel, lightness on the slider, or a hex code. The chosen color becomes the "Custom color" set of the strip, the full screen and the screen saver, and can also color the scene's disc ("Custom" swatch, or in the scene editor). Usable with the keyboard.
+- Four new visualizers: Spectrum (smooth filled curve), Dots (light matrix), Sparks (particles rising with the sound) and Rosette (rotating spectrum petals). Chosen in the settings, the tray icon menu and the full screen (V key); the first three also for the "Bars" element of the scene editor.
 
-### Sécurité
-- Chaque page ne peut plus demander que ce dont elle a besoin : la fenêtre des boutons ne peut pas déconnecter Spotify, l'écran noir de la veille ne peut que la quitter. Une demande refusée est notée au diagnostic.
-- Les écrans noirs de la veille (écrans secondaires) sont une page de l'app au lieu d'une page `data:`, avec les mêmes règles de sécurité que les autres.
-- L'assistant natif refuse une commande trop longue au lieu de l'exécuter tronquée.
+### Security
+- Each page can only ask for what it needs: the buttons window cannot sign out of Spotify, the screen saver's black screen can only leave it. A refused request is noted in the diagnostic.
+- The screen saver's black screens (secondary screens) are an app page instead of a `data:` page, with the same security rules as the others.
+- The native helper refuses a command that is too long instead of running it truncated.
 
 ### Performance
-- La pochette n'est plus renvoyée aux pages à chaque changement de volume ou de lecture : elle part une fois, puis seulement quand elle change.
-- Le cache des pochettes et des paroles lit et écrit le disque sans bloquer le processus principal ; une entrée abîmée est supprimée.
+- The cover is no longer sent again to the pages on every volume or playback change: it is sent once, then only when it changes.
+- The cover and lyrics cache reads and writes the disk without blocking the main process; a damaged entry is deleted.
 
-### Interne
-- Commandes et codes de sortie de l'assistant natif réunis dans un seul module (`helper-protocol.js`).
-- Vérification des types (JSDoc, `npm run typecheck`) sur les modules principaux, aussi en CI.
-- Hook avant commit : ESLint et formatage des fichiers modifiés.
-- Nouveaux tests : contrôle des pages qui envoient des messages, connexion Spotify (réussite, code absent, refus), erreurs de mise à jour, envoi de la pochette ; plus d'attentes en temps réel dans les tests.
-- Dépendance des outils de construction (`minimatch`) mise à jour : `npm audit` ne signale plus rien.
+### Internal
+- Commands and exit codes of the native helper gathered in a single module (`helper-protocol.js`).
+- Type checking (JSDoc, `npm run typecheck`) on the main modules, also in CI.
+- Pre-commit hook: ESLint and formatting of the changed files.
+- New tests: check of the pages that send messages, Spotify sign-in (success, missing code, refusal), update errors, sending the cover; no more real-time waits in the tests.
+- Build tool dependency (`minimatch`) updated: `npm audit` no longer reports anything.
 
 ## [0.3.1] - 2026-11-24
 
-Correctifs rapides issus de l'audit de la version 0.3.0 : autorisations limitées aux pages de Sillon, démarrage raté signalé, moins de travail quand la scène est cachée.
+Quick fixes from the 0.3.0 audit: permissions limited to Sillon's pages, failed startup reported, less work when the scene is hidden.
 
-### Sécurité
-- Seules les pages de Sillon reçoivent des autorisations (capture du son, presse-papiers) ; toute autre demande est refusée et notée au diagnostic.
-- Préférences de sécurité des fenêtres écrites explicitement (isolation, bac à sable, pas de Node), et règles de sécurité des pages (CSP) complétées (`object-src`, `base-uri`, `form-action`).
-- Connexion Spotify : un retour sans code est refusé proprement, et la page de retour n'est plus mise en cache ni ne transmet de référent.
+### Security
+- Only Sillon's pages get permissions (sound capture, clipboard); any other request is refused and noted in the diagnostic.
+- Window security preferences written explicitly (isolation, sandbox, no Node), and page security rules (CSP) completed (`object-src`, `base-uri`, `form-action`).
+- Spotify sign-in: a return without a code is refused cleanly, and the return page is no longer cached and sends no referrer.
 
-### Corrigé
-- Un démarrage raté ne laisse plus Sillon tourner sans icône : un message s'affiche et l'app se ferme. Les erreurs imprévues sont notées au diagnostic.
-- Un raccourci clavier déjà pris par une autre application (Ctrl+Alt+F comme Ctrl+Alt+L) est signalé au diagnostic.
-- Durée du morceau : plus de valeur absurde si un lecteur annonce une fin avant le début.
+### Fixed
+- A failed startup no longer leaves Sillon running without an icon: a message is shown and the app closes. Unexpected errors are noted in the diagnostic.
+- A keyboard shortcut already taken by another application (Ctrl+Alt+F as well as Ctrl+Alt+L) is reported in the diagnostic.
+- Track duration: no more absurd value when a player announces an end before the start.
 
 ### Performance
-- La file d'attente Spotify n'est plus lue quand la scène est masquée, endormie ou cachée par un jeu ; elle est relue au réveil.
-- Le fond d'écran n'est plus renvoyé aux pages quand il n'a pas changé.
-- Cache mémoire des pochettes limité à 30 images (au lieu de 200).
+- The Spotify queue is no longer read when the scene is hidden, asleep or covered by a game; it is read again on wake-up.
+- The wallpaper is no longer sent again to the pages when it has not changed.
+- Cover memory cache limited to 30 images (instead of 200).
 
 ## [0.3.0] - 2026-11-23
 
-Nouveaux jeux de couleurs, fenêtre des paramètres refaite, audit complet de la version 0.2.0 et une trentaine de bugs corrigés.
+New color sets, redone settings window, full audit of 0.2.0 and about thirty bugs fixed.
 
-### Ajouté
-- 14 nouveaux jeux de couleurs pour le visualiseur et le disque : Cyberpunk, Synthwave, Acide, Pastel, Lavande, Pêche, Menthe, Forêt, Braise, Glace, Désert, Or et noir, Rouge sang, Minuit. Toutes les listes (paramètres, éditeur de la scène, menu de l'icône, raccourci C du plein écran) viennent du même catalogue.
+### Added
+- 14 new color sets for the visualizer and the disc: Cyberpunk, Synthwave, Acid, Pastel, Lavender, Peach, Mint, Forest, Embers, Ice, Desert, Gold and black, Blood red, Midnight. Every list (settings, scene editor, tray icon menu, full-screen C shortcut) comes from the same catalog.
 
-### Modifié
-- La scène ne se masque plus d'elle-même sans musique par défaut (« Masquer la scène sans musique après » : Jamais). Avant, elle s'endormait au bout de 5 minutes, même quand un jeu ou un programme sans contrôles média faisait du son. Les installations existantes gardent leur réglage.
-- Nouvelle fenêtre des paramètres : plus large, avec un menu à gauche (Disposition, Scène, Visualiseur, Couleurs, Son, Comportement, Spotify, Avancé), un aperçu animé du visualiseur avec le style et les couleurs choisis, et une recherche dans tous les réglages (accents et majuscules ignorés, Ctrl+F). Les couleurs se choisissent sur des pastilles rangées par famille (Image, Classiques, Vifs, Doux, Naturels, Sombres), utilisables au clavier.
+### Changed
+- By default, the scene no longer hides on its own without music ("Hide the scene without music after": Never). Before, it went to sleep after 5 minutes, even when a game or a program without media controls was making sound. Existing installs keep their setting.
+- New settings window: wider, with a menu on the left (Layout, Scene, Visualizer, Colors, Sound, Behavior, Spotify, Advanced), an animated preview of the visualizer with the chosen style and colors, and a search across every setting (accents and case ignored, Ctrl+F). Colors are picked on swatches sorted by family (Image, Classics, Bright, Soft, Natural, Dark), usable with the keyboard.
 
-### Corrigé
-- Écran de veille : il ne se lance plus pendant une vidéo ou un jeu en plein écran (il verrouillait ensuite le PC).
-- Lecture / pause : Sillon envoie « lecture » ou « pause » selon l'état connu au lieu d'une bascule, avec repli sur l'API Spotify si Spotify ignore la commande. Une commande envoyée pendant le redémarrage de l'assistant est rejouée.
-- Lecteur suivi en priorité : il ne masque plus un autre lecteur qui joue pendant qu'il est en pause. Les événements média suivent la bonne session après un redémarrage de Spotify.
-- Son du lecteur : un échec passager ne bascule plus pour toujours sur tout le son du PC ; un lecteur introuvable n'est plus relancé toutes les 3 secondes ; l'assistant de capture s'arrête avec Sillon.
-- Réglages : un fichier momentanément illisible (antivirus, synchronisation) n'est plus écrasé par les valeurs par défaut.
-- Paroles : recherche relancée quand la durée du morceau arrive en retard, nouvel essai après une coupure réseau, mots remis à zéro après un retour en arrière, plus de ligne en double après un décalage, plus de paroles figées quand le lecteur ne donne pas la durée.
-- Spotify : un jeton qui ne se renouvelle pas n'est plus masqué par une file d'attente vide.
-- Plein écran : les raccourcis (V, C, flèches, [ ]) marchent encore après un clic sur un bouton.
-- Rendu : une erreur dans un visualiseur ne fige plus l'animation ; l'Anneau ne plante plus dans une très petite fenêtre.
-- Éditeur de la scène : Échap et Ctrl+Z marchent après avoir réglé un curseur ; un simple clic n'encombre plus l'historique d'annulation ; la liste « Style » des barres montre le bon choix.
-- Bandeau : changer de disposition pendant son placement ne lui donne plus la taille de l'écran entier.
-- Divers : couleurs de la pochette remises à zéro si l'image est illisible, curseur de volume qui ne reste plus bloqué, mise à jour qui ne reste plus bloquée en « téléchargement », mode jeu correct sur deux écrans d'échelles différentes.
-- Assistant natif : cargo est lancé depuis le dossier du helper, si bien que `.cargo/config.toml` (liaison statique du runtime C) est enfin appliqué. Sur un PC sans le redistribuable Visual C++, l'assistant démarre et la capture par application et les infos média fonctionnent.
-- Disque masqué : des barres ne s'affichent plus en plein écran.
-- Paroles : celles du morceau précédent ne restent plus à l'écran pendant une recherche ni après l'arrêt du lecteur.
-- Pochettes : une coupure réseau ou un refus de l'API ne met plus « aucune pochette » en cache pendant 7 jours.
-- Assistant média : une écriture vers un assistant arrêté ne fait plus planter le processus principal, et les relances sont espacées.
-- Assistant : les commandes inconnues reçoivent une réponse au lieu d'être ignorées en silence. Une panique écrit « ERR 5 … » sur la sortie d'erreur avant l'arrêt ; nouveau code de sortie 6 pour une erreur de lecture de l'entrée standard.
-- Plein écran : les raccourcis V et C n'affichent plus « undefined » pour les styles et couleurs récents (Blocs, Halo, Violet). Le menu de l'icône et le plein écran utilisent la même liste.
-- Lecture du son : l'assistant n'est plus relancé toutes les 3 secondes quand Spotify est fermé.
+### Fixed
+- Screen saver: it no longer starts during a full-screen video or game (it then locked the PC).
+- Play / pause: Sillon sends "play" or "pause" according to the known state instead of a toggle, with a fallback on the Spotify API if Spotify ignores the command. A command sent while the helper restarts is replayed.
+- Player followed first: it no longer hides another player that plays while it is paused. Media events follow the right session after Spotify restarts.
+- Player sound: a passing failure no longer switches to all the PC's sound for good; a player that cannot be found is no longer restarted every 3 seconds; the capture helper stops with Sillon.
+- Settings: a file that is unreadable for a moment (antivirus, sync) is no longer overwritten with the default values.
+- Lyrics: search started again when the track duration arrives late, new attempt after a network outage, words reset after seeking back, no more doubled line after an offset, no more frozen lyrics when the player does not give the duration.
+- Spotify: a token that does not renew is no longer hidden by an empty queue.
+- Full screen: the shortcuts (V, C, arrows, [ ]) still work after clicking a button.
+- Rendering: an error in a visualizer no longer freezes the animation; the Ring no longer crashes in a very small window.
+- Scene editor: Esc and Ctrl+Z work after setting a slider; a simple click no longer clutters the undo history; the bars' "Style" list shows the right choice.
+- Strip: changing the layout during its placement no longer gives it the size of the whole screen.
+- Misc: cover colors reset if the image is unreadable, volume slider no longer stuck, update no longer stuck on "downloading", correct game mode on two screens with different scales.
+- Native helper: cargo is run from the helper's folder, so `.cargo/config.toml` (static linking of the C runtime) is finally applied. On a PC without the Visual C++ redistributable, the helper starts and per-application capture and media info work.
+- Hidden disc: bars no longer show in full screen.
+- Lyrics: those of the previous track no longer stay on screen during a search or after the player stops.
+- Covers: a network outage or an API refusal no longer caches "no cover" for 7 days.
+- Media helper: writing to a stopped helper no longer crashes the main process, and restarts are spaced out.
+- Helper: unknown commands get an answer instead of being silently ignored. A panic writes "ERR 5 …" on the error output before stopping; new exit code 6 for an error reading the standard input.
+- Full screen: the V and C shortcuts no longer show "undefined" for the recent styles and colors (Blocks, Halo, Violet). The tray icon menu and the full screen use the same list.
+- Sound reading: the helper is no longer restarted every 3 seconds when Spotify is closed.
 
-### Sécurité
-- Fenêtres : aucune nouvelle fenêtre et aucune navigation hors de la page chargée (`secure.js`).
-- Processus Electron : fusibles `runAsNode`, `NODE_OPTIONS` et arguments `--inspect` désactivés, chargement uniquement depuis `app.asar`.
-- Messages IPC : contrôle de l'expéditeur (seules les pages de Sillon) et réglages validés par liste blanche.
-- Actions GitHub épinglées par SHA de commit.
-- Signature de code : la construction signe seulement si un certificat est fourni par variables d'environnement (documenté dans `SECURITY.md`). Sans certificat, les installateurs restent non signés.
+### Security
+- Windows: no new window and no navigation away from the loaded page (`secure.js`).
+- Electron process: `runAsNode`, `NODE_OPTIONS` and `--inspect` argument fuses turned off, loading only from `app.asar`.
+- IPC messages: sender check (only Sillon's pages) and settings validated against an allow list.
+- GitHub actions pinned by commit SHA.
+- Code signing: the build signs only if a certificate is provided through environment variables (documented in `SECURITY.md`). Without a certificate, the installers stay unsigned.
 
 ### Performance
-- Repos : la scène dort quand la musique ne joue plus depuis un moment, et la capture du son s'arrête avec elle, au lieu de tourner en permanence.
-- Le sondage des contrôles média est remplacé par leurs événements système.
-- La boucle d'animation ne se réarme plus en pause.
+- Rest: the scene sleeps when the music has not played for a while, and the sound capture stops with it, instead of running all the time.
+- Polling of the media controls replaced by their system events.
+- The animation loop no longer re-arms while paused.
 
-### Accessibilité
-- Nouveau réglage « Réduire les animations et les lueurs » : il arrête les pulsations de la lumière de bord et des lueurs au rythme des basses.
+### Accessibility
+- New "Reduce animations and glows" setting: it stops the edge light and glow pulses on the bass beat.
 
-### Outillage
-- CI : fichier réencodé en UTF-8 ; actions épinglées par SHA ; `persist-credentials: false` ; cache Cargo ; `cargo fmt`, `clippy -D warnings`, `cargo test --locked` et `cargo build --locked` depuis le dossier du helper ; `npm audit --omit=dev` et `cargo audit` ; tests JavaScript sous Node 20 et 22 ; job d'empaquetage sans publication ; vérification que `sillon-helper.exe` n'embarque pas `VCRUNTIME140` ; `windows-2025`.
-- `npm run verify:rust` (formatage, clippy, tests Rust) ; `npm run verify` l'inclut quand cargo est installé.
-- `npm run lint` échoue sur tout avertissement (`--max-warnings 0`).
-- `npm run release` : refuse de publier sans section `## [x.y.z]` dans ce journal ; construit avant de pousser le commit et le tag ; annule le commit et le tag locaux si la construction ou le push échoue ; utilise la section comme notes de la Release ; publie `SHA256SUMS.txt`.
-- Démo : charge les vraies pages (`src/renderer/pages`) avec un faux pont qui expose toutes les méthodes du preload ; les copies HTML périmées sont supprimées.
-- Tests : contrat IPC vérifié à chaque exécution (canaux du preload, canaux émis par le processus principal, `bridge.X` des pages, démo) ; tests de la publication. L'assistant compte 28 tests Rust.
-- Dependabot : suit les actions GitHub (regroupées) et le crate Rust ; `windows-core` et `windows-future` restent mis à jour à la main avec `windows`.
-- README, CONTRIBUTING et modèle de pull request mis à jour (prérequis Rust et MSVC, `npm run verify`).
+### Tooling
+- CI: file re-encoded in UTF-8; actions pinned by SHA; `persist-credentials: false`; Cargo cache; `cargo fmt`, `clippy -D warnings`, `cargo test --locked` and `cargo build --locked` from the helper's folder; `npm audit --omit=dev` and `cargo audit`; JavaScript tests on Node 20 and 22; packaging job without publishing; check that `sillon-helper.exe` does not embed `VCRUNTIME140`; `windows-2025`.
+- `npm run verify:rust` (Rust formatting, clippy, tests); `npm run verify` includes it when cargo is installed.
+- `npm run lint` fails on any warning (`--max-warnings 0`).
+- `npm run release`: refuses to publish without a `## [x.y.z]` section in this changelog; builds before pushing the commit and the tag; undoes the local commit and tag if the build or the push fails; uses the section as the Release notes; publishes `SHA256SUMS.txt`.
+- Demo: loads the real pages (`src/renderer/pages`) with a fake bridge that exposes every preload method; the outdated HTML copies are deleted.
+- Tests: IPC contract checked on every run (preload channels, channels sent by the main process, the pages' `bridge.X`, demo); publishing tests. The helper has 28 Rust tests.
+- Dependabot: follows the GitHub actions (grouped) and the Rust crate; `windows-core` and `windows-future` are still updated by hand together with `windows`.
+- README, CONTRIBUTING and pull request template updated (Rust and MSVC prerequisites, `npm run verify`).
 
 ## [0.2.0] - 2026-11-23
 
-### Modifié
-- Mémoire : environ 700 Mo → 430 Mo. Les deux scripts PowerShell (morceau en cours, volume, son du lecteur) sont remplacés par un petit assistant natif écrit en Rust (environ 8 Mo au lieu de 155 Mo, démarrage immédiat), et le cache graphique de Chromium est plafonné (environ 120 Mo de moins, sans différence à l'écran).
-- Développement : Rust est nécessaire pour compiler l'assistant (`native/sillon-helper`), compilé automatiquement par `npm start`.
+### Changed
+- Memory: about 700 MB → 430 MB. The two PowerShell scripts (current track, volume, player sound) are replaced by a small native helper written in Rust (about 8 MB instead of 155 MB, instant startup), and Chromium's graphics cache is capped (about 120 MB less, with no visible difference).
+- Development: Rust is needed to build the helper (`native/sillon-helper`), built automatically by `npm start`.
 
 ## [0.1.9] - 2026-11-22
 
-### Ajouté
-- Barre de volume du lecteur dans les boutons de la scène et en plein écran : règle le son de Spotify (ou du lecteur suivi) dans le mélangeur de Windows, sans toucher au volume général ni aux autres applications. Clic sur le haut-parleur pour couper le son, molette pour régler.
+### Added
+- Player volume bar in the scene buttons and in full screen: sets the sound of Spotify (or of the followed player) in the Windows mixer, without touching the general volume or the other applications. Click the speaker to mute, scroll to adjust.
 
 ## [0.1.8] - 2026-11-22
 
-### Ajouté
-- Réglage « Son analysé » : par défaut, Sillon n'écoute plus que le lecteur suivi (Spotify, navigateur…). Le chat vocal (Discord, TeamSpeak), les notifications et les jeux ne font plus bouger le visualiseur. Repli sur tout le son du PC si Windows ne le permet pas.
+### Added
+- "Analyzed sound" setting: by default, Sillon now listens only to the followed player (Spotify, browser…). Voice chat (Discord, TeamSpeak), notifications and games no longer move the visualizer. Falls back on all the PC's sound if Windows does not allow it.
 
-### Modifié
-- Dépendances : koffi 3, ESLint 10.
+### Changed
+- Dependencies: koffi 3, ESLint 10.
 
 ## [0.1.7] - 2026-11-22
 
-### Ajouté
-- Vérifications automatiques sur GitHub (CI) : syntaxe, règles ESLint et tests à chaque push.
-- ESLint, `.editorconfig`, Dependabot, guide de contribution, politique de sécurité, code de conduite, modèles d'issue et de pull request.
+### Added
+- Automatic checks on GitHub (CI): syntax, ESLint rules and tests on every push.
+- ESLint, `.editorconfig`, Dependabot, contributing guide, security policy, code of conduct, issue and pull request templates.
 
-### Corrigé
-- Recherche de la pochette : les versions « live » étaient censées être écartées, mais le filtre ne marchait pas (caractères invisibles dans l'expression).
+### Fixed
+- Cover search: "live" versions were meant to be left out, but the filter did not work (invisible characters in the expression).
 
 ## [0.1.6] - 2026-11-22
 
-### Corrigé
-- Agrandir les paroles n'agrandit plus l'horloge.
-- La page de paramètres ne gèle plus pendant le défilement (aperçus du visualiseur dessinés seulement s'ils sont visibles, à 30 i/s, en pause pendant le défilement).
+### Fixed
+- Enlarging the lyrics no longer enlarges the clock.
+- The settings page no longer freezes while scrolling (visualizer previews drawn only when visible, at 30 fps, paused while scrolling).
 
 ## [0.1.5] - 2026-11-22
 
-### Modifié
-- Moins de ressources : lueurs des rayons, barres, anneau et halo regroupées (environ un tiers de calcul graphique en moins à 60 i/s).
-- 30 images par seconde par défaut ; les installations réglées sur 60 passent à 30 une seule fois.
-- Musique en pause : la scène tourne à 15 i/s.
+### Changed
+- Fewer resources: glows of the rays, bars, ring and halo grouped together (about a third less graphics work at 60 fps).
+- 30 frames per second by default; installs set to 60 switch to 30 once.
+- Music paused: the scene runs at 15 fps.
 
 ## [0.1.4] - 2026-11-21
 
-### Modifié
-- Paramètres réorganisés en Disposition, Scène et Visualiseur ; seuls les réglages utiles à l'affichage choisi sont montrés.
+### Changed
+- Settings reorganized into Layout, Scene and Visualizer; only the settings useful for the chosen display are shown.
 
 ## [0.1.3] - 2026-11-21
 
-### Ajouté
-- Éditeur de la scène : chaque élément (disque, paroles, grand titre, pochette, « En lecture », boutons, « À suivre », horloge, barres) se déplace, se redimensionne, s'affiche ou se masque ; modèles, aimantation, annulation, raccourcis clavier.
-- Boutons aléatoire et répétition via l'API Spotify.
-- Visualiseurs Blocs et Halo, thème Violet, rayons épais, lueur du disque, bord lumineux, anneaux de la pochette, horloge, galerie d'aperçus.
+### Added
+- Scene editor: each element (disc, lyrics, big title, cover, "Now playing", buttons, "Up next", clock, bars) can be moved, resized, shown or hidden; templates, snapping, undo, keyboard shortcuts.
+- Shuffle and repeat buttons through the Spotify API.
+- Blocks and Halo visualizers, Violet theme, thick rays, disc glow, edge light, cover rings, clock, preview gallery.
 
-### Corrigé
-- Les boutons de la scène sont remis au-dessus du bureau s'ils passent dessous.
+### Fixed
+- The scene buttons are put back above the desktop if they go under it.
 
 ## [0.1.2] - 2026-11-21
 
-### Ajouté
-- Diagnostic à copier depuis les paramètres ou le menu de l'icône.
+### Added
+- Diagnostic to copy from the settings or the tray icon menu.
 
 ## [0.1.1] - 2026-11-21
 
-### Ajouté
-- Mises à jour automatiques via les Releases GitHub.
+### Added
+- Automatic updates through GitHub Releases.
 
-### Corrigé
-- Publication : une seule Release GitHub par version.
+### Fixed
+- Publishing: a single GitHub Release per version.
 
 ## [0.1.0] - 2026-11-21
 
-Première version publique : visualiseur sur le fond d'écran Windows, scène (disque, paroles synchronisées, panneau « en lecture », file d'attente), écran de veille, plein écran, connexion Spotify.
+First public version: visualizer on the Windows wallpaper, scene (disc, synced lyrics, "now playing" panel, queue), screen saver, full screen, Spotify sign-in.
 
-[Non publié]: https://github.com/vigoRz-c/sillon/compare/v0.4.4...HEAD
+[Unreleased]: https://github.com/vigoRz-c/sillon/compare/v0.4.4...HEAD
 [0.4.4]: https://github.com/vigoRz-c/sillon/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/vigoRz-c/sillon/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/vigoRz-c/sillon/compare/v0.4.1...v0.4.2
