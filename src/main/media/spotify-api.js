@@ -221,7 +221,12 @@ class SpotifyApi extends EventEmitter {
       }
       const done = (ok, text) => {
         clearTimeout(timer);
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.writeHead(200, {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-store',
+          'Referrer-Policy': 'no-referrer',
+          'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'",
+        });
         res.end(`<!doctype html><meta charset="utf-8"><title>Sillon</title>
 <body style="font-family:Segoe UI,sans-serif;background:#111;color:#eee;display:grid;place-items:center;height:100vh;margin:0">
 <div style="text-align:center"><h2>${ok ? 'Sillon est connecté à Spotify' : 'Connexion impossible'}</h2><p>${escapeHtml(text)}</p></div>`);
@@ -239,10 +244,16 @@ class SpotifyApi extends EventEmitter {
         done(false, 'Tu peux fermer cet onglet.');
         return;
       }
+      const code = url.searchParams.get('code');
+      if (!code) {
+        this.setError('Réponse de Spotify incomplète (code absent) : reconnecte-toi.');
+        done(false, 'Réponse de Spotify incomplète. Tu peux fermer cet onglet et réessayer.');
+        return;
+      }
       try {
         const tok = await this.tokenRequest({
           grant_type: 'authorization_code',
-          code: url.searchParams.get('code'),
+          code,
           redirect_uri: REDIRECT_URI,
           client_id: clientId,
           code_verifier: verifier,

@@ -568,7 +568,7 @@ impl State {
                 let a = tl.StartTime().map_or(0, |t| t.Duration);
                 let b = tl.EndTime().map_or(0, |t| t.Duration);
                 let u = tl.LastUpdatedTime().map_or(0, |d| unix_ms(d.UniversalTime));
-                (secs(p), secs(b - a), u)
+                (secs(p), secs(b.saturating_sub(a).max(0)), u)
             }
             Err(_) => (0.0, 0.0, 0),
         };

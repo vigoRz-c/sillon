@@ -12,7 +12,7 @@ const fs = require('fs');
 const S = require('../app/state');
 const diagnostic = require('../app/diagnostic');
 const ipc = require('../app/ipc');
-const { secureWindow } = require('./secure');
+const { secureWindow, SAFE_PREFS } = require('./secure');
 const SceneLayout = require('../../renderer/shared/scene-layout');
 
 // Chemin du fond d'écran de Windows (registre), ou sa copie interne.
@@ -89,7 +89,7 @@ function openLayoutEditor() {
     show: false,
     title: 'Personnaliser la scène · Sillon',
     icon: path.join(S.ASSETS, 'icon.png'),
-    webPreferences: { preload: S.PRELOAD, backgroundThrottling: false },
+    webPreferences: { ...SAFE_PREFS, preload: S.PRELOAD, backgroundThrottling: false },
   });
   S.editorWin = win;
   S.actions.updateControls();

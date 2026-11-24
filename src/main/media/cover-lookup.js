@@ -98,7 +98,8 @@ async function lookupCover(media) {
     note('pochette', e.message);
     return null; // erreur réseau : pas mis en cache, on réessaiera au prochain morceau
   }
-  if (cache.size > 200) cache.delete(cache.keys().next().value);
+  // Chaque entrée est une image (100 à 250 Ko) : 30 suffisent, le cache disque fait le reste.
+  if (cache.size > 30) cache.delete(cache.keys().next().value);
   cache.set(key, result);
   disk.set('covers', key, result);
   return result;

@@ -11,7 +11,7 @@ const S = require('../app/state');
 const { screen } = require('electron');
 const { sendToBottom, windowAt, hwndOf, placeAboveDesktop } = require('./wallpaper');
 const diagnostic = require('../app/diagnostic');
-const { secureWindow } = require('./secure');
+const { secureWindow, SAFE_PREFS } = require('./secure');
 
 // Surveillance : si le bureau repasse au-dessus des boutons (verrouillage,
 // redémarrage d'Explorer…), ils deviennent invisibles et les clics tombent sur
@@ -73,7 +73,7 @@ function updateControls() {
       focusable: false,
       show: false,
       title: 'Sillon · boutons',
-      webPreferences: { preload: S.PRELOAD, backgroundThrottling: false },
+      webPreferences: { ...SAFE_PREFS, preload: S.PRELOAD, backgroundThrottling: false },
     });
     S.controlsWin = win;
     secureWindow(win);

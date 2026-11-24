@@ -11,4 +11,16 @@ function secureWindow(win) {
   return win;
 }
 
-module.exports = { secureWindow };
+// Préférences de sécurité écrites noir sur blanc : ce sont les valeurs par
+// défaut d'Electron aujourd'hui, mais un changement de défaut ou une option
+// ajoutée par erreur ne doit pas les défaire sans qu'on le voie.
+const SAFE_PREFS = Object.freeze({
+  contextIsolation: true,
+  sandbox: true,
+  nodeIntegration: false,
+  webSecurity: true,
+  allowRunningInsecureContent: false,
+  webviewTag: false,
+});
+
+module.exports = { secureWindow, SAFE_PREFS };

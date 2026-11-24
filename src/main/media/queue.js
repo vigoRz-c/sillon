@@ -227,8 +227,12 @@ function startSpotify() {
     pushStatus(spotify.status());
     refreshQueue();
   });
+  // Seulement si une page affiche la file (scène éveillée ou éditeur) : scène
+  // masquée, endormie ou cachée par un jeu, rien à lire. Au réveil, main.js
+  // (applyRest) relit la file tout de suite.
   setInterval(() => {
-    if (S.lastMedia.active && S.lastMedia.status === 'Playing') refreshQueue();
+    const shown = S.sceneActive() || S.alive(S.editorWin);
+    if (shown && S.lastMedia.active && S.lastMedia.status === 'Playing') refreshQueue();
   }, 20000);
   spotify.ready.then(() => {
     pushStatus(spotify.status());

@@ -6,3 +6,4 @@ native/sillon-helper/target/
 
 # Rapport d'audit local (non publié)
 AUDIT.md
+AUDIT-*.md

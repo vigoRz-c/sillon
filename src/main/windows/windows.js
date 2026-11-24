@@ -4,7 +4,7 @@ const { BrowserWindow, screen } = require('electron');
 const path = require('path');
 const S = require('../app/state');
 const { sendToBottom } = require('./wallpaper');
-const { secureWindow } = require('./secure');
+const { secureWindow, SAFE_PREFS } = require('./secure');
 
 function toggleFullscreen() {
   if (S.alive(S.fullscreen)) {
@@ -20,7 +20,7 @@ function toggleFullscreen() {
     skipTaskbar: false,
     title: 'Sillon',
     icon: path.join(S.ASSETS, 'icon.png'),
-    webPreferences: { preload: S.PRELOAD, backgroundThrottling: false },
+    webPreferences: { ...SAFE_PREFS, preload: S.PRELOAD, backgroundThrottling: false },
   });
   S.fullscreen = win;
   secureWindow(win);
@@ -62,7 +62,7 @@ function openSettings() {
     skipTaskbar: !!parent,
     title: 'Paramètres · Sillon',
     icon: path.join(S.ASSETS, 'icon.png'),
-    webPreferences: { preload: S.PRELOAD },
+    webPreferences: { ...SAFE_PREFS, preload: S.PRELOAD },
   });
   S.settingsWin = win;
   secureWindow(win);

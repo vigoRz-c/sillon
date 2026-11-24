@@ -13,7 +13,7 @@
 //   state.js            état partagé
 //   ipc.js              handlers IPC contrôlés (expéditeur, erreurs)
 
-const { app, screen, globalShortcut, shell, clipboard } = require('electron');
+const { app, screen, globalShortcut, shell, clipboard, dialog } = require('electron');
 
 // Une seule instance : la seconde se ferme sans rien démarrer. Le fichier est
 // un module CommonJS : `return` arrête ici toute la suite (IPC, démarrage).
@@ -156,7 +156,11 @@ function applyRest() {
   }
   appAudio.onActivityChanged();
   const active = S.sceneActive();
-  if (active && wasActive === false) setTimeout(capture.sampleWallpaper, 1200); // réveil : couleurs à jour
+  if (active && wasActive === false) {
+    // Réveil : couleurs et file d'attente à jour (la file n'est pas lue pendant le repos).
+    setTimeout(capture.sampleWallpaper, 1200);
+    queue.refreshQueue();
+  }
   wasActive = active;
 }
 S.actions.applyRest = applyRest;
@@ -307,12 +311,27 @@ function migrateFromSpotiView() {
     console.log('Réglages repris de Spoti-View.');
   } catch (e) {
     console.error('Reprise des réglages de Spoti-View :', e.message);
+    diagnostic.note('réglages', `reprise de Spoti-View incomplète : ${e.message}`);
   }
 }
 
 // ---------- Démarrage ----------
 
-app.whenReady().then(() => {
+// Une erreur imprévue ne doit pas passer inaperçue : elle va au diagnostic
+// (Paramètres → Diagnostic), pas seulement dans une console invisible.
+const fatal = (kind) => (e) => {
+  console.error(`${kind} :`, e);
+  try {
+    diagnostic.note('erreur', `${kind} : ${(e && e.stack) || e}`);
+  } catch {
+    /* le diagnostic lui-même a échoué : la console suffit */
+  }
+};
+process.on('unhandledRejection', fatal('promesse rejetée'));
+// « Monitor » : noté au diagnostic sans changer la réaction d'Electron (boîte d'erreur).
+process.on('uncaughtExceptionMonitor', fatal('exception'));
+
+function start() {
   app.setAppUserModelId('com.loicrestout.sillon');
   migrateFromSpotiView();
   S.settings = new Settings();
@@ -324,15 +343,32 @@ app.whenReady().then(() => {
   buildTray();
   restTick();
   setInterval(restTick, 2000);
-  globalShortcut.register('CommandOrControl+Alt+F', windows.toggleFullscreen);
-  if (!globalShortcut.register('CommandOrControl+Alt+L', veille.startVeille)) {
-    console.error('Raccourci Ctrl+Alt+L déjà pris par une autre application.');
+  for (const [keys, fn] of [
+    ['CommandOrControl+Alt+F', windows.toggleFullscreen],
+    ['CommandOrControl+Alt+L', veille.startVeille],
+  ]) {
+    if (!globalShortcut.register(keys, fn)) {
+      console.error(`Raccourci ${keys} déjà pris par une autre application.`);
+      diagnostic.note('raccourci', `${keys} déjà pris par une autre application`);
+    }
   }
   veille.watchIdle();
   updater.init();
   watchDisplays();
   watchGameMode();
-});
+}
+
+// Démarrage raté : sans icône dans la zone de notification, il n'y aurait plus
+// aucun moyen de quitter (window-all-closed est neutralisé plus bas). On le dit
+// et on s'arrête.
+app
+  .whenReady()
+  .then(start)
+  .catch((e) => {
+    fatal('démarrage')(e);
+    dialog.showErrorBox('Sillon', `Démarrage impossible : ${(e && e.message) || e}`);
+    app.exit(1);
+  });
 
 app.on('second-instance', () => S.tray && S.tray.popUpContextMenu());
 app.on('window-all-closed', (e) => e.preventDefault()); // on vit dans la zone de notification

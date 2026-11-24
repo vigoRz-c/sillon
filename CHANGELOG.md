@@ -4,6 +4,25 @@ Toutes les évolutions notables de Sillon. Format inspiré de [Keep a Changelog]
 
 ## [Non publié]
 
+## [0.3.1] - 2026-11-24
+
+Correctifs rapides issus de l'audit de la version 0.3.0 : autorisations limitées aux pages de Sillon, démarrage raté signalé, moins de travail quand la scène est cachée.
+
+### Sécurité
+- Seules les pages de Sillon reçoivent des autorisations (capture du son, presse-papiers) ; toute autre demande est refusée et notée au diagnostic.
+- Préférences de sécurité des fenêtres écrites explicitement (isolation, bac à sable, pas de Node), et règles de sécurité des pages (CSP) complétées (`object-src`, `base-uri`, `form-action`).
+- Connexion Spotify : un retour sans code est refusé proprement, et la page de retour n'est plus mise en cache ni ne transmet de référent.
+
+### Corrigé
+- Un démarrage raté ne laisse plus Sillon tourner sans icône : un message s'affiche et l'app se ferme. Les erreurs imprévues sont notées au diagnostic.
+- Un raccourci clavier déjà pris par une autre application (Ctrl+Alt+F comme Ctrl+Alt+L) est signalé au diagnostic.
+- Durée du morceau : plus de valeur absurde si un lecteur annonce une fin avant le début.
+
+### Performance
+- La file d'attente Spotify n'est plus lue quand la scène est masquée, endormie ou cachée par un jeu ; elle est relue au réveil.
+- Le fond d'écran n'est plus renvoyé aux pages quand il n'a pas changé.
+- Cache mémoire des pochettes limité à 30 images (au lieu de 200).
+
 ## [0.3.0] - 2026-11-23
 
 Nouveaux jeux de couleurs, fenêtre des paramètres refaite, audit complet de la version 0.2.0 et une trentaine de bugs corrigés.
@@ -135,7 +154,8 @@ Nouveaux jeux de couleurs, fenêtre des paramètres refaite, audit complet de la
 
 Première version publique : visualiseur sur le fond d'écran Windows, scène (disque, paroles synchronisées, panneau « en lecture », file d'attente), écran de veille, plein écran, connexion Spotify.
 
-[Non publié]: https://github.com/vigoRz-c/sillon/compare/v0.3.0...HEAD
+[Non publié]: https://github.com/vigoRz-c/sillon/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/vigoRz-c/sillon/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/vigoRz-c/sillon/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/vigoRz-c/sillon/compare/v0.1.9...v0.2.0
 [0.1.9]: https://github.com/vigoRz-c/sillon/compare/v0.1.8...v0.1.9

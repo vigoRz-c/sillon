@@ -3,13 +3,38 @@
 const { session, desktopCapturer, screen } = require('electron');
 const S = require('../app/state');
 const diagnostic = require('../app/diagnostic');
+const { isAppUrl } = require('../app/ipc-guard');
 
 // ---------- Son : capture de la sortie du PC ----------
 
+// Seules les pages de l'app reçoivent des autorisations (capture du son,
+// presse-papiers des paramètres…) ; toute autre page n'en reçoit aucune.
+const fromApp = (url) => isAppUrl(url, S.RENDERER);
+
+function setupPermissions(ses) {
+  ses.setPermissionRequestHandler((_wc, permission, callback, details) => {
+    const ok = fromApp(details && details.requestingUrl);
+    if (!ok) diagnostic.note('sécurité', `autorisation « ${permission} » refusée à une page externe`);
+    callback(ok);
+  });
+  // Sans adresse précise (certaines vérifications), on se fie à l'origine : file:// pour nos pages.
+  ses.setPermissionCheckHandler((_wc, _permission, origin, details) =>
+    details && details.requestingUrl ? fromApp(details.requestingUrl) : origin === 'file://',
+  );
+}
+
 function setupLoopback() {
+  const ses = session.defaultSession;
+  setupPermissions(ses);
   // getDisplayMedia() dans la page reçoit l'écran (ignoré) + le son du système.
   // Jamais le micro.
-  session.defaultSession.setDisplayMediaRequestHandler((_req, callback) => {
+  ses.setDisplayMediaRequestHandler((req, callback) => {
+    // Demande d'une page qui n'est pas à l'app (ou déjà fermée) : rien.
+    if (!fromApp(req && req.frame && req.frame.url)) {
+      diagnostic.note('sécurité', 'capture du son refusée à une page externe');
+      callback({});
+      return;
+    }
     desktopCapturer
       .getSources({ types: ['screen'] })
       .then((sources) => callback({ video: sources[0], audio: 'loopback' }))
@@ -62,8 +87,11 @@ async function sampleWallpaper() {
       height: Math.min(H - y, Math.round((bounds.height + pad * 2) * sy)),
     };
     const img = crop.width > 4 && crop.height > 4 ? src.thumbnail.crop(crop) : src.thumbnail;
-    S.wallpaperSample = img.toDataURL();
-    S.send([S.widget, S.fullscreen, S.editorWin], 'wallpaper', S.wallpaperSample);
+    const url = img.toDataURL();
+    // Fond inchangé : les pages ont déjà ces couleurs (inutile de redécoder l'image).
+    if (url === S.wallpaperSample) return;
+    S.wallpaperSample = url;
+    S.send([S.widget, S.fullscreen, S.editorWin], 'wallpaper', url);
   } catch (e) {
     console.error("Couleurs du fond d'écran :", e.message);
     diagnostic.note('fond', `couleurs du fond d'écran impossibles (${e.message})`);

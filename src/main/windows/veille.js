@@ -9,7 +9,7 @@ const { BrowserWindow, screen, powerMonitor } = require('electron');
 const path = require('path');
 const S = require('../app/state');
 const { lockWorkstation, fullscreenAppRunning } = require('./wallpaper');
-const { secureWindow } = require('./secure');
+const { secureWindow, SAFE_PREFS } = require('./secure');
 
 const veilleActive = () => S.veilleWins.some((w) => !w.isDestroyed());
 
@@ -29,7 +29,7 @@ function startVeille() {
       skipTaskbar: true,
       show: false,
       title: 'Sillon · veille',
-      webPreferences: { preload: S.PRELOAD, backgroundThrottling: false },
+      webPreferences: { ...SAFE_PREFS, preload: S.PRELOAD, backgroundThrottling: false },
     });
     secureWindow(win);
     win.setAlwaysOnTop(true, 'screen-saver');

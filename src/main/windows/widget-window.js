@@ -4,7 +4,7 @@ const { BrowserWindow, screen } = require('electron');
 const path = require('path');
 const S = require('../app/state');
 const { WallpaperAttacher } = require('./wallpaper');
-const { secureWindow } = require('./secure');
+const { secureWindow, SAFE_PREFS } = require('./secure');
 const diagnostic = require('../app/diagnostic');
 
 function defaultBounds() {
@@ -72,7 +72,7 @@ function createWidget() {
     resizable: false,
     show: false,
     title: 'Sillon',
-    webPreferences: { preload: S.PRELOAD, backgroundThrottling: false },
+    webPreferences: { ...SAFE_PREFS, preload: S.PRELOAD, backgroundThrottling: false },
   });
   S.widget = widget;
   secureWindow(widget);
