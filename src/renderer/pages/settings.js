@@ -51,6 +51,9 @@
     $(k).setAttribute('aria-valuetext', ranges[k].say(v));
   }
 
+  // Formes de l'anneau du disque : depuis le catalogue (avant l'index de recherche).
+  for (const [id, name] of Catalog.DISC_RAYS) $('discRays').append(new Option(name, id));
+
   // Le focus arrive sur le titre à l'ouverture : le lecteur d'écran annonce la fenêtre.
   $('pageTitle').focus({ preventScroll: true });
 

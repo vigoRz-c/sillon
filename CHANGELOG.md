@@ -4,6 +4,9 @@ Toutes les évolutions notables de Sillon. Format inspiré de [Keep a Changelog]
 
 ## [Non publié]
 
+### Ajouté
+- Quatre nouvelles formes pour l'anneau du disque (scène et veille), en plus des rayons fins et épais : Onde, Points, Arcs et Ondes concentriques. Au choix dans les paramètres (onglet Scène, « Anneau du disque ») et dans l'éditeur de scène.
+
 ## [0.4.1] - 2026-11-24
 
 Correctifs de la 0.4.0 : placement du bandeau de nouveau utilisable, aide des raccourcis du plein écran affichée seulement à la demande.

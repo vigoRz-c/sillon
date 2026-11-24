@@ -335,7 +335,7 @@
         `<label class="er">${label}<input type="range" data-k="${k}" min="${lo}" max="${hi}" step="${step}" value="${el[k]}"></label>`;
       let extra = '';
       if (selected === 'disc') {
-        extra = `<label class="er">Rayons<select data-o="discRays">${opt('discRays', 'fine', 'Fins et serrés')}${opt('discRays', 'bold', 'Épais et espacés')}</select></label>
+        extra = `<label class="er">Anneau<select data-o="discRays">${window.SillonCatalog.DISC_RAYS.map(([v, l]) => opt('discRays', v, l)).join('')}</select></label>
         <label class="er">Couleurs<select data-o="discColors">${opt('discColors', 'album', 'De la pochette')}${opt('discColors', 'custom', 'Couleur personnalisée')}${window.SillonCatalog.FIXED_THEMES.map(([t, name]) => opt('discColors', t, name)).join('')}</select></label>`;
       } else if (selected === 'cover') {
         extra = `<label class="ec"><input type="checkbox" data-o="panelRing" ${s.panelRing !== false ? 'checked' : ''}> Anneaux qui vibrent</label>`;

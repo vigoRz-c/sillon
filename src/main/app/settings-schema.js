@@ -23,7 +23,7 @@ const DEFAULTS = {
   discX: 0.6, // anciens réglages de position et taille du disque (voir showPanel)
   discY: 0.45,
   discSize: 1,
-  discRays: 'fine', // rayons du disque : fine (fins, serrés) | bold (épais, espacés)
+  discRays: 'fine', // anneau du disque : fine | bold (rayons) | wave | dots | arcs | ripples (catalog.js)
   discColors: 'album', // couleurs du disque : album (pochette) | custom (roue) | un jeu fixe du catalogue
   discBloom: 0.8, // lueur au centre du disque (0 à 1,5)
   edgeGlow: 0.8, // bord de l'écran lumineux qui pulse (0 = aucun, jusqu'à 2)
@@ -56,7 +56,7 @@ const ENUMS = {
   layout: ['scene', 'strip'],
   sceneScreen: ['primary', 'secondary'],
   audioSource: ['app', 'system'],
-  discRays: ['fine', 'bold'],
+  discRays: Catalog.DISC_RAYS.map(([id]) => id),
   discColors: ['album', 'custom', ...Catalog.FIXED_THEMES.map(([id]) => id)],
 };
 

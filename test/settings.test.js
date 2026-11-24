@@ -196,3 +196,9 @@ test('store : couleur personnalisée invalide dans le fichier -> valeur par déf
 test('sanitize : nouveaux visualiseurs acceptés', () => {
   for (const style of ['spectrum', 'dots', 'sparks', 'rosace']) assert.strictEqual(sanitize({ style }).style, style);
 });
+
+test('sanitize : formes de l’anneau du disque', () => {
+  for (const discRays of ['fine', 'bold', 'wave', 'dots', 'arcs', 'ripples'])
+    assert.strictEqual(sanitize({ discRays }).discRays, discRays);
+  assert.ok(!('discRays' in sanitize({ discRays: 'spirale' })));
+});

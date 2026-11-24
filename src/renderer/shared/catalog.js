@@ -22,6 +22,16 @@
     ['rosace', 'Rosace'],
   ];
 
+  // Anneau du disque de la scène et de la veille (réglage discRays).
+  const DISC_RAYS = [
+    ['fine', 'Rayons fins et serrés'],
+    ['bold', 'Rayons épais et espacés'],
+    ['wave', 'Onde'],
+    ['dots', 'Points'],
+    ['arcs', 'Arcs'],
+    ['ripples', 'Ondes concentriques'],
+  ];
+
   const THEMES = [
     ['wallpaper', "Couleurs du fond d'écran"],
     ['album', 'Couleurs de la pochette'],
@@ -81,6 +91,7 @@
 
   const api = {
     STYLES,
+    DISC_RAYS,
     THEMES,
     PALETTES,
     // Jeux fixes (sans « wallpaper » ni « album ») : couleurs possibles du disque.

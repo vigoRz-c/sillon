@@ -68,6 +68,228 @@
   }
   const batch = new StrokeBatch();
 
+  // Anneaux du disque autres que les rayons (réglage discRays, voir catalog.js).
+  // Chacun reçoit : centre (cx, cy), rayon de la pochette (r), intensité (k),
+  // analyse (a), palette, temps (t, ms), écart depuis l'image précédente (dt, ms),
+  // animations réduites (rm) et lueur (glow).
+  const DISC_RINGS = {
+    // Courbe lisse fermée qui ondule avec le spectre, doublée d'une seconde
+    // courbe plus courte : un anneau liquide autour de la pochette.
+    wave(ctx, { cx, cy, r, k, a, pal, t, rm, glow }) {
+      const bands = a.bands(48);
+      const n = 96;
+      const inner = r + 10,
+        len = r * 0.9 * k;
+      const rot = rm ? 0 : t * 0.00005;
+      ctx.lineJoin = 'round';
+      for (const [layer, color, scale, width] of [
+        [0, pal[0], 1, Math.max(2, r * 0.03)],
+        [1, pal[2], 0.55, Math.max(1.5, r * 0.018)],
+      ]) {
+        const xs = new Float32Array(n),
+          ys = new Float32Array(n);
+        for (let i = 0; i < n; i++) {
+          const half = i < n / 2 ? i : n - i; // symétrique, basses en haut
+          const v = bands[Math.min(47, Math.floor((half / (n / 2)) * 48))];
+          const wob = rm ? 0 : Math.sin(i * 0.5 + t * 0.003 + layer * 2) * 2;
+          const rr = inner + 2 + v * len * scale + wob;
+          const ang = (i / n) * Math.PI * 2 - Math.PI / 2 + rot * (layer ? -1 : 1);
+          xs[i] = cx + Math.cos(ang) * rr;
+          ys[i] = cy + Math.sin(ang) * rr;
+        }
+        // Courbe par les milieux des segments : lisse et fermée.
+        ctx.beginPath();
+        ctx.moveTo((xs[n - 1] + xs[0]) / 2, (ys[n - 1] + ys[0]) / 2);
+        for (let i = 0; i < n; i++) {
+          const j = (i + 1) % n;
+          ctx.quadraticCurveTo(xs[i], ys[i], (xs[i] + xs[j]) / 2, (ys[i] + ys[j]) / 2);
+        }
+        ctx.closePath();
+        if (layer === 0) {
+          // Voile entre la pochette et la courbe.
+          ctx.fillStyle = withAlpha(pal[1], 0.14);
+          ctx.fill();
+        }
+        ctx.strokeStyle = color;
+        ctx.lineWidth = width;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = glow ? 10 + 4 * k : 0;
+        ctx.stroke();
+      }
+      ctx.shadowBlur = 0;
+    },
+
+    // Couronne de colonnes de points : chaque direction s'allume vers
+    // l'extérieur selon sa bande, les points rapetissent en s'éloignant.
+    dots(ctx, { cx, cy, r, k, a, pal, glow }) {
+      const bands = a.bands(32);
+      const n = 64;
+      const rows = Math.max(3, Math.round(4 + 2 * k));
+      const inner = r + 12;
+      const step = Math.max(5, r * 0.13);
+      const dot = Math.max(1.5, r * 0.035);
+      const paths = [new Path2D(), new Path2D(), new Path2D()];
+      const off = new Path2D();
+      for (let i = 0; i < n; i++) {
+        const half = i < n / 2 ? i : n - 1 - i;
+        const v = bands[Math.min(31, Math.floor((half / (n / 2)) * 32))];
+        const lit = v * rows;
+        const ang = (i / n) * Math.PI * 2 - Math.PI / 2;
+        const c = Math.cos(ang),
+          s = Math.sin(ang);
+        for (let j = 0; j < rows; j++) {
+          const rr = inner + j * step;
+          const x = cx + c * rr,
+            y = cy + s * rr;
+          const on = Math.min(1, Math.max(0, lit - j));
+          const size = dot * (1 - (j / rows) * 0.45) * (on > 0.05 ? 0.6 + 0.4 * on : 0.45);
+          const p = on > 0.05 ? paths[j < rows / 3 ? 0 : j < (2 * rows) / 3 ? 1 : 2] : off;
+          p.moveTo(x + size, y);
+          p.arc(x, y, size, 0, Math.PI * 2);
+        }
+      }
+      ctx.globalAlpha = 0.18;
+      ctx.fillStyle = pal[0];
+      ctx.fill(off);
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = glow ? 8 : 0;
+      for (let c = 0; c < 3; c++) {
+        ctx.fillStyle = pal[c];
+        ctx.shadowColor = pal[c];
+        ctx.fill(paths[c]);
+      }
+      ctx.shadowBlur = 0;
+    },
+
+    // Jauge circulaire : le spectre découpé en segments d'arc épais, séparés
+    // par un petit jour, qui s'épaississent vers l'extérieur.
+    arcs(ctx, { cx, cy, r, k, a, pal, glow }) {
+      const bands = a.bands(24);
+      const n = 48;
+      const inner = r + 12,
+        len = r * 0.85 * k;
+      const gap = 0.018; // radians entre deux segments
+      const paths = [new Path2D(), new Path2D()];
+      const track = new Path2D();
+      for (let i = 0; i < n; i++) {
+        const half = i < n / 2 ? i : n - 1 - i;
+        const v = bands[Math.min(23, Math.floor((half / (n / 2)) * 24))];
+        const a0 = (i / n) * Math.PI * 2 - Math.PI / 2 + gap;
+        const a1 = ((i + 1) / n) * Math.PI * 2 - Math.PI / 2 - gap;
+        const h = 3 + v * len;
+        const p = paths[i % 2];
+        p.moveTo(cx + Math.cos(a0) * inner, cy + Math.sin(a0) * inner);
+        p.arc(cx, cy, inner + h, a0, a1);
+        p.arc(cx, cy, inner, a1, a0, true);
+        p.closePath();
+        // Rail discret jusqu'à la longueur maximale.
+        track.moveTo(cx + Math.cos(a0) * (inner + h), cy + Math.sin(a0) * (inner + h));
+        track.arc(cx, cy, inner + 3 + len, a0, a1);
+        track.arc(cx, cy, inner + h, a1, a0, true);
+        track.closePath();
+      }
+      ctx.globalAlpha = 0.08;
+      ctx.fillStyle = pal[2];
+      ctx.fill(track);
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = glow ? 10 : 0;
+      for (let c = 0; c < 2; c++) {
+        ctx.fillStyle = pal[c];
+        ctx.shadowColor = pal[c];
+        ctx.fill(paths[c]);
+      }
+      ctx.shadowBlur = 0;
+    },
+
+    // Ondes concentriques : un anneau part du bord de la pochette à chaque
+    // battement (et de temps en temps quand la musique est forte), s'élargit et
+    // s'efface. Animations réduites : deux anneaux fixes.
+    ripples(ctx, { cx, cy, r, k, a, pal, t, dt, rm, glow }) {
+      const st = discState;
+      if (!st.ripples) st.ripples = [];
+      const list = st.ripples;
+      const reach = r * (1.2 + 0.9 * k); // distance parcourue avant de disparaître
+      ctx.lineWidth = Math.max(1.5, r * 0.025);
+      if (rm) {
+        for (const [f, color] of [
+          [0.35, pal[0]],
+          [0.7, pal[1]],
+        ]) {
+          ctx.strokeStyle = color;
+          ctx.globalAlpha = 0.5 * (1 - f);
+          ctx.beginPath();
+          ctx.arc(cx, cy, r + 8 + f * reach, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+        return;
+      }
+      if (a.beat || (a.level > 0.25 && t - (st.lastRipple || 0) > 900)) {
+        if (t - (st.lastRipple || 0) > 220 && list.length < 12) {
+          st.lastRipple = t;
+          list.push({ f: 0, color: pal[list.length % 3], w: 0.6 + a.bass * 0.8 });
+        }
+      }
+      const speed = 0.00055; // fraction de « reach » par ms (~1,8 s de vie)
+      ctx.shadowBlur = glow ? 10 : 0;
+      for (let i = list.length - 1; i >= 0; i--) {
+        const o = list[i];
+        o.f += dt * speed;
+        if (o.f >= 1) {
+          list.splice(i, 1);
+          continue;
+        }
+        ctx.strokeStyle = o.color;
+        ctx.shadowColor = o.color;
+        ctx.globalAlpha = (1 - o.f) * (1 - o.f) * 0.9;
+        ctx.lineWidth = Math.max(1, r * 0.03 * o.w * (1 - o.f * 0.6));
+        ctx.beginPath();
+        ctx.arc(cx, cy, r + 8 + o.f * reach, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      // Anneau de base qui respire avec le niveau lissé (pas de clignotement).
+      ctx.strokeStyle = pal[2];
+      ctx.globalAlpha = 0.35 + a.pulse * 0.4;
+      ctx.lineWidth = Math.max(1.5, r * 0.02);
+      ctx.beginPath();
+      ctx.arc(cx, cy, r + 8 + a.glowLevel * r * 0.15, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
+    },
+  };
+
+  // Rayons du disque (« fins » ou « épais »).
+  function drawRays(ctx, cx, cy, r, k, a, pal, t, rm, opts) {
+    const bold = opts.rays === 'bold';
+    const n = bold ? Math.round(56 + 16 * k) : Math.min(320, Math.round(140 + 90 * k));
+    const bands = a.bands(64);
+    const inner = r + 12,
+      len = r * (bold ? 1.35 : 1.15) * k;
+    ctx.lineCap = 'round';
+    ctx.lineWidth = bold ? Math.max(3, r * 0.055) : Math.max(1.1, r * 0.014);
+    ctx.shadowBlur = opts.glow === false ? 0 : 8 + 6 * k;
+    for (let i = 0; i < n; i++) {
+      const half = i < n / 2 ? i : n - 1 - i;
+      const v = bands[Math.min(63, Math.floor((half / (n / 2)) * 64))];
+      const wob = rm ? 0.5 : 0.5 + 0.5 * Math.sin(i * 1.7 + t * 0.004); // un peu de vie au repos
+      const l = 3 + v * len + wob * 3 * k;
+      const ang = (i / n) * Math.PI * 2 - Math.PI / 2;
+      batch.add(
+        pal[i % 2 ? 0 : 1],
+        0.55 + v * 0.45,
+        0.55,
+        cx + Math.cos(ang) * inner,
+        cy + Math.sin(ang) * inner,
+        cx + Math.cos(ang) * (inner + l),
+        cy + Math.sin(ang) * (inner + l),
+      );
+    }
+    batch.stroke(ctx, opts.glow !== false);
+    ctx.shadowBlur = 0;
+  }
+
   const VISUALIZERS = {
     // Disque masqué : on ne dessine rien (le moteur n'efface même pas le canvas sans décor).
     none() {},
@@ -585,34 +807,13 @@
         ctx.fill();
       }
 
+      // Anneau autour de la pochette : onde, points, arcs ou ondes concentriques
+      // (DISC_RINGS), sinon les rayons.
+      const ring = Object.hasOwn(DISC_RINGS, opts.rays) ? DISC_RINGS[opts.rays] : null;
+      if (ring) ring(ctx, { cx, cy, r, k, a, pal, t, dt, rm, glow: opts.glow !== false });
       // Rayons : traits fins et serrés (« fins ») ou barres épaisses et espacées
       // (« épais »), symétriques, basses en haut et en bas.
-      const bold = opts.rays === 'bold';
-      const n = bold ? Math.round(56 + 16 * k) : Math.min(320, Math.round(140 + 90 * k));
-      const bands = a.bands(64);
-      const inner = r + 12,
-        len = r * (bold ? 1.35 : 1.15) * k;
-      ctx.lineCap = 'round';
-      ctx.lineWidth = bold ? Math.max(3, r * 0.055) : Math.max(1.1, r * 0.014);
-      ctx.shadowBlur = opts.glow === false ? 0 : 8 + 6 * k;
-      for (let i = 0; i < n; i++) {
-        const half = i < n / 2 ? i : n - 1 - i;
-        const v = bands[Math.min(63, Math.floor((half / (n / 2)) * 64))];
-        const wob = rm ? 0.5 : 0.5 + 0.5 * Math.sin(i * 1.7 + t * 0.004); // un peu de vie au repos
-        const l = 3 + v * len + wob * 3 * k;
-        const ang = (i / n) * Math.PI * 2 - Math.PI / 2;
-        batch.add(
-          pal[i % 2 ? 0 : 1],
-          0.55 + v * 0.45,
-          0.55,
-          cx + Math.cos(ang) * inner,
-          cy + Math.sin(ang) * inner,
-          cx + Math.cos(ang) * (inner + l),
-          cy + Math.sin(ang) * (inner + l),
-        );
-      }
-      batch.stroke(ctx, opts.glow !== false);
-      ctx.shadowBlur = 0;
+      else drawRays(ctx, cx, cy, r, k, a, pal, t, rm, opts);
 
       // Couronne de points.
       ctx.fillStyle = pal[2];

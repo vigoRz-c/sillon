@@ -22,3 +22,9 @@ test('les nouveaux jeux sont acceptés par les réglages', () => {
   assert.equal(sanitize({ discColors: 'midnight' }).discColors, 'midnight');
   assert.ok(!('discColors' in sanitize({ discColors: 'wallpaper' })));
 });
+
+test('formes de l’anneau du disque : identifiants uniques, rayons en premier', () => {
+  const ids = Catalog.DISC_RAYS.map(([id]) => id);
+  assert.equal(new Set(ids).size, ids.length);
+  assert.deepEqual(ids.slice(0, 2), ['fine', 'bold']); // valeurs d'avant la 0.4.2 toujours valides
+});
