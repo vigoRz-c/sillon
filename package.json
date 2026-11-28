@@ -35,14 +35,14 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "electron": "^45.4.1",
+    "electron": "^45.5.0",
     "electron-builder": "^26.18.0",
     "eslint": "^10.15.0",
     "globals": "^17.14.0",
-    "lint-staged": "^16.4.0",
+    "lint-staged": "^17.6.2",
     "prettier": "^3.10.1",
     "simple-git-hooks": "^2.14.0",
-    "typescript": "^5.9.3"
+    "typescript": "^7.0.2"
   },
   "build": {
     "appId": "com.loicrestout.sillon",
